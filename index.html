@@ -19,7 +19,8 @@
 
     /* ── Masthead ── */
     .qs-masthead {
-      background-color: var(--pf-t--global--background--color--inverse--default);
+      background-color: var(--pf-t--global--background--color--primary--default);
+      border-bottom: 1px solid var(--pf-t--global--border--color--default);
       height: 56px;
       padding: 0 24px;
       display: flex;
@@ -30,7 +31,7 @@
     .qs-masthead__brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 0;
       text-decoration: none;
     }
     .qs-masthead__rh-logo {
@@ -40,18 +41,18 @@
     .qs-masthead__title {
       font-size: 15px;
       font-weight: 700;
-      color: #fff;
+      color: var(--pf-t--global--text--color--regular);
       white-space: nowrap;
     }
     .qs-masthead__sep {
       width: 1px;
       height: 18px;
-      background: rgba(255,255,255,0.25);
-      margin: 0 4px;
+      background: var(--pf-t--global--border--color--default);
+      margin: 0 12px;
     }
     .qs-masthead__sub {
       font-size: 13px;
-      color: rgba(255,255,255,0.5);
+      color: var(--pf-t--global--text--color--subtle);
     }
 
     /* ── Body ── */
@@ -125,14 +126,28 @@
       fill: #fff;
     }
 
-    .qs-card__status {
-      font-size: 12px;
+    .qs-card__cta {
+      display: flex;
+      justify-content: center;
+      padding: 0 20px 20px;
+    }
+    .qs-card__cta-btn {
+      width: 100%;
+      text-align: center;
+      font-size: 14px;
       font-weight: 600;
       color: var(--pf-t--global--color--brand--default);
-      background: var(--pf-t--global--background--color--brand--default);
-      padding: 2px 10px;
-      border-radius: 20px;
-      white-space: nowrap;
+      background: transparent;
+      border: 1px solid var(--pf-t--global--color--brand--default);
+      border-radius: var(--pf-t--global--border--radius--small);
+      padding: 7px 16px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.12s, color 0.12s;
+    }
+    .qs-card:hover .qs-card__cta-btn {
+      background: var(--pf-t--global--color--brand--default);
+      color: #fff;
     }
 
     .qs-card__body {
@@ -218,16 +233,17 @@
     <header class="qs-masthead">
       <a class="qs-masthead__brand" href="/acs-ux-demos/">
         <span class="qs-masthead__rh-logo">
-          <!-- Red Hat icon -->
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="28" height="28" rx="4" fill="#EE0000"/>
-            <path d="M7 14.5L13.5 7.5L20 14.5L13.5 21L7 14.5Z" fill="white"/>
+          <!-- RHACS logo (hat + full wordmark) -->
+          <svg height="28" viewBox="0 0 1482.9 350" xmlns="http://www.w3.org/2000/svg">
+            <defs><style>.hat{fill:#EE0000;}.hat-band{fill:#000000;}.text{fill:#000000;}</style></defs>
+            <path class="hat" d="M129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C126.39,10.19,105.26,2,99,2c-5.82,0-7.55,7.54-14.45,7.54-6.68,0-11.64-5.6-17.89-5.6-6,0-9.91,4.09-12.93,12.5,0,0-8.41,23.72-9.49,27.16A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85m32.55-11.42c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33C23.77,53.52,2,56.54,2,75.72,2,107.2,76.59,146,135.65,146c45.28,0,56.7-20.48,56.7-36.65,0-12.72-11-27.16-30.83-35.78"/>
+            <path class="hat-band" d="M161.52,73.57c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33l3.66-9.06A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42Z"/>
+            <g class="text"><path d="M263.49,53.08c6,0,9.36,3.78,9.36,8.31s-3.37,8.31-9.36,8.31H245.61V53.08Zm-36,58.16h18.09V84.42h13.77l13.89,26.82h20.19l-16.2-29.45a22.27,22.27,0,0,0,13.88-20.72c0-13.25-10.41-23.45-26-23.45H227.52ZM441.05,37.62h18.09V65.91h30.29V37.62h18.09v73.62H489.43V82.42H459.14v28.82H441.05ZM581.24,94.3c0,11.89,7.15,17.67,20.19,17.67a52.11,52.11,0,0,0,11.89-1.68V96.51a24.84,24.84,0,0,1-7.68,1.16c-5.37,0-7.36-1.68-7.36-6.73V69.8h15.56V55.6H598.28v-18l-17,3.68V55.6H570V69.8h11.25Z"/></g>
           </svg>
         </span>
-        <span class="qs-masthead__title">ACS UX Demos</span>
       </a>
       <div class="qs-masthead__sep"></div>
-      <span class="qs-masthead__sub">Red Hat Advanced Cluster Security</span>
+      <span class="qs-masthead__sub">UX Demos</span>
     </header>
 
     <!-- Body -->
@@ -246,7 +262,6 @@
                 <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
               </svg>
             </div>
-            <span class="qs-card__status">Start ›</span>
           </div>
 
           <div class="qs-card__body">
@@ -258,19 +273,21 @@
 
           <div class="qs-card__footer">
             <span class="qs-label">
-              <!-- tag icon -->
               <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
               </svg>
               Vulnerability Management
             </span>
             <span class="qs-label">
-              <!-- layers icon -->
               <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>
               </svg>
               Workload CVEs
             </span>
+          </div>
+
+          <div class="qs-card__cta">
+            <span class="qs-card__cta-btn">View prototype</span>
           </div>
         </a>
 

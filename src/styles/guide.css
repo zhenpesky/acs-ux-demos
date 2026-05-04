@@ -1,0 +1,186 @@
+.guide-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+body:has(.guide-page) #root {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+/* Scrollable content */
+.guide-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Hero */
+.guide-hero {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #c9190b 100%);
+  padding: 80px 48px !important;
+  padding-top: 24px !important;
+  text-align: center;
+  position: relative;
+}
+
+.guide-hero-topright {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.guide-hero-btn {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.guide-hero-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.guide-hero-btn.pf-m-primary {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.guide-hero-btn.pf-m-primary:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.guide-hero-content {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.guide-hero-label {
+  margin-bottom: 16px;
+}
+
+.guide-hero-title {
+  color: #fff !important;
+  margin-bottom: 16px;
+}
+
+.guide-hero-subtitle {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 18px;
+}
+
+/* Sections */
+.guide-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px !important;
+}
+
+.guide-section-header {
+  margin-bottom: 16px;
+}
+
+.guide-section-intro {
+  margin-bottom: 32px;
+  font-size: 16px;
+  max-width: 800px;
+}
+
+.guide-subsection-title {
+  margin-top: 32px !important;
+  margin-bottom: 20px !important;
+}
+
+/* Phase Cards */
+.guide-phase-card {
+  height: 100%;
+}
+
+.guide-phase-header {
+  padding: 16px 20px !important;
+}
+
+.guide-phase-header--blue {
+  background: linear-gradient(135deg, #004080, #006EC7) !important;
+}
+
+.guide-phase-header--green {
+  background: linear-gradient(135deg, #1e4620, #3e8635) !important;
+}
+
+.guide-phase-header--orange {
+  background: linear-gradient(135deg, #8f4700, #c46100) !important;
+}
+
+.guide-phase-title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.guide-phase-roles {
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin-top: 6px;
+  display: block;
+}
+
+/* Prompt Cards */
+.guide-prompt-card {
+  height: 100%;
+}
+
+.guide-prompt-card--bad {
+  border-left: 4px solid var(--pf-t--global--color--status--danger--default, #c9190b);
+}
+
+.guide-prompt-card--good {
+  border-left: 4px solid var(--pf-t--global--color--status--success--default, #3e8635);
+}
+
+.guide-prompt-why {
+  color: var(--pf-t--global--text--color--subtle);
+  margin-top: 8px;
+  display: block;
+}
+
+/* Rule Cards */
+.guide-rule-card {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 8px;
+  height: 100%;
+  transition: box-shadow 0.2s;
+}
+
+.guide-rule-card:hover {
+  box-shadow: var(--pf-t--global--box-shadow--md);
+}
+
+/* Pitfall Cards */
+.guide-pitfall-card {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 8px;
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+/* Template Sections */
+.guide-template-section {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: 8px;
+  padding: 4px 16px;
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+/* Checklist */
+.guide-checklist-card {
+  border: 2px solid var(--pf-t--global--color--status--success--default, #3e8635);
+  border-radius: 8px;
+}
+
+/* Footer */
+.guide-footer {
+  background: var(--pf-t--global--background--color--primary--default) !important;
+  text-align: center;
+  padding: 24px !important;
+}

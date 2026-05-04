@@ -1,0 +1,137 @@
+---
+description: Step-by-step Figma-to-code workflow for ACS prototypes
+globs: ["src/pages/**/*.jsx", "src/components/**/*.jsx"]
+alwaysApply: false
+---
+
+# Figma-to-Code Workflow
+
+## Step 1: Extract the Design
+
+When given a Figma URL (e.g. `figma.com/design/:fileKey/:fileName?node-id=:nodeId`):
+
+1. Parse the URL to extract `fileKey` and `nodeId` (convert `-` to `:` in nodeId)
+2. Call `get_design_context` with `fileKey` and `nodeId` via the Figma MCP
+3. Call `get_screenshot` for visual reference
+4. If the URL points to a FigJam board, use `get_figjam` instead
+
+Save the screenshot and design context for reference during build.
+
+## Step 2: Build the Component Inventory
+
+Create a table in `docs/design-analysis-[feature].md`:
+
+```markdown
+| Element | PF6 Component | Import | Props | Figma Frame | Notes |
+|---------|---------------|--------|-------|-------------|-------|
+| Main table | Table, Thead, Tr, Th, Td, Tbody | @patternfly/react-table | isExpandable, isSortable | Frame 1 | Expandable rows for CVE details |
+| Filter toolbar | Toolbar, ToolbarContent, ToolbarItem | @patternfly/react-core | | Frame 1 | Order: Entity, CVE severity, Fixable |
+| Severity badge | Label | @patternfly/react-core | color="red" | Frame 1 | Critical/High/Medium/Low |
+```
+
+## Step 3: Verify with PatternFly MCP
+
+For each component in the inventory, use the PatternFly MCP (`user-patternfly-mcp`) to:
+
+1. Confirm the component exists in PF6 (not deprecated from PF5)
+2. Check correct prop names and types
+3. Find usage examples for complex components (Wizard, Select, MenuToggle)
+4. Identify design token names for any colors in the design
+
+Common PF5 to PF6 changes to watch for:
+- `Modal` props changed: use `ModalHeader`, `ModalBody`, `ModalFooter` as children
+- `Select` replaced with `MenuToggle` + `Select`/`SelectList`/`SelectOption`
+- `Chip` replaced with `Label`
+- `SimpleList` patterns may differ
+- Table requires explicit `Tbody` wrappers around row groups
+
+## Step 4: Check StackRox Upstream
+
+Search `stackrox-upstream/ui/apps/platform/src/` for existing implementations:
+
+1. Find the equivalent page in StackRox (e.g. Vulnerabilities reporting)
+2. Note the component structure and data flow
+3. Extract GraphQL queries and REST endpoint paths
+4. Identify filter patterns and toolbar compositions
+5. Document in `docs/reference-patterns-[feature].md`
+
+NEVER edit files in `stackrox-upstream/`.
+
+## Step 5: Build Page by Page
+
+For each page identified in the Figma analysis:
+
+1. Create the page file in `src/pages/` or `src/pages/vN/`
+2. Start with layout structure (Page, PageSection, etc.)
+3. Add the toolbar with filters in EXACT Figma order (verify against screenshot)
+4. Build the data table or content area
+5. Add interactive states (dropdowns, modals, wizards)
+6. Wire to API layer (mock or real)
+
+## Step 6: Verify Toolbar Order
+
+This is the most common source of iteration. After building:
+
+1. Open the Figma screenshot side-by-side with the running prototype
+2. Compare toolbar items left-to-right
+3. Compare filter dropdown options and their order
+4. Compare table column order
+5. Fix any mismatches before moving on
+
+## Step 7: Interactive States Checklist
+
+For each interactive element, verify these states exist:
+
+- [ ] Default / empty state
+- [ ] Hover state
+- [ ] Active / selected state
+- [ ] Disabled state (if applicable)
+- [ ] Loading state (if data-dependent)
+- [ ] Error state (if applicable)
+- [ ] Modal open / closed
+- [ ] Wizard step transitions
+- [ ] Filter applied / removed
+- [ ] Search active / inactive
+
+## Common Patterns
+
+### Filter carry-over (results view to wizard)
+
+```jsx
+navigate(`/${routePrefix}/main/vulnerabilities/reports/create`, {
+  state: {
+    filters: currentFilters,
+    savedFilterName: selectedSavedFilter?.name,
+    filtersModified: hasUserModifiedFilters,
+  }
+});
+```
+
+### Expandable table rows
+
+```jsx
+<Tbody isExpanded={isRowExpanded(row.id)}>
+  <Tr>
+    <Td expand={{ rowIndex, isExpanded: isRowExpanded(row.id), onToggle: () => toggleRow(row.id) }} />
+    {/* data cells */}
+  </Tr>
+  <Tr isExpanded={isRowExpanded(row.id)}>
+    <Td colSpan={columnCount}>
+      <ExpandableRowContent>{/* detail content */}</ExpandableRowContent>
+    </Td>
+  </Tr>
+</Tbody>
+```
+
+### PF6 Modal
+
+```jsx
+<Modal isOpen={isModalOpen} onClose={handleClose} variant="medium">
+  <ModalHeader title="Confirm action" />
+  <ModalBody>Content here</ModalBody>
+  <ModalFooter>
+    <Button onClick={handleConfirm}>Confirm</Button>
+    <Button variant="link" onClick={handleClose}>Cancel</Button>
+  </ModalFooter>
+</Modal>
+```

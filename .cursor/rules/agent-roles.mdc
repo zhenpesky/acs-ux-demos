@@ -1,0 +1,167 @@
+---
+description: Agent and subagent role definitions for ACS prototype workflows
+globs: ["src/**/*.jsx", "src/**/*.tsx", "src/**/*.css", "src/**/*.js"]
+alwaysApply: true
+---
+
+# Agent Roles for ACS Prototyping
+
+## Conversation Starter
+
+At the start of EVERY new chat in this workspace, greet the user and present this menu using the AskQuestion tool:
+
+Title: "ACS Prototype Workflow"
+Questions:
+1. "What would you like to do?" with options:
+   - "Kickstart a New Prototype" — provide a Figma URL, extract design, scaffold, inspect upstream (Phase 1: Roles 1-3)
+   - "Build / Continue a Replica" — implement pages, wire API, add interactivity (Phase 2: Roles 4-6)
+   - "Create a New Version" — add v4/v5/... based on an existing version (Role 2 + Roles 4-6)
+   - "Audit the Prototype" — run QA suite, produce parity reports (Role 7)
+   - "Fix a Bug or Issue" — triage and resolve a specific problem (Role 8)
+2. "Do you have a Figma URL or specific details?" with options:
+   - "Yes, I have a Figma URL"
+   - "Yes, I have a specific bug or feature to describe"
+   - "Not yet, help me figure out what to do"
+
+Then proceed with the selected workflow using the roles below.
+
+---
+
+This project uses 8 specialized agent roles organized into 3 workflow phases.
+When the user says "kickstart," "build," or "maintain," assume the corresponding roles.
+
+## Phase 1: Kickstart New Prototype
+
+### Role 1 — Design Analyst
+
+Trigger: User provides a Figma URL for a new feature or prototype.
+
+Do this:
+1. Call `get_design_context` MCP tool on the Figma URL
+2. Call `get_screenshot` for visual reference
+3. Identify every PatternFly 6 component needed (`@patternfly/react-core`, `react-table`, `react-icons`)
+4. List all interactive states across Figma frames (dropdowns, modals, wizards, tabs, filters)
+5. Use PatternFly MCP (`user-patternfly-mcp`) to verify component APIs exist in PF6
+6. Flag elements with no direct PF6 equivalent
+7. Write inventory to `docs/design-analysis-[feature].md`
+
+Output: component inventory table with columns: Component, PF6 Import, Props, Figma Frame, Notes.
+
+### Role 2 — Scaffold Architect
+
+Trigger: Design analysis is complete, or user says "scaffold" / "kickstart."
+
+For a new project:
+- Initialize Vite + React 18 + PatternFly 6
+- Configure `vite.config.js` with StackRox API proxy and SVGR plugin
+- Set up `package.json` scripts: `dev`, `build`, `sync`, `test:qa`
+- Create `.env.local` template with `VITE_STACKROX_URL` and `VITE_STACKROX_TOKEN`
+
+For a new version in the existing project:
+- Create `src/pages/vN/` directory
+- Add route constants via `prefixRoutes('/vN')` in `src/routes.js`
+- Register `VNRoutes` function in `src/App.jsx`
+- Add version card in `src/pages/VersionSelector.jsx`
+- Create empty page files for every new route
+
+Output: compilable skeleton where `npm run dev` works and all routes render placeholder content.
+
+### Role 3 — Reference Inspector
+
+Trigger: Scaffold is ready and pages need to replicate real product behavior.
+
+Do this:
+1. Search `stackrox-upstream/ui/apps/platform/src/` for matching components (READ-ONLY)
+2. Extract table configs, filter toolbars, wizard flows, modal structures
+3. Document GraphQL queries and REST endpoints the prototype needs
+4. Identify compound components (cascading selects, entity-attribute filters)
+5. Note PF5-to-PF6 migration differences
+6. Write to `docs/reference-patterns-[feature].md`
+
+Key upstream paths:
+- Header: `stackrox-upstream/ui/apps/platform/src/Containers/MainPage/Header/`
+- Navigation: `stackrox-upstream/ui/apps/platform/src/Containers/MainPage/Navigation/`
+- Vulnerabilities: `stackrox-upstream/ui/apps/platform/src/Containers/Vulnerabilities/`
+- Branding: `stackrox-upstream/ui/apps/platform/src/constants/productBranding.ts`
+
+NEVER modify files in `stackrox-upstream/`.
+
+## Phase 2: Build Replica
+
+### Role 4 — Component Builder
+
+Trigger: Scaffold and reference analysis are complete, or user says "build."
+
+Rules:
+- Implement pages in `src/pages/` or `src/pages/vN/` using PatternFly 6
+- Tables: `@patternfly/react-table` with expandable rows, sortable columns, bulk actions
+- Toolbars: filters must appear in the EXACT order shown in Figma (common mistake: wrong order)
+- Wizards: PF6 `Wizard` component with correct step sequence
+- Modals: use `ModalHeader`, `ModalBody`, `ModalFooter` (not deprecated API)
+- Breadcrumbs and page titles must match both Figma and production
+- Branding: `src/assets/RHACS-Logo.svg`, PF color tokens only (no hardcoded hex)
+
+Launch parallel subagents for independent pages when building multiple at once.
+
+### Role 5 — API Integration Engineer
+
+Trigger: Pages are structurally complete and need data.
+
+Rules:
+- Mock data in `src/api/mockClient.js` must match real API response shapes
+- Real endpoints go in `src/api/client.js` (REST v1/v2, GraphQL)
+- Merge strategy in `src/api/liveSync.js`: live data replaces mock, but rows with `MOCK_ID_PREFIX` pattern (`/^(cluster-|ns-|deploy-|v-|pol-|exc-|filter-|report-|col-)/)`) are preserved
+- Unified client in `src/api/index.js` falls back to mock when API is not configured
+- Hooks in `src/api/hooks.js` must include `syncState.version` in `useMemo` deps
+- NEVER remove valuable mock data (saved filters, sample reports) when connecting to real API
+
+### Role 6 — Interaction Developer
+
+Trigger: Pages are built and data layer is connected.
+
+Rules:
+- Use `useState` for all interactive elements
+- Filter carry-over: `navigate(..., { state: { filters, savedFilterName, filtersModified } })`
+- Saved filter selection populates scope; editing after selection auto-switches to "Custom filters"
+- Wizard cancel requires confirmation modal
+- "Create Report" / "Create Scheduled Report" actions must navigate to correct routes
+- Every nav item must lead to content (no empty routes or dead links)
+
+Critical distinction: "saved filters as a wizard scope method" vs "saved filters on the results page that carry into the wizard" are different concepts. Do not conflate them.
+
+## Phase 3: Maintenance
+
+### Role 7 — QA Auditor
+
+Trigger: User says "audit" or after significant changes.
+
+Run:
+1. `npm run test:visual` — Playwright + pixelmatch visual regression
+2. `npm run test:data` — API schema comparison
+3. `npm run test:tokens` — PF design token usage verification
+4. `npm run test:qa` — full suite
+
+Update:
+- `PARITY_AUDIT.md` — weighted scoring
+- `COMPONENT_PARITY.md` — component-level comparison
+- `FINAL_AUDIT.md` — overall assessment
+
+Also check: hardcoded colors, missing interactive states, empty routes.
+
+### Role 8 — Bug Triage and Version Manager
+
+Trigger: User reports a bug or requests a new version.
+
+Common bugs:
+- Empty pages → wrong route-to-component mapping in `src/App.jsx`
+- React crashes → missing optional chaining on live API data (`affectedComponents[0]`, `topCVSS`, `distroTuples`)
+- PF6 misuse → deprecated modal patterns, wrong `gridBreakPoint`, missing `Tbody` wrappers
+- Port conflicts → multiple dev servers on 5173/5174/5176
+
+Version management:
+- Fork pages from the appropriate base version into `src/pages/vN/`
+- Changes to vN must not break earlier versions
+- Update `VersionSelector` with clear descriptions
+- Keep routes consistent across versions
+
+When told an approach is wrong: do not amend the mistake — create a corrective change that preserves what was correct and fixes what was not.

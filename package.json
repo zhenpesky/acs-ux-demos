@@ -1,0 +1,40 @@
+{
+  "name": "acs-prototype",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "sync": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/sync-data.js",
+    "sync:watch": "NODE_TLS_REJECT_UNAUTHORIZED=0 node scripts/sync-data.js --watch",
+    "dev:sync": "npm run sync && vite",
+    "test:visual": "npx playwright test tests/visual-diff.spec.js",
+    "test:data": "NODE_TLS_REJECT_UNAUTHORIZED=0 node tests/data-diff.js",
+    "test:tokens": "node tests/token-check.js",
+    "test:qa": "npm run test:data && npm run test:tokens && npm run test:visual",
+    "update-upstream": "cd stackrox-upstream && git pull origin master",
+    "clone-upstream": "rm -rf stackrox-upstream && git clone --depth 1 https://github.com/stackrox/stackrox.git stackrox-upstream",
+    "sync-assets": "node scripts/copy-platform-static.mjs",
+    "sync-assets:legacy-upstream": "cp stackrox-upstream/ui/apps/platform/src/css/*.css src/styles/ && cp stackrox-upstream/ui/apps/platform/src/images/RHACS-Logo.svg src/assets/ && cp stackrox-upstream/ui/apps/platform/src/images/rh-favicon.ico public/favicon.ico"
+  },
+  "dependencies": {
+    "@patternfly/react-core": "^6.4.1",
+    "@patternfly/react-icons": "^6.4.0",
+    "@patternfly/react-table": "^6.4.1",
+    "formik": "^2.4.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.13.2",
+    "yup": "^1.7.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@vitejs/plugin-react": "^4.3.1",
+    "pixelmatch": "^7.1.0",
+    "pngjs": "^7.0.0",
+    "vite": "^5.4.2",
+    "vite-plugin-svgr": "^5.0.0"
+  }
+}

@@ -1,128 +1,269 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="pf-v6-theme-dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ACS UX Demos</title>
+  <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@6.4.0/patternfly.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@6.4.0/patternfly-addons.css" crossorigin="anonymous" />
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: RedHatText, 'Red Hat Text', Helvetica, Arial, sans-serif;
-      background: #f0f4f8;
+    @import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Red+Hat+Text:wght@400;500&display=swap');
+
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    .demo-page {
       min-height: 100vh;
+      background-color: var(--pf-t--global--background--color--secondary--default);
       display: flex;
       flex-direction: column;
     }
-    header {
-      background: #1b1d21;
-      color: #fff;
-      padding: 16px 32px;
+
+    /* ── Masthead ── */
+    .demo-masthead {
+      background-color: var(--pf-t--global--background--color--inverse--default);
+      border-bottom: 1px solid var(--pf-t--global--border--color--default);
+      padding: 0 24px;
+      height: 56px;
       display: flex;
       align-items: center;
       gap: 12px;
+      flex-shrink: 0;
     }
-    header svg { flex-shrink: 0; }
-    header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.01em; }
-    header span { font-size: 13px; color: #8a8d90; margin-left: 4px; }
-    main {
+
+    .demo-masthead__brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .demo-masthead__logo {
+      width: 30px;
+      height: 30px;
+    }
+
+    .demo-masthead__title {
+      font-family: 'Red Hat Display', 'RedHatDisplay', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--pf-t--global--text--color--on-dark--regular);
+      white-space: nowrap;
+    }
+
+    .demo-masthead__divider {
+      width: 1px;
+      height: 20px;
+      background: rgba(255,255,255,0.2);
+      margin: 0 4px;
+    }
+
+    .demo-masthead__subtitle {
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      font-family: 'Red Hat Text', sans-serif;
+    }
+
+    /* ── Page body ── */
+    .demo-body {
       flex: 1;
-      max-width: 860px;
+      padding: 40px 32px 64px;
+      max-width: 1200px;
       width: 100%;
-      margin: 48px auto;
-      padding: 0 24px;
+      margin: 0 auto;
     }
-    .section-label {
+
+    .demo-section-header {
+      margin-bottom: 8px;
+    }
+
+    .demo-section-label {
       font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
+      font-weight: 700;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: #6a6e73;
-      margin-bottom: 16px;
+      color: var(--pf-t--global--text--color--subtle);
+      font-family: 'Red Hat Text', sans-serif;
     }
-    .cards {
+
+    .demo-section-title {
+      font-family: 'Red Hat Display', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--pf-t--global--text--color--regular);
+      margin: 6px 0 4px;
+    }
+
+    .demo-section-desc {
+      font-size: 14px;
+      color: var(--pf-t--global--text--color--subtle);
+      font-family: 'Red Hat Text', sans-serif;
+      margin-bottom: 28px;
+    }
+
+    /* ── Gallery grid ── */
+    .demo-gallery {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
     }
-    .card {
-      background: #fff;
-      border: 1px solid #d2d2d2;
-      border-radius: 8px;
-      padding: 20px 24px;
+
+    /* ── Catalog tile card ── */
+    .demo-tile {
+      background: var(--pf-t--global--background--color--primary--default);
+      border: 1px solid var(--pf-t--global--border--color--default);
+      border-radius: var(--pf-t--global--border--radius--medium);
+      padding: 24px;
       text-decoration: none;
       color: inherit;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      transition: box-shadow 0.15s, border-color 0.15s;
+      gap: 0;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      position: relative;
     }
-    .card:hover {
-      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
-      border-color: #b8bbbe;
+
+    .demo-tile:hover {
+      box-shadow: var(--pf-t--global--box-shadow--md);
+      border-color: var(--pf-t--global--border--color--brand--default);
+      text-decoration: none;
     }
-    .card-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #151515;
+
+    .demo-tile__icon-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .demo-tile__icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--pf-t--global--background--color--brand--default);
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
     }
-    .badge {
+
+    .demo-tile__icon svg {
+      width: 22px;
+      height: 22px;
+      fill: #fff;
+    }
+
+    .demo-tile__badge {
       font-size: 11px;
-      font-weight: 500;
-      padding: 2px 7px;
-      border-radius: 10px;
-      background: #e7f1fa;
-      color: #0066cc;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--pf-t--global--background--color--brand--default);
+      color: #fff;
+      font-family: 'Red Hat Text', sans-serif;
+      letter-spacing: 0.02em;
     }
-    .card-desc {
+
+    .demo-tile__title {
+      font-family: 'Red Hat Display', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--pf-t--global--text--color--regular);
+      margin-bottom: 8px;
+    }
+
+    .demo-tile__desc {
       font-size: 13px;
-      color: #6a6e73;
-      line-height: 1.5;
+      color: var(--pf-t--global--text--color--subtle);
+      font-family: 'Red Hat Text', sans-serif;
+      line-height: 1.6;
+      flex: 1;
     }
-    .card-meta {
+
+    .demo-tile__footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--pf-t--global--border--color--default);
       font-size: 12px;
-      color: #8a8d90;
-      margin-top: 4px;
+      color: var(--pf-t--global--text--color--subtle);
+      font-family: 'Red Hat Text', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    footer {
+
+    .demo-tile__footer-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--pf-t--global--icon--color--status--success--default);
+      flex-shrink: 0;
+    }
+
+    /* ── Footer ── */
+    .demo-footer {
       text-align: center;
-      padding: 24px;
+      padding: 20px;
       font-size: 12px;
-      color: #8a8d90;
+      color: var(--pf-t--global--text--color--subtle);
+      font-family: 'Red Hat Text', sans-serif;
+      border-top: 1px solid var(--pf-t--global--border--color--default);
     }
   </style>
 </head>
 <body>
-  <header>
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="28" height="28" rx="4" fill="#EE0000"/>
-      <path d="M7 14.5L13 8L19 14.5L13 20L7 14.5Z" fill="white"/>
-    </svg>
-    <h1>ACS UX Demos <span>/ Red Hat Advanced Cluster Security</span></h1>
-  </header>
+  <div class="demo-page">
 
-  <main>
-    <p class="section-label">Active prototypes</p>
-    <div class="cards">
-
-      <a class="card" href="/acs-ux-demos/saved-filters/?prototype=v1">
-        <div class="card-title">
-          Saved Filters
-          <span class="badge">v1</span>
-        </div>
-        <div class="card-desc">
-          Persistent filter toolbar on the Vulnerability Results page. Users can save, name, and recall filter sets across sessions.
-        </div>
-        <div class="card-meta">Vulnerability Management · Workload CVEs</div>
+    <header class="demo-masthead">
+      <a class="demo-masthead__brand" href="/acs-ux-demos/">
+        <svg class="demo-masthead__logo" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="30" height="30" rx="4" fill="#EE0000"/>
+          <path d="M7.5 15.5L14 8L20.5 15.5L14 22L7.5 15.5Z" fill="white"/>
+        </svg>
+        <span class="demo-masthead__title">ACS UX Demos</span>
       </a>
+      <div class="demo-masthead__divider"></div>
+      <span class="demo-masthead__subtitle">Red Hat Advanced Cluster Security</span>
+    </header>
 
-      <!-- Add future prototypes here as new <a class="card"> blocks -->
+    <main class="demo-body">
+      <div class="demo-section-header">
+        <p class="demo-section-label">Prototypes</p>
+        <h1 class="demo-section-title">Interactive UX Demos</h1>
+        <p class="demo-section-desc">Work-in-progress prototypes with mock data. No login or Central connection required.</p>
+      </div>
 
-    </div>
-  </main>
+      <div class="demo-gallery">
 
-  <footer>ACS UX · Internal prototype demos · Not for production use</footer>
+        <a class="demo-tile" href="/acs-ux-demos/saved-filters/?prototype=v1">
+          <div class="demo-tile__icon-row">
+            <div class="demo-tile__icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 5h18v2H3V5zm3 7h12v2H6v-2zm3 7h6v2H9v-2z"/>
+              </svg>
+            </div>
+            <span class="demo-tile__badge">v1</span>
+          </div>
+          <div class="demo-tile__title">Saved Filters</div>
+          <div class="demo-tile__desc">
+            Persistent filter toolbar on the Vulnerability Results page. Users can save, name, and recall filter sets across sessions without re-entering criteria.
+          </div>
+          <div class="demo-tile__footer">
+            <span class="demo-tile__footer-dot"></span>
+            Vulnerability Management · Workload CVEs
+          </div>
+        </a>
+
+        <!-- Add future prototype tiles here -->
+
+      </div>
+    </main>
+
+    <footer class="demo-footer">
+      ACS UX · Internal prototype demos · Not for production use
+    </footer>
+
+  </div>
 </body>
 </html>

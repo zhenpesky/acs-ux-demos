@@ -1,1 +1,0 @@
-import{b as l}from"./apollo-Bv6hvkNJ.js";import{t as a,jY as d,Y as o,jZ as c}from"./index-S74g0eRP.js";const i=s=>{var{children:e,className:n}=s,r=l(s,["children","className"]);return a.jsx(d.Consumer,{children:({isExpanded:t})=>t?a.jsx("div",Object.assign({className:o(c.cardExpandableContent,n)},r,{children:e})):null})};i.displayName="CardExpandableContent";export{i as C};

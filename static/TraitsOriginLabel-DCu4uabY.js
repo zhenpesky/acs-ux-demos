@@ -1,1 +1,0 @@
-import{b2 as a,t as s,aR as n,hq as t}from"./index-D5T60GSK.js";function l({traits:i}){const r=a(i),o=t[r];return s.jsx(n,{color:o,children:r})}export{l as T};

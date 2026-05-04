@@ -1,40 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="theme-color" content="#000000" />
-    <!--
-            Notice the use of %PUBLIC_URL% in the tags above.
-            It will be replaced with the URL of the `public` folder during the build.
-            Only files inside the `public` folder can be referenced from the HTML.
-
-            Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-            work correctly both with client-side routing and a non-root public URL.
-            Learn how to configure a non-root public URL by running `npm run build`.
-        -->
-    <title></title>
-  <script type="module" crossorigin src="/acs-ux-demos/static/index-CptYkG_U.js"></script>
-  <link rel="modulepreload" crossorigin href="/acs-ux-demos/static/lodash-JMWJiBov.js">
-  <link rel="modulepreload" crossorigin href="/acs-ux-demos/static/redoc-DSdxMpMR.js">
-  <link rel="modulepreload" crossorigin href="/acs-ux-demos/static/apollo-Bv6hvkNJ.js">
-  <link rel="stylesheet" crossorigin href="/acs-ux-demos/static/index-DeAgZ-dE.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACS UX Demos</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: RedHatText, 'Red Hat Text', Helvetica, Arial, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #1b1d21;
+      color: #fff;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header svg { flex-shrink: 0; }
+    header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.01em; }
+    header span { font-size: 13px; color: #8a8d90; margin-left: 4px; }
+    main {
+      flex: 1;
+      max-width: 860px;
+      width: 100%;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6a6e73;
+      margin-bottom: 16px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #d2d2d2;
+      border-radius: 8px;
+      padding: 20px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+      border-color: #b8bbbe;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #151515;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #e7f1fa;
+      color: #0066cc;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #6a6e73;
+      line-height: 1.5;
+    }
+    .card-meta {
+      font-size: 12px;
+      color: #8a8d90;
+      margin-top: 4px;
+    }
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #8a8d90;
+    }
+  </style>
 </head>
-
 <body>
-    <noscript> You need to enable JavaScript to run this app. </noscript>
-    <div id="root"></div>
-    <!--
-            This HTML file is a template.
-            If you open it directly in the browser, you will see an empty page.
+  <header>
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="28" height="28" rx="4" fill="#EE0000"/>
+      <path d="M7 14.5L13 8L19 14.5L13 20L7 14.5Z" fill="white"/>
+    </svg>
+    <h1>ACS UX Demos <span>/ Red Hat Advanced Cluster Security</span></h1>
+  </header>
 
-            You can add webfonts, meta tags, or analytics to this file.
-            The build step will place the bundled scripts into the <body> tag.
+  <main>
+    <p class="section-label">Active prototypes</p>
+    <div class="cards">
 
-            To begin the development, run `npm start` or `yarn start`.
-            To create a production bundle, use `npm run build` or `yarn build`.
-        -->
+      <a class="card" href="/acs-ux-demos/saved-filters/?prototype=v1">
+        <div class="card-title">
+          Saved Filters
+          <span class="badge">v1</span>
+        </div>
+        <div class="card-desc">
+          Persistent filter toolbar on the Vulnerability Results page. Users can save, name, and recall filter sets across sessions.
+        </div>
+        <div class="card-meta">Vulnerability Management · Workload CVEs</div>
+      </a>
+
+      <!-- Add future prototypes here as new <a class="card"> blocks -->
+
+    </div>
+  </main>
+
+  <footer>ACS UX · Internal prototype demos · Not for production use</footer>
 </body>
-
 </html>

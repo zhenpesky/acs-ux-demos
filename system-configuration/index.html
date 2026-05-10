@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RHACS — System Configuration · UX Prototype</title>
+  <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@6.2.2/patternfly.min.css">
+  <style>
+    /* ── Layout ── */
+    html, body { height: 100%; margin: 0; font-family: var(--pf-t--global--font--family--body, RedHatText, Overpass, overpass, helvetica, arial, sans-serif); }
+    .rh-app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Masthead ── */
+    .rh-masthead {
+      background: #151515;
+      display: flex; align-items: center; gap: 0;
+      padding: 0 24px; height: 56px; flex-shrink: 0;
+      position: sticky; top: 0; z-index: 300;
+    }
+    .rh-masthead__brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+    .rh-masthead__logo { height: 30px; }
+    .rh-masthead__sep { width: 1px; height: 24px; background: #6a6e73; margin: 0 16px; }
+    .rh-masthead__product { color: #f0f0f0; font-size: 14px; font-weight: 400; white-space: nowrap; }
+    .rh-masthead__spacer { flex: 1; }
+    .rh-masthead__version-wrapper { display: flex; align-items: center; gap: 8px; }
+    .rh-masthead__version-label { color: #8a8d90; font-size: 12px; }
+    .rh-masthead__version-select {
+      font-size: 12px; padding: 4px 8px;
+      background: #292929; color: #f0f0f0;
+      border: 1px solid #6a6e73; border-radius: 4px; cursor: pointer;
+    }
+    .rh-masthead__version-select:focus { outline: 2px solid #73bcf7; }
+
+    /* ── App body split ── */
+    .rh-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar nav ── */
+    .rh-nav {
+      width: 256px; flex-shrink: 0;
+      background: #1b1d21;
+      overflow-y: auto; padding: 16px 0;
+    }
+    .rh-nav__section-title {
+      font-size: 11px; font-weight: 700; color: #8a8d90;
+      text-transform: uppercase; letter-spacing: .08em;
+      padding: 12px 24px 6px;
+    }
+    .rh-nav__item {
+      display: block; padding: 8px 24px; font-size: 14px;
+      color: #b8bbbe; text-decoration: none; cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background .12s;
+    }
+    .rh-nav__item:hover { background: #2d2f34; color: #f0f0f0; }
+    .rh-nav__item.active { color: #73bcf7; border-left-color: #0066cc; background: #2d2f34; }
+    .rh-nav__subnav { padding-left: 12px; }
+    .rh-nav__subnav .rh-nav__item { font-size: 13px; padding: 6px 24px; }
+
+    /* ── Main content ── */
+    .rh-main {
+      flex: 1; overflow-y: auto;
+      background: #f0f0f0;
+    }
+    .rh-page-header {
+      background: #fff;
+      border-bottom: 1px solid #d2d2d2;
+      padding: 20px 32px 0;
+    }
+    .rh-breadcrumb { font-size: 12px; color: #6a6e73; margin-bottom: 12px; }
+    .rh-breadcrumb a { color: #0066cc; text-decoration: none; }
+    .rh-breadcrumb a:hover { text-decoration: underline; }
+    .rh-page-title {
+      font-size: 24px; font-weight: 700; color: #151515;
+      margin: 0 0 20px;
+    }
+    .rh-page-tabs {
+      display: flex; gap: 0;
+      border-bottom: none;
+    }
+    .rh-tab {
+      padding: 10px 20px; font-size: 14px; font-weight: 500;
+      color: #6a6e73; cursor: pointer; border-bottom: 3px solid transparent;
+      transition: color .12s;
+    }
+    .rh-tab.active { color: #0066cc; border-bottom-color: #0066cc; }
+    .rh-tab:hover:not(.active) { color: #151515; }
+
+    .rh-content { padding: 24px 32px 48px; }
+
+    /* ── Prototype banner ── */
+    .proto-banner {
+      background: #004080; color: #fff;
+      padding: 8px 32px; font-size: 13px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .proto-banner.baseline { background: #3d3f42; }
+    .proto-banner__badge {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 4px; font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,.2); white-space: nowrap;
+    }
+    .proto-banner__link { color: #73bcf7; text-decoration: none; }
+    .proto-banner__link:hover { text-decoration: underline; }
+
+    /* ── Warning / Info callout ── */
+    .callout {
+      border-radius: 4px; padding: 14px 18px; margin-bottom: 20px;
+      border-left: 4px solid;
+    }
+    .callout--warning { background: #fdf4d0; border-color: #f0ab00; color: #795600; }
+    .callout--success { background: #f3faf2; border-color: #3e8635; color: #1a4918; }
+    .callout--info    { background: #e7f1fa; border-color: #0066cc; color: #004080; }
+    .callout__title { font-weight: 700; margin-bottom: 4px; font-size: 14px; }
+    .callout__body  { font-size: 13px; line-height: 1.6; }
+
+    /* ── Section heading ── */
+    .section-title {
+      font-size: 18px; font-weight: 700; color: #151515;
+      margin: 32px 0 16px; padding-bottom: 8px;
+      border-bottom: 1px solid #d2d2d2;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .subsection-title {
+      font-size: 14px; font-weight: 700; color: #6a6e73;
+      text-transform: uppercase; letter-spacing: .05em;
+      margin: 24px 0 12px;
+    }
+
+    /* ── Field grid ── */
+    .field-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+
+    /* ── Field card ── */
+    .field-card {
+      background: #fff;
+      border: 1px solid #d2d2d2; border-radius: 6px;
+      padding: 18px 20px;
+      transition: border-color .15s;
+    }
+    .field-card.ambiguous { border-color: #f0ab00; }
+    .field-card.new-field { border-color: #0066cc; background: #f5f9ff; }
+    .field-card.fixed { border-color: #3e8635; }
+
+    .field-card__label {
+      font-size: 13px; font-weight: 600; color: #151515;
+      margin-bottom: 10px; line-height: 1.4;
+    }
+    .field-card__badges { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 20px;
+    }
+    .badge--warning { background: #fdf4d0; color: #795600; border: 1px solid #f0ab00; }
+    .badge--success { background: #f3faf2; color: #1a4918; border: 1px solid #3e8635; }
+    .badge--info    { background: #e7f1fa; color: #004080; border: 1px solid #0066cc; }
+    .badge--neutral { background: #f5f5f5; color: #6a6e73; border: 1px solid #d2d2d2; }
+
+    .field-input-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .field-input {
+      width: 88px; padding: 6px 10px;
+      border: 1px solid #d2d2d2; border-radius: 4px;
+      font-size: 14px; font-family: inherit;
+      color: #151515; background: #fff;
+    }
+    .field-input:focus { outline: 2px solid #0066cc; outline-offset: 1px; border-color: transparent; }
+    .field-input:disabled { background: #f0f0f0; color: #6a6e73; cursor: not-allowed; }
+    .field-input--error { border-color: #c9190b; }
+    .field-unit { font-size: 13px; color: #6a6e73; }
+    .field-note { font-size: 12px; color: #6a6e73; font-style: italic; margin-top: 4px; }
+    .field-note--warning { color: #795600; font-style: normal; font-weight: 500; }
+    .field-note--new { color: #004080; font-style: normal; }
+
+    .keep-forever-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    .keep-forever-row input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; }
+    .keep-forever-row label { font-size: 13px; color: #3c3f42; cursor: pointer; user-select: none; }
+
+    /* ── Save/Cancel bar ── */
+    .save-bar {
+      position: sticky; bottom: 0; background: #fff;
+      border-top: 1px solid #d2d2d2; padding: 12px 32px;
+      display: flex; gap: 10px; align-items: center;
+      z-index: 100;
+    }
+    .btn { padding: 8px 18px; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; border: 1px solid; }
+    .btn-primary { background: #0066cc; color: #fff; border-color: #0066cc; }
+    .btn-primary:disabled { background: #8a8d90; border-color: #8a8d90; cursor: not-allowed; }
+    .btn-secondary { background: transparent; color: #0066cc; border-color: #0066cc; }
+    .btn-secondary:hover { background: #e7f1fa; }
+    .btn-link { background: transparent; border-color: transparent; color: #0066cc; padding: 8px 0; }
+    .btn-link:hover { text-decoration: underline; }
+
+    .tag-new { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: #0066cc; color: #fff; vertical-align: middle; margin-left: 4px; }
+    .tag-fixed { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: #3e8635; color: #fff; vertical-align: middle; margin-left: 4px; }
+
+    /* ── Stats row ── */
+    .stats-row { display: flex; gap: 24px; margin-bottom: 24px; }
+    .stat { background: #fff; border: 1px solid #d2d2d2; border-radius: 6px; padding: 16px 20px; flex: 1; text-align: center; }
+    .stat__value { font-size: 28px; font-weight: 700; color: #151515; }
+    .stat__label { font-size: 12px; color: #6a6e73; margin-top: 2px; }
+    .stat--success .stat__value { color: #3e8635; }
+    .stat--info    .stat__value { color: #0066cc; }
+
+    @media (max-width: 768px) {
+      .rh-nav { display: none; }
+      .rh-content { padding: 16px; }
+      .stats-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div class="rh-app">
+
+  <!-- Masthead -->
+  <header class="rh-masthead" role="banner">
+    <a class="rh-masthead__brand" href="../" aria-label="RHACS UX Prototypes home">
+      <!-- Red Hat logo (inline SVG simplified) -->
+      <svg class="rh-masthead__logo" viewBox="0 0 613 145" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M268.4 130.3h-30.1l-11.5-27.1h-47.4l-11.2 27.1h-29.3l52.2-115.7h25.7l51.6 115.7zm-50.2-49.4L201.5 41l-16.9 39.9h33.6zm127.3 49.4h-27v-16.1c-6.7 12-17.8 18.6-32.5 18.6-24.5 0-42.1-20.3-42.1-48.1 0-28.3 17.5-48.8 42.1-48.8 14 0 24.8 6.1 31.7 17.6V.7h27.8v129.6zm-27.8-45.9c0-14.6-9.3-24.6-22.6-24.6-13.4 0-22.6 10-22.6 24.6 0 14.3 9.2 24.3 22.6 24.3 13.3 0 22.6-10 22.6-24.3zm100 48.4c-30.2 0-52-19.8-52-47.9 0-28.3 22-48.6 52-48.6s52 20.3 52 48.6c0 28.1-21.8 47.9-52 47.9zm0-23.2c13.7 0 23.4-9.7 23.4-24.7s-9.7-24.9-23.4-24.9-23.4 9.9-23.4 24.9 9.7 24.7 23.4 24.7zm117.6-72.7c3.1 0 6.2.3 9.4.9v25.6c-3.8-.9-7.5-1.3-10.9-1.3-14.6 0-22.9 9.5-22.9 25.8v45.2H483V38.3h26.8v14.8c5.7-11.1 15.1-16.2 25.5-16.2z" fill="#fff"/>
+        <path d="M145 86.1c0 32.5-26.3 58.8-58.8 58.8H0V27.3h86.2C118.7 27.3 145 53.6 145 86.1z" fill="#EE0000"/>
+        <path d="M86.1 27.4H0V0h86.1c15.2 0 27.5 12.3 27.5 27.4 0 0-27.5 0-27.5 0z" fill="#fff"/>
+      </svg>
+      <span class="rh-masthead__product">Advanced Cluster Security</span>
+    </a>
+    <div class="rh-masthead__spacer"></div>
+    <div class="rh-masthead__version-wrapper">
+      <span class="rh-masthead__version-label">View:</span>
+      <select class="rh-masthead__version-select" id="version-switcher" onchange="switchVersion(this.value)">
+        <option value="baseline">Baseline UI (current)</option>
+        <option value="prototype" id="proto-option">Prototype v1 — Option A</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Prototype / Baseline banner -->
+  <div id="proto-banner" class="proto-banner" style="display:none">
+    <span class="proto-banner__badge">UX PROTOTYPE v1</span>
+    <span>Option A applied — numeric min 1 + "Keep indefinitely" checkbox on every retention field.</span>
+    <span style="flex:1"></span>
+    <a class="proto-banner__link" href="../" aria-label="Back to prototype catalog">← All prototypes</a>
+  </div>
+  <div id="baseline-banner" class="proto-banner baseline">
+    <span class="proto-banner__badge">BASELINE UI</span>
+    <span>Current production state — two conflicting "0" conventions remain unresolved.</span>
+    <span style="flex:1"></span>
+    <a class="proto-banner__link" href="../" aria-label="Back to prototype catalog">← All prototypes</a>
+  </div>
+
+  <!-- Body: nav + main -->
+  <div class="rh-body">
+
+    <!-- Left nav -->
+    <nav class="rh-nav" aria-label="Platform Configuration navigation">
+      <div class="rh-nav__section-title">Platform Configuration</div>
+      <div class="rh-nav__subnav">
+        <a class="rh-nav__item" href="#" onclick="return false">Access Control</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Authentication Providers</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Collections</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Exception Configuration</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Integrations</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Policy Management</a>
+        <a class="rh-nav__item active" href="#" onclick="return false" aria-current="page">System Configuration</a>
+        <a class="rh-nav__item" href="#" onclick="return false">System Health</a>
+        <a class="rh-nav__item" href="#" onclick="return false">Vulnerability Reporting</a>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="rh-main" id="main-content">
+      <div class="rh-page-header">
+        <nav class="rh-breadcrumb" aria-label="Breadcrumb">
+          <a href="#">Platform Configuration</a> / System Configuration
+        </nav>
+        <h1 class="rh-page-title">System Configuration</h1>
+        <div class="rh-page-tabs" role="tablist">
+          <div class="rh-tab active" role="tab" aria-selected="true">Settings</div>
+        </div>
+      </div>
+
+      <div class="rh-content" id="page-content">
+        <!-- content injected by JS -->
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" id="save-btn" disabled>Save</button>
+        <button class="btn btn-secondary" onclick="resetForm()">Cancel</button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+const FIELDS = [
+  { id:'all_runtime',       label:'All runtime violations',                                        defaultVal:30,  unit:'days', minBaseline:0 },
+  { id:'deleted_runtime',   label:'Runtime violations for deleted deployments',                    defaultVal:7,   unit:'days', minBaseline:0 },
+  { id:'resolved_deploy',   label:'Resolved deploy-phase violations',                             defaultVal:7,   unit:'days', minBaseline:0 },
+  { id:'attempted_deploy',  label:'Attempted deploy-phase violations',                            defaultVal:7,   unit:'days', minBaseline:0 },
+  { id:'attempted_runtime', label:'Attempted runtime violations',                                 defaultVal:7,   unit:'days', minBaseline:0 },
+  {
+    id:'images',
+    label:'Images no longer deployed or watched',
+    defaultVal:7, unit:'days', minBaseline:0,
+    baselineNote:'⚠ Value "0" means <strong>never prune</strong> — opposite of other fields',
+    ambiguous: true
+  },
+  { id:'expired_vuln',      label:'Expired vulnerability requests',                               defaultVal:90,  unit:'days', minBaseline:0 },
+  { id:'report_history',    label:'Vulnerability report run history retention',                   defaultVal:7,   unit:'days', minBaseline:0 },
+  { id:'report_days',       label:'Prepared downloadable vulnerability reports retention days',   defaultVal:5,   unit:'days', minBaseline:0 },
+  {
+    id:'report_limit',
+    label:'Prepared downloadable vulnerability reports limit',
+    defaultVal:501, unit:'MB', minBaseline:50, minProto:50, notTime:true
+  },
+  {
+    id:'admin_events',
+    label:'Administration events retention days',
+    defaultVal:4,   unit:'days', minBaseline:0,
+    baselineNote:'⚠ Value "0" means <strong>prune immediately</strong> — opposite of Images field',
+    ambiguous: true
+  },
+];
+
+const NEW_FIELD = {
+  id:'soft_deleted',
+  label:'Soft-deleted deployments retention',
+  defaultVal:7, unit:'days', minProto:1, isNew:true
+};
+
+// state: current mode
+let mode = 'baseline';
+
+// form dirty tracker
+let dirty = false;
+
+// per-field values (shared between modes for realism)
+const values = {};
+const forevers = {};
+FIELDS.forEach(f => { values[f.id] = f.defaultVal; forevers[f.id] = false; });
+values[NEW_FIELD.id] = NEW_FIELD.defaultVal;
+forevers[NEW_FIELD.id] = false;
+
+// ── Version switch ────────────────────────────────────────────────────────────
+function switchVersion(v) {
+  mode = v;
+  document.getElementById('proto-banner').style.display   = v === 'prototype' ? 'flex' : 'none';
+  document.getElementById('baseline-banner').style.display = v === 'baseline'  ? 'flex' : 'none';
+  dirty = false;
+  document.getElementById('save-btn').disabled = true;
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const el = document.getElementById('page-content');
+  el.innerHTML = mode === 'baseline' ? renderBaseline() : renderPrototype();
+}
+
+function renderBaseline() {
+  const ambiguous = FIELDS.filter(f => f.ambiguous);
+  return `
+    <div class="callout callout--warning">
+      <div class="callout__title">Two conflicting conventions for the value "0"</div>
+      <div class="callout__body">
+        <strong>Images no longer deployed or watched</strong> treats 0 as <em>keep forever (never prune)</em>.<br>
+        <strong>Administration events retention days</strong> treats 0 as <em>prune immediately</em>.<br>
+        These are opposite behaviors enforced by the same numeric input on the same page. 
+        Neither is labeled in the UI.
+      </div>
+    </div>
+
+    <h2 class="section-title">Private data retention configuration</h2>
+    <div class="field-grid">
+      ${FIELDS.map(f => renderBaselineCard(f)).join('')}
+    </div>
+
+    <h2 class="section-title">Cluster deletion</h2>
+    <div class="field-grid">
+      ${renderBaselineCard({id:'cluster_age', label:'Decommissioned cluster age', defaultVal:0, unit:'days', minBaseline:0})}
+    </div>
+  `;
+}
+
+function renderBaselineCard(f) {
+  const ambiguousClass = f.ambiguous ? 'ambiguous' : '';
+  const note = f.ambiguous
+    ? `<div class="field-note field-note--warning">${f.baselineNote}</div>`
+    : '';
+  const badgeHtml = f.ambiguous
+    ? `<div class="field-card__badges"><span class="badge badge--warning">Inconsistent</span></div>` : '';
+  return `
+    <div class="field-card ${ambiguousClass}">
+      <div class="field-card__label">${f.label}</div>
+      ${badgeHtml}
+      <div class="field-input-row">
+        <input class="field-input" type="number" value="${f.defaultVal}" min="${f.minBaseline ?? 0}"
+               onchange="markDirty()" aria-label="${f.label}">
+        <span class="field-unit">${f.unit}</span>
+      </div>
+      ${note}
+    </div>
+  `;
+}
+
+function renderPrototype() {
+  const allFields = [...FIELDS, NEW_FIELD];
+  return `
+    <div class="callout callout--success">
+      <div class="callout__title">Option A — one consistent pattern for every retention field</div>
+      <div class="callout__body">
+        Every field uses a numeric input (minimum 1 day) plus a dedicated "Keep indefinitely" checkbox.
+        The value "0" is never accepted — both existing inconsistencies are resolved.
+        The new soft-deleted deployments setting follows the same pattern from day one.
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat stat--success">
+        <div class="stat__value">2</div>
+        <div class="stat__label">Inconsistencies resolved</div>
+      </div>
+      <div class="stat stat--info">
+        <div class="stat__value">1</div>
+        <div class="stat__label">New setting added</div>
+      </div>
+      <div class="stat">
+        <div class="stat__value" style="font-size:20px">1 pattern</div>
+        <div class="stat__label">Shared going forward</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Private data retention configuration</h2>
+    <div class="field-grid">
+      ${allFields.map(f => renderProtoCard(f)).join('')}
+    </div>
+
+    <h2 class="section-title">Cluster deletion</h2>
+    <div class="field-grid">
+      ${renderProtoCard({id:'cluster_age', label:'Decommissioned cluster age', defaultVal:0, unit:'days'})}
+    </div>
+  `;
+}
+
+function renderProtoCard(f) {
+  const isNew    = !!f.isNew;
+  const isFixed  = !!f.ambiguous;
+  const isNoTime = !!f.notTime;
+  const forever  = forevers[f.id] || false;
+  const val      = values[f.id]  ?? f.defaultVal;
+  const min      = f.minProto ?? (isNoTime ? (f.minBaseline ?? 50) : 1);
+
+  let badgeHtml = '';
+  if (isNew)   badgeHtml = `<div class="field-card__badges"><span class="badge badge--info">New</span></div>`;
+  if (isFixed) badgeHtml = `<div class="field-card__badges"><span class="badge badge--success">Fixed</span></div>`;
+
+  let cardClass = '';
+  if (isNew)   cardClass = 'new-field';
+  if (isFixed) cardClass = 'fixed';
+
+  let noteHtml = '';
+  if (isNew) noteHtml = `<div class="field-note field-note--new">Introduced with Option A from day one — no legacy ambiguity.</div>`;
+
+  const foreverToggle = !isNoTime ? `
+    <div class="keep-forever-row">
+      <input type="checkbox" id="forever-${f.id}" ${forever ? 'checked' : ''}
+             onchange="toggleForever('${f.id}', this.checked)" aria-label="Keep ${f.label} indefinitely">
+      <label for="forever-${f.id}">Keep indefinitely</label>
+    </div>` : `<div class="field-note">Size limit — not a time-based retention field. No "Keep indefinitely" toggle needed.</div>`;
+
+  return `
+    <div class="field-card ${cardClass}">
+      <div class="field-card__label">${f.label}</div>
+      ${badgeHtml}
+      <div class="field-input-row">
+        <input class="field-input" type="number" id="val-${f.id}" value="${forever ? '' : val}"
+               min="${min}" ${forever ? 'disabled' : ''}
+               placeholder="${forever ? '—' : min}"
+               onchange="updateVal('${f.id}', this.value)" aria-label="${f.label} in ${f.unit}">
+        <span class="field-unit">${f.unit}${!isNoTime ? ' (min. ' + min + ')' : ''}</span>
+      </div>
+      ${foreverToggle}
+      ${noteHtml}
+    </div>
+  `;
+}
+
+// ── Interaction handlers ──────────────────────────────────────────────────────
+function toggleForever(id, checked) {
+  forevers[id] = checked;
+  const inp = document.getElementById('val-' + id);
+  if (inp) {
+    inp.disabled    = checked;
+    inp.value       = checked ? '' : (values[id] ?? 1);
+    inp.placeholder = checked ? '—' : '1';
+  }
+  markDirty();
+}
+
+function updateVal(id, v) {
+  values[id] = Number(v);
+  markDirty();
+}
+
+function markDirty() {
+  dirty = true;
+  document.getElementById('save-btn').disabled = false;
+}
+
+function resetForm() {
+  dirty = false;
+  document.getElementById('save-btn').disabled = true;
+  FIELDS.forEach(f => { values[f.id] = f.defaultVal; forevers[f.id] = false; });
+  values[NEW_FIELD.id] = NEW_FIELD.defaultVal;
+  forevers[NEW_FIELD.id] = false;
+  render();
+}
+
+// Read ?prototype param from URL
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('prototype') === 'v1') {
+    mode = 'prototype';
+    document.getElementById('version-switcher').value = 'prototype';
+    document.getElementById('proto-banner').style.display   = 'flex';
+    document.getElementById('baseline-banner').style.display = 'none';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

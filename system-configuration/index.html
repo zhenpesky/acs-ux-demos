@@ -5,6 +5,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="theme-color" content="#000000" />
+    <!-- SPA redirect restore: after 404.html forwards a deep-link here, restore the original path -->
+    <script>
+      (function () {
+        var redirect = sessionStorage.getItem('spa_redirect');
+        if (redirect) {
+          sessionStorage.removeItem('spa_redirect');
+          window.history.replaceState(
+            null, null,
+            '/rhacs-ux-prototypes/system-configuration' + redirect
+          );
+        }
+      })();
+    </script>
     <!-- Tell browsers not to cache the HTML shell so chunk references are always fresh -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting…</title>
+  <script>
+    // Redirect /rhacs-ux-prototypes/app/<rest> → /rhacs-ux-prototypes/saved-filters/<rest>
+    var path = window.location.pathname.replace(/^\/rhacs-ux-prototypes\/app/, '');
+    var search = window.location.search;
+    var hash = window.location.hash;
+    window.location.replace('/rhacs-ux-prototypes/saved-filters' + path + search + hash);
+  </script>
+</head>
+<body>
+  <p>Redirecting to prototype…</p>
+</body>
+</html>

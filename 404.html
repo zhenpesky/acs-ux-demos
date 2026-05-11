@@ -1,51 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="theme-color" content="#000000" />
-    <!-- Tell browsers not to cache the HTML shell so chunk references are always fresh -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title></title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%230066cc' d='M437.2 403.5L320 215V64h8c13.3 0 24-10.7 24-24V24c0-13.3-10.7-24-24-24H120c-13.3 0-24 10.7-24 24v16c0 13.3 10.7 24 24 24h8v151L10.8 403.5C-18.5 450.6 15.3 512 70.9 512h306.2c55.7 0 89.4-61.5 60.1-108.5zM137.9 320l48.2-77.6c3.7-5.2 5.8-11.6 5.8-18.4V64h64v160c0 6.9 2.2 13.2 5.8 18.4l48.2 77.6h-172z'/%3E%3C/svg%3E" />
-    <!-- Chunk-load error recovery: fires before React boots, safe to call multiple times -->
-    <script>
-      (function () {
-        var SESSION_KEY = '__acs_chunk_recovery_v1__';
-        function recoverFromStaleChunks() {
-          if (sessionStorage.getItem(SESSION_KEY)) return;
-          sessionStorage.setItem(SESSION_KEY, '1');
-          var sw = navigator.serviceWorker
-            ? navigator.serviceWorker.getRegistrations().then(function (rs) {
-                return Promise.all(rs.map(function (r) { return r.unregister(); }));
-              })
-            : Promise.resolve();
-          var cc = typeof caches !== 'undefined'
-            ? caches.keys().then(function (ks) {
-                return Promise.all(ks.map(function (k) { return caches.delete(k); }));
-              })
-            : Promise.resolve();
-          Promise.all([sw, cc]).then(function () { window.location.reload(); });
-        }
-        window.addEventListener('error', function (e) {
-          if (e.target && e.target.nodeName === 'SCRIPT') { recoverFromStaleChunks(); }
-        }, true);
-        window.__recoverFromStaleChunks__ = recoverFromStaleChunks;
-      })();
-    </script>
-  <script type="module" crossorigin src="/rhacs-ux-prototypes/app/static/index-CWLeYGZH.js"></script>
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/react-pF2EnNv3.js">
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/lodash-JMWJiBov.js">
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/apollo-BxVF6eGb.js">
-  <link rel="stylesheet" crossorigin href="/rhacs-ux-prototypes/app/static/index-ztAlmaes.css">
+  <meta charset="utf-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>RHACS UX Prototypes</title>
+  <script>
+    // GitHub Pages SPA redirect: encode the current path/search/hash into
+    // sessionStorage, then redirect to the app root which will restore it.
+    (function () {
+      var l = window.location;
+      // Only redirect paths that are under /app/ — everything else (e.g. the
+      // catalog root) can 404 normally.
+      if (l.pathname.indexOf('/rhacs-ux-prototypes/app') === 0) {
+        sessionStorage.setItem(
+          'spa_redirect',
+          JSON.stringify({ path: l.pathname, search: l.search, hash: l.hash })
+        );
+        l.replace('/rhacs-ux-prototypes/app/');
+      }
+    })();
+  </script>
 </head>
-
-<body>
-    <noscript> You need to enable JavaScript to run this app. </noscript>
-    <div id="root"></div>
-</body>
-
+<body></body>
 </html>

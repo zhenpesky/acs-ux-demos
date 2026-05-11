@@ -2,18 +2,6 @@
 <html lang="en">
 
 <head>
-    <!-- Path translation: /app/* → /saved-filters/* for deep links via 404.html -->
-    <script>
-      (function () {
-        var path = window.location.pathname;
-        var appPrefix = '/rhacs-ux-prototypes/app';
-        var sfPrefix  = '/rhacs-ux-prototypes/saved-filters';
-        if (path.indexOf(appPrefix) === 0) {
-          var newPath = sfPrefix + (path.slice(appPrefix.length) || '/');
-          history.replaceState(null, '', newPath + window.location.search + window.location.hash);
-        }
-      })();
-    </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="theme-color" content="#000000" />

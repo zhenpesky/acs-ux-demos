@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RHACS UX Prototypes</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%230066cc' d='M437.2 403.5L320 215V64h8c13.3 0 24-10.7 24-24V24c0-13.3-10.7-24-24-24H120c-13.3 0-24 10.7-24 24v16c0 13.3 10.7 24 24 24h8v151L10.8 403.5C-18.5 450.6 15.3 512 70.9 512h306.2c55.7 0 89.4-61.5 60.1-108.5zM137.9 320l48.2-77.6c3.7-5.2 5.8-11.6 5.8-18.4V64h64v160c0 6.9 2.2 13.2 5.8 18.4l48.2 77.6h-172z'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Cpath fill='%23EE0000' d='M129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C126.39,10.19,105.26,2,99,2c-5.82,0-7.55,7.54-14.45,7.54-6.68,0-11.64-5.6-17.89-5.6-6,0-9.91,4.09-12.93,12.5,0,0-8.41,23.72-9.49,27.16A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85m32.55-11.42c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33C23.77,53.52,2,56.54,2,75.72,2,107.2,76.59,146,135.65,146c45.28,0,56.7-20.48,56.7-36.65,0-12.72-11-27.16-30.83-35.78'/%3E%3Cpath fill='%23000000' d='M161.52,73.57c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33l3.66-9.06A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42Z'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="https://unpkg.com/@patternfly/patternfly@6.4.0/patternfly.min.css" crossorigin="anonymous" />
   <style>
     html, body { height: 100%; margin: 0; }
@@ -216,7 +216,7 @@
     <!-- Masthead -->
     <header class="qs-masthead">
       <a class="qs-masthead__brand" href="/rhacs-ux-prototypes/">
-        <img src="/rhacs-ux-prototypes/saved-filters/static/RHACS-Logo-ClrdE4Z_.svg" alt="RHACS" height="26" />
+        <img src="/rhacs-ux-prototypes/app/static/RHACS-Logo-ClrdE4Z_.svg" alt="RHACS" height="26" />
       </a>
       <div class="qs-masthead__sep"></div>
       <span class="qs-masthead__sub">UX Prototypes</span>
@@ -320,7 +320,7 @@
              data-status="done"
              data-title="Saved Filters"
              data-desc="Persistent filter toolbar on the Vulnerability Results page. Save, name, and recall filter sets across sessions without re-entering criteria.">
-          <a class="qs-card" href="/rhacs-ux-prototypes/saved-filters/?prototype=v1">
+          <a class="qs-card" href="/rhacs-ux-prototypes/app/main/vulnerabilities/reports?prototype=v1">
             <div class="qs-card__header">
               <div class="qs-card__icon">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -360,7 +360,46 @@
           </a>
         </div>
 
-        <!-- Future cards: copy the qs-card-wrapper block above and update data-area, data-status, data-title, data-desc -->
+        <!-- Card: System Configuration — Option A Retention -->
+        <div class="qs-card-wrapper"
+             data-area="platform-configuration"
+             data-status="in-progress"
+             data-title="System Configuration — Retention Option A"
+             data-desc="Proposes a consistent 'min 1 + Keep indefinitely' pattern for all private data retention fields, resolving the two conflicting zero-value conventions and introducing the new soft-deleted deployments setting.">
+          <a class="qs-card" href="/rhacs-ux-prototypes/app/main/systemconfig?prototype=v1">
+            <div class="qs-card__header">
+              <div class="qs-card__icon">
+                <!-- settings icon -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                </svg>
+              </div>
+              <span class="qs-status qs-status--in-progress">
+                <span class="qs-status__dot"></span>In progress
+              </span>
+            </div>
+
+            <div class="qs-card__body">
+              <div class="qs-card__title">System Configuration — Retention Option A</div>
+              <div class="qs-card__desc">Resolves the two conflicting zero-value conventions and introduces the new soft-deleted deployments retention field using a consistent min-1 + "Keep indefinitely" pattern.</div>
+            </div>
+
+            <div class="qs-card__footer">
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                Platform Configuration
+              </span>
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                System Configuration
+              </span>
+            </div>
+
+            <div class="qs-card__cta">
+              <span class="qs-card__cta-btn">View prototype</span>
+            </div>
+          </a>
+        </div>
 
       </div>
 

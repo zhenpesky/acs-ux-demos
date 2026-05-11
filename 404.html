@@ -2,40 +2,42 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="theme-color" content="#000000" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title></title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%230066cc' d='M437.2 403.5L320 215V64h8c13.3 0 24-10.7 24-24V24c0-13.3-10.7-24-24-24H120c-13.3 0-24 10.7-24 24v16c0 13.3 10.7 24 24 24h8v151L10.8 403.5C-18.5 450.6 15.3 512 70.9 512h306.2c55.7 0 89.4-61.5 60.1-108.5zM137.9 320l48.2-77.6c3.7-5.2 5.8-11.6 5.8-18.4V64h64v160c0 6.9 2.2 13.2 5.8 18.4l48.2 77.6h-172z'/%3E%3C/svg%3E" />
-
-    <!--
-      Path translation: /app/* → /saved-filters/*
-      Must run BEFORE any React/Vite scripts so React Router sees the correct path.
-    -->
+    <!-- Path translation: /app/* → /saved-filters/* for deep links via 404.html -->
     <script>
       (function () {
         var path = window.location.pathname;
         var appPrefix = '/rhacs-ux-prototypes/app';
         var sfPrefix  = '/rhacs-ux-prototypes/saved-filters';
-
         if (path.indexOf(appPrefix) === 0) {
-          // Translate /app/<rest> → /saved-filters/<rest> without a redirect.
-          // React Router will boot with the correct pathname.
           var newPath = sfPrefix + (path.slice(appPrefix.length) || '/');
           history.replaceState(null, '', newPath + window.location.search + window.location.hash);
         }
       })();
     </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="theme-color" content="#000000" />
+    <!-- Tell browsers not to cache the HTML shell so chunk references are always fresh -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <!--
+            Notice the use of %PUBLIC_URL% in the tags above.
+            It will be replaced with the URL of the `public` folder during the build.
+            Only files inside the `public` folder can be referenced from the HTML.
 
+            Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
+            work correctly both with client-side routing and a non-root public URL.
+            Learn how to configure a non-root public URL by running `npm run build`.
+        -->
+    <title></title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Cpath fill='%23EE0000' d='M129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42l-7.45-32.36c-1.72-7.12-3.23-10.35-15.73-16.6C126.39,10.19,105.26,2,99,2c-5.82,0-7.55,7.54-14.45,7.54-6.68,0-11.64-5.6-17.89-5.6-6,0-9.91,4.09-12.93,12.5,0,0-8.41,23.72-9.49,27.16A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85m32.55-11.42c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33C23.77,53.52,2,56.54,2,75.72,2,107.2,76.59,146,135.65,146c45.28,0,56.7-20.48,56.7-36.65,0-12.72-11-27.16-30.83-35.78'/%3E%3Cpath fill='%23000000' d='M161.52,73.57c1.73,8.19,1.73,9.05,1.73,10.13,0,14-15.74,21.77-36.43,21.77C80,105.47,39.08,78.1,39.08,60a18.45,18.45,0,0,1,1.51-7.33l3.66-9.06A6.43,6.43,0,0,0,44,45.54C44,54.76,80.33,85,129,85c12.51,0,30.61-2.58,30.61-17.46a14,14,0,0,0-.31-3.42Z'/%3E%3C/svg%3E" />
     <!-- Chunk-load error recovery: fires before React boots, safe to call multiple times -->
     <script>
       (function () {
         var SESSION_KEY = '__acs_chunk_recovery_v1__';
         function recoverFromStaleChunks() {
-          if (sessionStorage.getItem(SESSION_KEY)) return;
+          if (sessionStorage.getItem(SESSION_KEY)) return; // already tried once this session
           sessionStorage.setItem(SESSION_KEY, '1');
           var sw = navigator.serviceWorker
             ? navigator.serviceWorker.getRegistrations().then(function (rs) {
@@ -49,22 +51,47 @@
             : Promise.resolve();
           Promise.all([sw, cc]).then(function () { window.location.reload(); });
         }
+        // Catch failed <script> tag loads (Vite lazy chunks returning 404)
         window.addEventListener('error', function (e) {
           if (e.target && e.target.nodeName === 'SCRIPT') { recoverFromStaleChunks(); }
         }, true);
+        // Expose for the JS-level handler in index.tsx
         window.__recoverFromStaleChunks__ = recoverFromStaleChunks;
       })();
     </script>
-  <script type="module" crossorigin src="/rhacs-ux-prototypes/saved-filters/static/index-g1i_0p3Y.js"></script>
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/saved-filters/static/react-pF2EnNv3.js">
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/saved-filters/static/lodash-JMWJiBov.js">
-  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/saved-filters/static/apollo-BxVF6eGb.js">
-  <link rel="stylesheet" crossorigin href="/rhacs-ux-prototypes/saved-filters/static/index-CSRBboj1.css">
+    <!-- Restore deep-link path saved by 404.html SPA redirect -->
+    <script>
+      (function () {
+        var stored = sessionStorage.getItem('spa_redirect');
+        if (stored) {
+          sessionStorage.removeItem('spa_redirect');
+          try {
+            var r = JSON.parse(stored);
+            window.history.replaceState(null, '', r.path + (r.search || '') + (r.hash || ''));
+          } catch (e) {}
+        }
+      })();
+    </script>
+  <script type="module" crossorigin src="/rhacs-ux-prototypes/app/static/index-DqVt1y7l.js"></script>
+  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/react-pF2EnNv3.js">
+  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/lodash-JMWJiBov.js">
+  <link rel="modulepreload" crossorigin href="/rhacs-ux-prototypes/app/static/apollo-BxVF6eGb.js">
+  <link rel="stylesheet" crossorigin href="/rhacs-ux-prototypes/app/static/index-McGfvekp.css">
 </head>
 
 <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript> You need to enable JavaScript to run this app. </noscript>
     <div id="root"></div>
+    <!--
+            This HTML file is a template.
+            If you open it directly in the browser, you will see an empty page.
+
+            You can add webfonts, meta tags, or analytics to this file.
+            The build step will place the bundled scripts into the <body> tag.
+
+            To begin the development, run `npm start` or `yarn start`.
+            To create a production bundle, use `npm run build` or `yarn build`.
+        -->
 </body>
 
 </html>

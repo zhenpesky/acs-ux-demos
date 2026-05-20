@@ -1,13 +1,21 @@
 #!/bin/bash
-# Deploy built prototype to saved-filters/ and sync 404.html.
-# Usage: ./deploy.sh <path-to-build-output>
-# Example: ./deploy.sh ~/Documents/ACS-workspace/stackrox-vm-sandbox/ui/apps/platform/build
+# Build and deploy prototype to saved-filters/ and sync 404.html.
+# Usage: ./deploy.sh
+# (no arguments needed — build is run automatically with correct flags)
 
 set -e
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-BUILD_DIR="${1:-$HOME/Documents/ACS-workspace/stackrox-vm-sandbox/ui/apps/platform/build}"
+SOURCE_DIR="$HOME/Documents/ACS-workspace/stackrox-vm-sandbox/ui/apps/platform"
+BUILD_DIR="$SOURCE_DIR/build"
 DEPLOY_DIR="$REPO_DIR/saved-filters"
+
+echo "→ Building with RHACS branding and saved-filters base path"
+cd "$SOURCE_DIR"
+VITE_MOCK_MODE=true \
+VITE_BASE_PATH=/rhacs-ux-prototypes/saved-filters/ \
+VITE_ROX_PRODUCT_BRANDING=RHACS_BRANDING \
+npx vite build
 
 echo "→ Clearing $DEPLOY_DIR"
 find "$DEPLOY_DIR" -mindepth 1 -delete

@@ -15,11 +15,11 @@ find "$DEPLOY_DIR" -mindepth 1 -delete
 echo "→ Copying build output"
 cp -r "$BUILD_DIR"/. "$DEPLOY_DIR/"
 
-echo "→ Syncing 404.html from app/index.html"
-# 404.html = exact copy of app/index.html.
-# GitHub Pages serves 404.html for any missing path (e.g. /app/main/systemconfig).
+echo "→ Syncing 404.html from saved-filters/index.html"
+# 404.html = exact copy of saved-filters/index.html.
+# GitHub Pages serves 404.html for any missing path (e.g. /saved-filters/main/systemconfig).
 # The React app loads with the original URL intact, so React Router matches correctly.
-cp "$REPO_DIR/app/index.html" "$REPO_DIR/404.html"
+cp "$DEPLOY_DIR/index.html" "$REPO_DIR/404.html"
 echo "  404.html updated."
 
 echo "→ Committing and pushing"

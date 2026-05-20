@@ -1,1 +1,0 @@
-import{b as n}from"./apollo-Cfo4Lhty.js";import{t as l,Y as o,id as t}from"./index-Jy4HxVPG.js";const c=s=>{var{children:r,className:e}=s,a=n(s,["children","className"]);return l.jsx("div",Object.assign({className:o(e,t.scrollInnerWrapper)},a,{children:r}))};c.displayName="InnerScrollContainer";export{c as I};

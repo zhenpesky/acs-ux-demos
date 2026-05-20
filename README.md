@@ -35,12 +35,12 @@ rhacs-ux-prototypes/
 
 ## How prototypes are built
 
-Prototypes are built from the [`stackrox-vm-sandbox`](https://github.com/zhenpesky/stackrox-vm-sandbox) fork of the RHACS UI. Mock Service Worker (MSW) intercepts all API calls so no live Central backend is needed.
+Prototypes are built from the [`stackrox-prototype-sandbox`](https://github.com/zhenpesky/stackrox-prototype-sandbox) fork of the RHACS UI. Mock Service Worker (MSW) intercepts all API calls so no live Central backend is needed.
 
 ### Build a new version of the saved-filters prototype
 
 ```bash
-# From the stackrox-vm-sandbox repo
+# From the stackrox-prototype-sandbox repo
 cd ui/apps/platform
 npm run build:prototype
 
@@ -57,7 +57,7 @@ cp -r "$BUILD"/* "$DEPLOY/"
 |----------|-------|---------|
 | `VITE_MOCK_MODE` | `true` | Enables MSW + sets base path to `/rhacs-ux-prototypes/saved-filters/` |
 
-The `build:prototype` npm script in `stackrox-vm-sandbox` sets this automatically.
+The `build:prototype` npm script in `stackrox-prototype-sandbox` sets this automatically.
 
 ---
 

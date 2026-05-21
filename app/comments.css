@@ -81,7 +81,7 @@
   min-width: 28px;
   height: 28px;
   padding: 0 5px;
-  background: #0052cc;
+  background: var(--pf-v6-global--palette--purple-400, #6753ac);
   border: 2px solid #fff;
   border-radius: 14px;
   transform: translate(-50%, -50%);

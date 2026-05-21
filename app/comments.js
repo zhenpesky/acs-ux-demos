@@ -1286,11 +1286,13 @@
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       this.render();
       this.el.classList.add('rhacs-panel--open');
+      rhacsMount().classList.add('rhacs-panel-open');
       Panel._pushPage(true);
       Notify.clearUnread();
     },
     close: function () {
       this.el.classList.remove('rhacs-panel--open');
+      rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
     },
     toggle: function () {
@@ -1629,6 +1631,7 @@
       FAB.setMode(false);
       if (Popup.el) Popup.el.style.display = 'none';
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
+      rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
     }
   }

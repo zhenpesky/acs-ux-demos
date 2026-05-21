@@ -22,6 +22,11 @@
   overflow: hidden;
 }
 
+/* ── Panel open: shift FAB left so it's never hidden behind the panel ───── */
+#rhacs-mount.rhacs-panel-open .rhacs-fab {
+  right: 324px; /* 300px panel + 24px original margin */
+}
+
 /* ── Comment mode cursor: restore normal cursor inside all comment UI ──────
    When body has the custom chat cursor, everything inside the comment
    containers (popup, panel, FAB, pins, toasts) should feel normal.        */
@@ -716,6 +721,7 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
+  transition: right 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   align-items: flex-end;

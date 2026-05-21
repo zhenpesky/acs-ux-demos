@@ -712,6 +712,23 @@
   white-space: nowrap;
 }
 
+.rhacs-panel__state-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rhacs-panel__state-badge--edit {
+  background: #fff0e6;
+  color: #7d4000;
+}
+.rhacs-panel__state-badge--view {
+  background: #e6f3ff;
+  color: #003d7a;
+}
+
 .rhacs-panel__item-preview {
   font-size: 12px;
   color: #57606a;

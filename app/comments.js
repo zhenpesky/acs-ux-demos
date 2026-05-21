@@ -144,7 +144,7 @@
   }
 
   function buildBody(x, y, num, text) {
-    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num }) + ' -->\n' + text;
+    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() }) + ' -->\n' + text;
   }
 
   function setMeta(body, updates) {
@@ -777,8 +777,13 @@
 
     renderPins: function () {
       this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
+      var curState = detectViewState();
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
+        // Only show pins that match the current view state.
+        // Legacy pins without viewState are shown in both states.
+        var pinState = pin.meta.viewState;
+        if (pinState && pinState !== curState) return;
         var vp = pinToViewport(pin.meta);
         var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
         var isResolved = pin.meta.resolved;
@@ -1456,6 +1461,12 @@
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
+        // Show a state badge if the pin has a viewState recorded
+        if (pin.meta.viewState) {
+          var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
+          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit' : 'View'));
+          itemHdr.appendChild(stateBadge);
+        }
         if (isUnread) {
           var dot = el('span', { className: 'rhacs-unread-dot' });
           itemHdr.appendChild(dot);
@@ -1477,7 +1488,37 @@
         }
 
         item.addEventListener('click', (function (p) { return function () {
-          // Scroll to pin without closing the panel
+          var pinState = p.meta.viewState;
+          var curState = detectViewState();
+          var delay    = 400;
+
+          // If the pin was created in a different state, try to switch to it first
+          if (pinState && pinState !== curState) {
+            var switched = false;
+            if (pinState === 'edit') {
+              // Look for an Edit button in the page (not in our UI)
+              var editBtns = Array.prototype.slice.call(
+                document.querySelectorAll('button, a[role="button"]')
+              ).filter(function (b) {
+                if (b.closest('#rhacs-mount')) return false;
+                var txt = (b.textContent || b.getAttribute('aria-label') || '').trim().toLowerCase();
+                return txt === 'edit' || txt === 'edit configuration';
+              });
+              if (editBtns.length) { editBtns[0].click(); switched = true; }
+            } else {
+              // Look for a Cancel button to return to view mode
+              var cancelBtns = Array.prototype.slice.call(
+                document.querySelectorAll('button')
+              ).filter(function (b) {
+                if (b.closest('#rhacs-mount')) return false;
+                var txt = (b.textContent || '').trim().toLowerCase();
+                return txt === 'cancel';
+              });
+              if (cancelBtns.length) { cancelBtns[0].click(); switched = true; }
+            }
+            if (switched) delay = 600; // give the DOM time to transition
+          }
+
           var ci = containerInfo();
           var scrollY = (p.meta.y / 100) * ci.scrollHeight;
           if (S.scrollContainer) {
@@ -1485,7 +1526,7 @@
           } else {
             window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
           }
-          setTimeout(function () { Popup.showThread(p.id); }, 400);
+          setTimeout(function () { Popup.showThread(p.id); }, delay);
         }; })(pin));
 
         list.appendChild(item);

@@ -1707,10 +1707,14 @@
       Overlay.setMode(active);
     },
     updateBadge: function () {
-      // Compute live from pins so the badge is always accurate on page load
-      // and after any refresh — not just from polling increments.
+      // Only count unread pins from OTHER users — not your own comments.
+      var myLogin = S.user && S.user.login;
       var count = S.pins.filter(function (p) {
-        return p.meta && !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen;
+        if (!p.meta || p.meta.resolved) return false;
+        if (!(new Date(p.createdAt).getTime() > S.lastSeen)) return false;
+        // Exclude the current user's own pins
+        if (myLogin && p.author && p.author.login === myLogin) return false;
+        return true;
       }).length;
       S.unread = count;
       if (count > 0) {

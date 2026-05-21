@@ -965,7 +965,7 @@
           (isUnread   ? ' rhacs-pin--unread'   : '');
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
         pinEl.appendChild(txt(pinInitials(pin.author)));
-        pinEl.title = (pin.author ? pin.author.login : '') + ' — click to view';
+        pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : '') + ' — click to view');
         // Document-pixel position: viewport coords + window scroll offset.
         // Because #rhacs-pin-layer is position:absolute in the document, these
         // document coordinates make pins move with page content including the
@@ -1257,11 +1257,31 @@
             Panel.render();
             FAB.updateBadge();
           } else {
+            // Optimistic: show pin immediately, sync in background
+            var body = buildBody(x, y, num, text);
+            var optimisticPin = {
+              id: 'optimistic-' + Date.now(),
+              body: body,
+              createdAt: new Date().toISOString(),
+              author: S.user,
+              meta: parseMeta(body),
+              replies: [],
+              reactionGroups: []
+            };
+            S.pins = S.pins.concat([optimisticPin]);
+            Popup.close();
+            FAB.setMode(false);
+            Overlay.renderPins();
+            Panel.render();
+            FAB.updateBadge();
             return addPinComment(text, x, y, num)
-              .then(function () {
-                Popup.close();
-                FAB.setMode(false);
-                return loadAndRender();
+              .then(function () { return loadAndRender(); })
+              .catch(function (e) {
+                // Rollback optimistic pin on failure
+                S.pins = S.pins.filter(function (p) { return p.id !== optimisticPin.id; });
+                Overlay.renderPins();
+                Panel.render();
+                Notify.toast('Failed to post: ' + e.message);
               });
           }
         })
@@ -1466,11 +1486,24 @@
         loadAndRender().then(function () { Popup.close(); Panel.render(); });
         return;
       }
+      // Optimistic: flip resolved state immediately
+      var prevResolved = pin.meta.resolved;
+      pin.meta.resolved = !prevResolved;
+      pin.body = setMeta(pin.body, { resolved: pin.meta.resolved });
+      Popup.close();
+      Overlay.renderPins();
+      Panel.render();
       Auth.requireAuth()
-        .then(function () { return updateComment(pin.id, setMeta(pin.body, { resolved: !pin.meta.resolved })); })
+        .then(function () { return updateComment(pin.id, pin.body); })
         .then(function () { return loadAndRender(); })
-        .then(function () { Popup.close(); Panel.render(); })
-        .catch(function (e) { Notify.toast(e.message); });
+        .catch(function (e) {
+          // Rollback on failure
+          pin.meta.resolved = prevResolved;
+          pin.body = setMeta(pin.body, { resolved: prevResolved });
+          Overlay.renderPins();
+          Panel.render();
+          Notify.toast('Failed: ' + e.message);
+        });
     },
     showEdit: function (pin, bodyEl) {
       var originalContent = bodyEl.innerHTML;
@@ -1542,9 +1575,22 @@
           Popup.close();
           return loadAndRender();
         }
+        // Optimistic: remove pin immediately
+        var removed = S.pins.find(function (p) { return p.id === pinId; });
+        S.pins = S.pins.filter(function (p) { return p.id !== pinId; });
+        Popup.close();
+        Overlay.renderPins();
+        Panel.render();
+        FAB.updateBadge();
         deleteComment(pinId)
-          .then(function () { Popup.close(); return loadAndRender(); })
-          .catch(function (e) { Notify.toast(e.message); });
+          .then(function () { return loadAndRender(); })
+          .catch(function (e) {
+            // Rollback on failure
+            if (removed) S.pins = S.pins.concat([removed]);
+            Overlay.renderPins();
+            Panel.render();
+            Notify.toast('Failed to delete: ' + e.message);
+          });
       });
     },
     renderReply: function (reply, pinId) {
@@ -1571,10 +1617,21 @@
               danger: true
             }).then(function (confirmed) {
               if (!confirmed) return;
+              // Optimistic: remove reply immediately
+              var pin = S.pins.find(function (p) { return p.id === pinId; });
+              var removedReply = pin && pin.replies && pin.replies.find(function (r) { return r.id === reply.id; });
+              if (pin) pin.replies = (pin.replies || []).filter(function (r) { return r.id !== reply.id; });
+              Popup.showThread(pinId);
+              Panel.render();
               deleteComment(reply.id)
                 .then(function () { return loadAndRender(); })
                 .then(function () { Popup.showThread(pinId); })
-                .catch(function (e) { Notify.toast(e.message); });
+                .catch(function (e) {
+                  // Rollback on failure
+                  if (pin && removedReply) pin.replies = (pin.replies || []).concat([removedReply]);
+                  Popup.showThread(pinId);
+                  Notify.toast('Failed to delete: ' + e.message);
+                });
             });
           }}
         ]));
@@ -1643,12 +1700,30 @@
       return Auth.requireAuth()
         .then(function () {
           if (S.guestMode) return; // handled by inline notice in the reply form
+          // Optimistic: add reply immediately before API call
+          var optimisticReply = {
+            id: 'optimistic-reply-' + Date.now(),
+            body: text,
+            createdAt: new Date().toISOString(),
+            author: S.user
+          };
+          var pin = S.pins.find(function (p) { return p.id === pinId; });
+          if (pin) {
+            pin.replies = (pin.replies || []).concat([optimisticReply]);
+            if (textarea) textarea.value = '';
+            Popup.showThread(pinId);
+            Overlay.renderPins();
+            Panel.render();
+          }
           return addReply(pinId, text)
-            .then(function () {
-              if (textarea) textarea.value = '';
-              return loadAndRender();
-            })
-            .then(function () { Popup.showThread(pinId); });
+            .then(function () { return loadAndRender(); })
+            .then(function () { Popup.showThread(pinId); })
+            .catch(function (e) {
+              // Rollback optimistic reply on failure
+              if (pin) pin.replies = pin.replies.filter(function (r) { return r.id !== optimisticReply.id; });
+              Popup.showThread(pinId);
+              Notify.toast('Failed to reply: ' + e.message);
+            });
         })
         .catch(function (e) { Notify.toast(e.message); });
     },
@@ -1945,12 +2020,12 @@
       var label = el('span', { className: 'rhacs-fab__label' });
       label.appendChild(txt('Add comment'));
 
-      var mainBtn = el('button', { className: 'rhacs-fab__btn', title: 'Toggle comment mode (C)' });
+      var mainBtn = el('button', { className: 'rhacs-fab__btn', 'data-tip': 'Toggle comment mode (C)' });
       append(mainBtn, icon, label);
       mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
 
       // Badge lives on the "View all" button so it doesn't conflict with the main button label
-      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments', style: 'position:relative' });
+      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', 'data-tip': 'View all comments', style: 'position:relative' });
       panelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg><span style="font-size:12px;font-weight:500">View all</span>';
       panelBtn.style.cssText = 'position:relative;display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
       panelBtn.appendChild(this.badge);
@@ -2033,8 +2108,8 @@
       } else if (S.token && S.user) {
         // GitHub-authenticated user: show avatar + logout
         var av = makeAvatar(S.user, 'rhacs-avatar--sm');
-        av.title = 'Logged in as ' + S.user.login;
-        var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary', title: 'Log out', onclick: function () { Auth.logout(); } });
+        av.setAttribute('data-tip', 'Logged in as ' + S.user.login);
+        var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary', 'data-tip': 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);

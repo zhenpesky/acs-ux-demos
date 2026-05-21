@@ -46,24 +46,39 @@
   <script>
     const WORKER_URL = 'https://rhacs-comments-auth.zhenpche.workers.dev';
 
+    function dbg(msg) {
+      console.log('[rhacs-cb] ' + msg);
+      try {
+        var log = JSON.parse(localStorage.getItem('rhacs_cb_log') || '[]');
+        log.push(Date.now() + ' ' + msg);
+        localStorage.setItem('rhacs_cb_log', JSON.stringify(log.slice(-20)));
+      } catch(e) {}
+    }
+
     async function handleCallback() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
       const error = params.get('error');
 
+      dbg('handleCallback start, code=' + (code ? code.slice(0,8)+'...' : 'none') + ' error=' + error);
+      dbg('window.opener=' + (window.opener ? 'exists' : 'null') + ' opener.closed=' + (window.opener ? window.opener.closed : 'n/a'));
+
       if (error) {
+        dbg('GitHub error: ' + error);
         showError('GitHub login was denied or cancelled.');
         notifyOpener(null);
         return;
       }
 
       if (!code) {
+        dbg('No code in URL');
         showError('No authorization code received.');
         notifyOpener(null);
         return;
       }
 
       try {
+        dbg('Fetching token from worker...');
         const res = await fetch(WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -71,6 +86,7 @@
         });
 
         const data = await res.json();
+        dbg('Worker response: status=' + res.status + ' error=' + (data.error || 'none') + ' token=' + (data.token ? 'present' : 'missing'));
 
         if (!res.ok || data.error) {
           showError('Token exchange failed: ' + (data.error || res.statusText));
@@ -89,27 +105,32 @@
           return;
         }
 
+        dbg('Notifying opener...');
         notifyOpener(data.token);
         document.getElementById('status').textContent = 'Logged in! Closing…';
         document.getElementById('spinner').style.display = 'none';
         setTimeout(() => window.close(), 800);
       } catch (e) {
+        dbg('Fetch error: ' + e.message);
         showError('Network error: ' + e.message);
         notifyOpener(null);
       }
     }
 
     function notifyOpener(token) {
+      dbg('notifyOpener token=' + (token ? 'present' : 'null'));
       // Channel A: BroadcastChannel — purpose-built for same-origin cross-tab messaging
       try {
         const bc = new BroadcastChannel('rhacs_auth');
         bc.postMessage({ type: 'rhacs_token', token, ts: Date.now() });
+        dbg('BroadcastChannel sent');
         setTimeout(() => bc.close(), 2000);
-      } catch (e) {}
+      } catch (e) { dbg('BroadcastChannel failed: ' + e.message); }
       // Channel B: localStorage + storage event (fires in all other same-origin windows)
       try {
         localStorage.setItem('rhacs_oauth_result', JSON.stringify({ token, ts: Date.now() }));
-      } catch (e) {}
+        dbg('localStorage set');
+      } catch (e) { dbg('localStorage failed: ' + e.message); }
       // Channel C: postMessage directly to opener
       if (window.opener && !window.opener.closed) {
         try {
@@ -117,7 +138,10 @@
             { type: 'rhacs_auth_done', token },
             'https://zhenpesky.github.io'
           );
-        } catch (e) {}
+          dbg('postMessage to opener sent');
+        } catch (e) { dbg('postMessage failed: ' + e.message); }
+      } else {
+        dbg('no opener for postMessage');
       }
     }
 

@@ -349,6 +349,7 @@
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
 
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
+        console.log('[rhacs] popup opened:', popup ? 'ok' : 'blocked');
         // Fallback: if popup is blocked, use a full-page redirect instead
         if (!popup) {
           localStorage.setItem('rhacs_return_url', window.location.href);
@@ -368,8 +369,9 @@
           localStorage.removeItem('rhacs_oauth_result');
         }
 
-        function handleToken(token) {
-          if (done) return;
+        function handleToken(source, token) {
+          console.log('[rhacs] handleToken via ' + source + ' token=' + (token ? 'present' : 'null'));
+          if (done) { console.log('[rhacs] already done, skipping'); return; }
           done = true;
           cleanup();
           if (token) {
@@ -392,17 +394,20 @@
         try {
           bc = new BroadcastChannel('rhacs_auth');
           bc.onmessage = function (e) {
-            if (e.data && e.data.type === 'rhacs_token' && !done) handleToken(e.data.token);
+            console.log('[rhacs] BroadcastChannel received:', JSON.stringify(e.data));
+            if (e.data && e.data.type === 'rhacs_token' && !done) handleToken('BroadcastChannel', e.data.token);
           };
-        } catch (e) { bc = null; }
+          console.log('[rhacs] BroadcastChannel listening');
+        } catch (e) { bc = null; console.warn('[rhacs] BroadcastChannel unavailable:', e.message); }
 
         // Channel 1: storage event — fires INSTANTLY in the main window when
         // auth-callback.html writes to localStorage in the popup tab
         storageHandler = function (e) {
           if (e.key !== 'rhacs_oauth_result' || !e.newValue) return;
+          console.log('[rhacs] storage event received for rhacs_oauth_result');
           try {
             var d = JSON.parse(e.newValue);
-            if (d && d.token && Date.now() - d.ts < 60000) handleToken(d.token);
+            if (d && d.token && Date.now() - d.ts < 60000) handleToken('storage-event', d.token);
           } catch (ex) {}
         };
         window.addEventListener('storage', storageHandler);
@@ -414,7 +419,10 @@
             var raw = localStorage.getItem('rhacs_oauth_result');
             if (!raw) return;
             var data = JSON.parse(raw);
-            if (data && data.token && Date.now() - data.ts < 60000) handleToken(data.token);
+            if (data && data.token && Date.now() - data.ts < 60000) {
+              console.log('[rhacs] localStorage poll found token');
+              handleToken('localStorage-poll', data.token);
+            }
           } catch (e) {}
         }, 300);
 
@@ -422,7 +430,8 @@
         msgHandler = function (e) {
           if (e.origin !== 'https://zhenpesky.github.io') return;
           if (!e.data || e.data.type !== 'rhacs_auth_done') return;
-          handleToken(e.data.token);
+          console.log('[rhacs] postMessage received token');
+          handleToken('postMessage', e.data.token);
         };
         window.addEventListener('message', msgHandler);
 
@@ -431,13 +440,18 @@
         closedTimer = setInterval(function () {
           if (!popup || !popup.closed) return;
           clearInterval(closedTimer);
+          console.log('[rhacs] popup closed detected, done=' + done);
           if (done) return;
           // Give auth-callback up to 1s after close to flush localStorage
           setTimeout(function () {
             if (done) return;
             try {
               var raw = localStorage.getItem('rhacs_oauth_result');
-              if (raw) { var d = JSON.parse(raw); if (d && d.token) { handleToken(d.token); return; } }
+              console.log('[rhacs] post-close localStorage check: ' + (raw ? 'found' : 'empty'));
+              // Also check the callback debug log
+              var cbLog = localStorage.getItem('rhacs_cb_log');
+              if (cbLog) console.log('[rhacs] cb_log:', cbLog);
+              if (raw) { var d = JSON.parse(raw); if (d && d.token) { handleToken('post-close-poll', d.token); return; } }
             } catch (ex) {}
             // Popup closed with no token — treat as cancelled
             done = true; cleanup(); reject(new Error('Login cancelled'));

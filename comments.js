@@ -869,9 +869,9 @@
       this.userEl.innerHTML = '';
       if (S.user) {
         var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
-        var logoutBtn = el('button', { className: 'pf-v5-c-button pf-m-plain pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
+        var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
-        logoutBtn.appendChild(txt('↩'));
+        logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
       } else {
         var loginBtn = el('button', { className: 'pf-v5-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });

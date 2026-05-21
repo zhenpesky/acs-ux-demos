@@ -1318,26 +1318,28 @@
     render: function () {
       this.el.innerHTML = '';
 
+      // ── Guest notice banner (top) ────────────────────────────────────────────
+      if (S.guestMode) {
+        var guestBanner = el('div', { className: 'rhacs-panel__guest-banner' });
+        guestBanner.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
+          '<span>You\u2019re commenting as a guest. Your comments are only visible to you in this browser \u2014 others won\u2019t see them. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to share with the team.</span>';
+        guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
+          Auth.login().then(function () { FAB.updateUser(); Panel.open(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
+        });
+        this.el.appendChild(guestBanner);
+      }
+
       // ── Header ──────────────────────────────────────────────────────────────
       var hdr = el('div', { className: 'rhacs-panel__header' });
       var title = el('span', { className: 'rhacs-panel__title' });
       title.appendChild(txt('Comments'));
       var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close' });
       closeBtn.setAttribute('aria-label', 'Close');
-      closeBtn.appendChild(txt('×'));
+      closeBtn.appendChild(txt('\u00d7'));
       closeBtn.addEventListener('click', function () { Panel.close(); });
       append(hdr, title, closeBtn);
       this.el.appendChild(hdr);
-
-      // ── Guest notice banner ──────────────────────────────────────────────────
-      if (S.guestMode) {
-        var guestBanner = el('div', { className: 'rhacs-panel__guest-banner' });
-        guestBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> <span>Guest mode — comments are local to this browser. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> for full features.</span>';
-        guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); Panel.open(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
-        });
-        this.el.appendChild(guestBanner);
-      }
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });

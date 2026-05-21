@@ -797,7 +797,7 @@
   position: relative;
   height: 40px;
   padding: 0 16px 0 12px;
-  background: #0052cc;
+  background: var(--pf-v6-global--palette--purple-400, #6753ac);
   border: none;
   border-radius: 20px;
   cursor: pointer;
@@ -824,7 +824,7 @@
 }
 
 .rhacs-fab__btn:hover {
-  background: #0041a3;
+  background: var(--pf-v6-global--palette--purple-500, #4f3e8c);
   transform: translateY(-1px);
 }
 
@@ -1100,8 +1100,8 @@
   .rhacs-panel__item-time,
   .rhacs-popup__time { color: #8b949e; }
 
-  .rhacs-fab__btn { background: #388bfd; }
-  .rhacs-fab__btn:hover { background: #58a6ff; }
+  .rhacs-fab__btn { background: var(--pf-v6-global--palette--purple-400, #6753ac); }
+  .rhacs-fab__btn:hover { background: var(--pf-v6-global--palette--purple-500, #4f3e8c); }
   .rhacs-fab--active .rhacs-fab__btn { background: var(--pf-v6-global--palette--purple-400, #6753ac); }
 
   .rhacs-fab__panel-btn {

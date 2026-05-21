@@ -491,18 +491,6 @@
         var titleF   = makeField('Title or role',  'e.g. UX Designer, PM', false);
         var companyF = makeField('Company',         'e.g. Red Hat, IBM',    false);
 
-        var preview = el('div', { className: 'rhacs-guest-name-preview' });
-        function updatePreview() {
-          var fn = firstF.input.value.trim(), ln = lastF.input.value.trim();
-          var t  = titleF.input.value.trim(),  c  = companyF.input.value.trim();
-          var label = Auth._buildGuestLogin(fn, ln, t, c);
-          preview.innerHTML = '';
-          preview.appendChild(txt('Will appear as: '));
-          var strong = el('strong');
-          strong.appendChild(txt(label));
-          preview.appendChild(strong);
-        }
-
         // Button starts disabled; lights up once first name has content
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary', disabled: true });
         continueBtn.innerHTML = '<span>Continue as guest</span>';
@@ -517,9 +505,8 @@
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {
-          f.input.addEventListener('input', function () { updatePreview(); syncBtn(); });
+          f.input.addEventListener('input', function () { syncBtn(); });
         });
-        updatePreview();
 
         continueBtn.addEventListener('click', function () {
           if (continueBtn.disabled) return;
@@ -531,7 +518,7 @@
           f.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !continueBtn.disabled) continueBtn.click(); });
         });
 
-        append(card, iconEl, titleEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn);
+        append(card, iconEl, titleEl, nameRow, titleF.wrap, companyF.wrap, continueBtn);
         overlay.appendChild(card);
         overlay.addEventListener('click', function (e) {
           if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); }

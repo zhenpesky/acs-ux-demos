@@ -328,16 +328,11 @@
     init: function () {
       S.token = localStorage.getItem(CFG.tokenKey);
       try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
-      // Restore guest session if active
-      if (!S.token && localStorage.getItem(CFG.guestKey)) {
-        var restored = Auth.guestIdentity();
-        if (restored) {
-          S.guestMode = true;
-          S.user = restored;
-          // Back-fill avatarUrl if legacy entry had none
-          if (!S.user.avatarUrl) S.user.avatarUrl = Auth._makeAvatarSvg(S.user.login);
-        }
-      }
+      // Guest mode is NOT auto-restored on page load — the user must explicitly
+      // choose "Continue as guest" each session via the auth dialog.
+      // (The stored guest identity key is kept so the same name/avatar is reused
+      //  when they do choose guest again, but the active mode starts cleared.)
+      S.guestMode = false;
     },
     isLoggedIn:        function () { return !!S.token; },
     isAuthed:          function () { return !!S.token || S.guestMode; },

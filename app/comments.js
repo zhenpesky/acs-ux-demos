@@ -2032,15 +2032,14 @@
         Overlay.renderPins();
         Panel.render();
         FAB.updateBadge();
-        ids.forEach(function (id) {
-          if (!String(id).startsWith('guest-')) {
-            deleteComment(id).catch(function (e) {
+        var deleteCalls = ids
+          .filter(function (id) { return !String(id).startsWith('guest-'); })
+          .map(function (id) {
+            return deleteComment(id).catch(function (e) {
               Notify.toast('Failed to delete: ' + e.message);
-              loadAndRender();
             });
-          }
-        });
-        loadAndRender();
+          });
+        Promise.all(deleteCalls).then(function () { loadAndRender(); });
       });
     },
     _pageEl: function () {

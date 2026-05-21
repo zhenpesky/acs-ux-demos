@@ -522,7 +522,14 @@
       localStorage.removeItem(CFG.userKey);
       localStorage.removeItem(CFG.guestKey);
       if (S.commentMode) FAB.setMode(false);
+      // Close open UI and wipe all visible comment state
+      Popup.close();
+      if (typeof Panel !== 'undefined' && Panel.close) Panel.close();
+      S.pins = [];
+      S.discussionId = null;
+      if (Overlay.renderPins) Overlay.renderPins();
       FAB.updateUser();
+      FAB.updateBadge();
     },
 
     // ── Guest mode ────────────────────────────────────────────────────────────
@@ -1011,9 +1018,12 @@
           Popup.el.classList.add('rhacs-popup--shake');
           Popup.el.addEventListener('animationend', function removeShake() {
             Popup.el.removeEventListener('animationend', removeShake);
+            // Explicitly cancel animation on compositor BEFORE removing class
+            Popup.el.style.animation = 'none';
             requestAnimationFrame(function () {
+              Popup.el.classList.remove('rhacs-popup--shake');
               requestAnimationFrame(function () {
-                Popup.el.classList.remove('rhacs-popup--shake');
+                Popup.el.style.animation = '';
               });
             });
           });
@@ -3102,9 +3112,12 @@
             Popup.el.classList.add('rhacs-popup--shake');
             Popup.el.addEventListener('animationend', function removeShake() {
               Popup.el.removeEventListener('animationend', removeShake);
+              // Explicitly cancel animation on compositor BEFORE removing class
+              Popup.el.style.animation = 'none';
               requestAnimationFrame(function () {
+                Popup.el.classList.remove('rhacs-popup--shake');
                 requestAnimationFrame(function () {
-                  Popup.el.classList.remove('rhacs-popup--shake');
+                  Popup.el.style.animation = '';
                 });
               });
             });

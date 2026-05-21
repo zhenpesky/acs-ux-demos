@@ -290,7 +290,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   100% { transform: translate3d(0,0,0);    opacity: 1; }
 }
 .rhacs-popup.rhacs-popup--shake {
-  animation: rhacs-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards !important;
+  animation: rhacs-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) none !important;
 }
 .rhacs-popup {
   width: 320px;

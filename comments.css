@@ -78,11 +78,12 @@
 /* Fixed so JS can set viewport-pixel coords that update on scroll           */
 #rhacs-comment-root .rhacs-pin {
   position: fixed;
-  width: 26px;
-  height: 26px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 5px;
   background: #0052cc;
   border: 2px solid #fff;
-  border-radius: 50%;
+  border-radius: 14px;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
@@ -92,6 +93,7 @@
   color: #fff;
   cursor: pointer;
   pointer-events: all;
+  letter-spacing: 0.3px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
   z-index: 10;

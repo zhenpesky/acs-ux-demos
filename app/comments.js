@@ -143,6 +143,21 @@
     return (body || '').replace(/<!--\s*RHACS_PIN\s*\{[\s\S]*?\}\s*-->\s*/, '').trim();
   }
 
+  // Get 1-2 char initials from an author object for use as pin label
+  function pinInitials(author) {
+    if (!author) return '?';
+    // For guests, login is "First Last · Title · Company" — extract from name fields or the first part
+    var displayName = (author.name && author.name.trim()) ? author.name
+                    : (author.login || '');
+    // Strip everything after the first · separator to get just the name part
+    var namePart = displayName.split('\u00b7')[0].trim();
+    var words = namePart.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    // Fallback: first 2 chars of login
+    return (author.login || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
+  }
+
   function buildBody(x, y, num, text) {
     return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() }) + ' -->\n' + text;
   }
@@ -791,7 +806,8 @@
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '');
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
-        pinEl.appendChild(txt(String(pin.meta.pinNumber)));
+        pinEl.appendChild(txt(pinInitials(pin.author)));
+        pinEl.title = (pin.author ? pin.author.login : '') + ' — click to view';
         // Fixed-pixel viewport position (pin scrolls with content because we
         // subtract the container's scrollTop/scrollLeft each render)
         pinEl.style.left       = vp.left + 'px';
@@ -1072,7 +1088,7 @@
       var fpHdr = el('div', { className: 'rhacs-reply__header' });
       var fpAv  = makeAvatar(pin.author, 'rhacs-avatar--sm');
       var fpAu  = el('span', { className: 'rhacs-popup__author' });
-      fpAu.appendChild(txt(pin.author.login));
+      fpAu.appendChild(txt(pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login));
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
       fpTm.appendChild(txt(timeAgo(pin.createdAt)));
       append(fpHdr, fpAv, fpAu, fpTm);
@@ -1226,7 +1242,7 @@
       var hdr  = el('div', { className: 'rhacs-reply__header' });
       var av   = makeAvatar(reply.author, 'rhacs-avatar--sm');
       var au   = el('span', { className: 'rhacs-popup__author' });
-      au.appendChild(txt(reply.author.login));
+      au.appendChild(txt(reply.author.name && reply.author.name.trim() ? reply.author.name : reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
       tm.appendChild(txt(timeAgo(reply.createdAt)));
       append(hdr, av, au, tm);
@@ -1458,7 +1474,7 @@
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
         var av  = makeAvatar(pin.author, 'rhacs-avatar--sm');
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
-        var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
+        var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
         // Show a state badge if the pin has a viewState recorded

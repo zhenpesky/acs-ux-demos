@@ -912,7 +912,7 @@
   // ── Side Panel ────────────────────────────────────────────────────────────────
   var Panel = {
     el: null,
-    showResolved: false,
+    activeTab: 'all', // 'all' | 'unresolved' | 'resolved'
     init: function () {
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
       rhacsMount().appendChild(this.el);
@@ -928,33 +928,72 @@
     toggle: function () {
       if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();
     },
+    renderEmpty: function (tab) {
+      var msgs = {
+        all:        { title: 'No comments yet',       hint: 'Click anywhere on the page to pin a comment.' },
+        unresolved: { title: 'No open comments',      hint: 'All comments have been resolved.' },
+        resolved:   { title: 'No resolved comments',  hint: 'Resolved comments will appear here.' },
+      };
+      var m = msgs[tab] || msgs.all;
+      var empty = el('div', { className: 'rhacs-panel__empty' });
+      var emptyIcon = el('div', { className: 'rhacs-panel__empty-icon' });
+      emptyIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
+      var emptyTitle = el('div', { className: 'rhacs-panel__empty-title' });
+      emptyTitle.appendChild(txt(m.title));
+      var emptyHint = el('div', { className: 'rhacs-panel__empty-hint' });
+      emptyHint.appendChild(txt(m.hint));
+      append(empty, emptyIcon, emptyTitle, emptyHint);
+      return empty;
+    },
     render: function () {
       this.el.innerHTML = '';
 
-      var hdr  = el('div', { className: 'rhacs-panel__header' });
-      var title = el('span', { className: 'rhacs-panel__title' }); title.appendChild(txt('Comments'));
-      var hdrActions = el('div', { className: 'rhacs-panel__header-actions' });
-      var showResBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small' });
-      showResBtn.appendChild(txt(Panel.showResolved ? 'Hide resolved' : 'Show resolved'));
-      showResBtn.addEventListener('click', function () { Panel.showResolved = !Panel.showResolved; Panel.render(); });
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
+      // ── Header ──────────────────────────────────────────────────────────────
+      var hdr = el('div', { className: 'rhacs-panel__header' });
+      var title = el('span', { className: 'rhacs-panel__title' });
+      title.appendChild(txt('Comments'));
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close' });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
-      append(hdrActions, showResBtn, closeBtn);
-      append(hdr, title, hdrActions);
+      closeBtn.addEventListener('click', function () { Panel.close(); });
+      append(hdr, title, closeBtn);
       this.el.appendChild(hdr);
 
-      var visible = S.pins.filter(function (p) { return p.meta && (Panel.showResolved || !p.meta.resolved); });
+      // ── PF6 Tabs ─────────────────────────────────────────────────────────────
+      var allPins        = S.pins.filter(function (p) { return p.meta; });
+      var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
+      var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
+
+      var tabs = [
+        { id: 'all',        label: 'All',        count: allPins.length },
+        { id: 'unresolved', label: 'Unresolved', count: unresolvedPins.length },
+        { id: 'resolved',   label: 'Resolved',   count: resolvedPins.length },
+      ];
+
+      var tabList = el('div', { className: 'rhacs-panel__tabs', role: 'tablist' });
+      tabs.forEach(function (tab) {
+        var btn = el('button', { className: 'rhacs-panel__tab' + (Panel.activeTab === tab.id ? ' rhacs-panel__tab--active' : ''), role: 'tab' });
+        btn.appendChild(txt(tab.label));
+        if (tab.count > 0) {
+          var badge = el('span', { className: 'rhacs-panel__tab-badge' });
+          badge.appendChild(txt(String(tab.count)));
+          btn.appendChild(badge);
+        }
+        btn.addEventListener('click', function () {
+          Panel.activeTab = tab.id;
+          Panel.render();
+        });
+        tabList.appendChild(btn);
+      });
+      this.el.appendChild(tabList);
+
+      // ── Visible pins for active tab ───────────────────────────────────────
+      var visible = Panel.activeTab === 'all'        ? allPins
+                  : Panel.activeTab === 'unresolved' ? unresolvedPins
+                  : resolvedPins;
+
       if (visible.length === 0) {
-        var empty = el('div', { className: 'rhacs-panel__empty' });
-        var emptyIcon = el('div', { className: 'rhacs-panel__empty-icon' });
-        emptyIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
-        var emptyTitle = el('div', { className: 'rhacs-panel__empty-title' });
-        emptyTitle.appendChild(txt('No comments yet'));
-        var emptyHint = el('div', { className: 'rhacs-panel__empty-hint' });
-        emptyHint.appendChild(txt('Click anywhere on the page to pin a comment.'));
-        append(empty, emptyIcon, emptyTitle, emptyHint);
-        this.el.appendChild(empty);
+        this.el.appendChild(this.renderEmpty(Panel.activeTab));
         return;
       }
 
@@ -1032,7 +1071,8 @@
       mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
 
       var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments' });
-      panelBtn.appendChild(txt('☰'));
+      panelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg><span style="font-size:12px;font-weight:500">View all</span>';
+      panelBtn.style.cssText = 'display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
       panelBtn.addEventListener('click', function () { Panel.toggle(); });
 
       this.userEl = el('div', { className: 'rhacs-fab__user' });

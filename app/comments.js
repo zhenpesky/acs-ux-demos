@@ -1811,7 +1811,7 @@
 
   function init() {
     loadFloatingUI(function () {}); // load eagerly so it's ready before first click
-    // Dev convenience: ?rhacs_token=xxx auto-injects token and removes param from URL
+    // ?rhacs_token=xxx — returned from GitHub OAuth redirect; store token and clean URL
     var devToken = new URLSearchParams(window.location.search).get('rhacs_token');
     if (devToken) {
       localStorage.setItem(CFG.tokenKey, devToken);
@@ -1830,6 +1830,11 @@
 
     // Hide immediately if starting on baseline; show only on prototype pages.
     syncVisibility();
+
+    // Auto-activate comment mode when returning from GitHub OAuth redirect
+    if (devToken && isPrototypePage()) {
+      setTimeout(function () { FAB.setMode(true); }, 300);
+    }
 
     // React Router changes URLs via history.pushState / replaceState — intercept both.
     (function patchHistory(type) {

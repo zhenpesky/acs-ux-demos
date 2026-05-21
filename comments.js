@@ -39,6 +39,28 @@
     pollTimer:    null,
   };
 
+  // ── Scroll container detection ───────────────────────────────────────────────
+  // PatternFly SPAs scroll inside .pf-v5-c-page__main, not on window/body.
+  // We find the real scroll container so pin coordinates stay content-relative.
+  function findScrollContainer() {
+    // If the document itself scrolls, no inner container needed.
+    if (document.documentElement.scrollHeight > window.innerHeight + 4) return null;
+    var best = null;
+    var bestScrollable = 10; // px threshold to ignore tiny overflows
+    var els = document.querySelectorAll('*');
+    for (var i = 0; i < els.length; i++) {
+      var candidate = els[i];
+      var oy = window.getComputedStyle(candidate).overflowY;
+      if (oy !== 'auto' && oy !== 'scroll') continue;
+      var scrollable = candidate.scrollHeight - candidate.clientHeight;
+      if (scrollable > bestScrollable) {
+        bestScrollable = scrollable;
+        best = candidate;
+      }
+    }
+    return best; // null → window scrolls; element → inner scroll container
+  }
+
   // ── Utility helpers ───────────────────────────────────────────────────────────
   function timeAgo(iso) {
     var s = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -297,26 +319,67 @@
       this.overlayEl = el('div', { className: 'rhacs-overlay' });
       this.overlayEl.addEventListener('click', Overlay.handleClick);
       this.root.appendChild(this.overlayEl);
-      document.body.appendChild(this.root);
-      Overlay.updateSize();
+      document.body.appendChild(this.root); // moved to correct container in updateSize
       window.addEventListener('resize', Overlay.updateSize);
-      // Re-measure after React finishes rendering
-      setTimeout(Overlay.updateSize, 1000);
-      setTimeout(Overlay.updateSize, 3000);
+      // Re-measure after React finishes rendering (PF hydration takes ~600ms)
+      setTimeout(Overlay.updateSize, 800);
+      setTimeout(Overlay.updateSize, 2000);
+      setTimeout(Overlay.updateSize, 4000);
+      // Reposition popup on scroll so it tracks the pin
+      document.addEventListener('scroll', Overlay.onScroll, true);
+    },
+    onScroll: function () {
+      if (!S.activePinId) return;
+      var pinEl = Overlay.overlayEl && Overlay.overlayEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
+      if (!pinEl) return;
+      var r = pinEl.getBoundingClientRect();
+      // If pin has scrolled off screen, close popup
+      var container = S.scrollContainer;
+      var vTop = 0, vBottom = container ? container.getBoundingClientRect().height : window.innerHeight;
+      if (r.bottom < vTop || r.top > vBottom) { Popup.close(); return; }
+      Popup.positionFixed(r.right + 4, r.top);
     },
     updateSize: function () {
-      if (Overlay.overlayEl) {
+      if (!Overlay.overlayEl) return;
+      var container = findScrollContainer();
+      S.scrollContainer = container;
+
+      if (container) {
+        // Ensure the container is a positioning context for absolute children
+        var pos = window.getComputedStyle(container).position;
+        if (pos === 'static') container.style.position = 'relative';
+        // Relocate root into the scroll container if not already there
+        if (Overlay.root && Overlay.root.parentElement !== container) {
+          container.appendChild(Overlay.root);
+        }
+        Overlay.overlayEl.style.height = container.scrollHeight + 'px';
+        Overlay.overlayEl.style.width  = container.scrollWidth  + 'px';
+      } else {
+        // Window scrolls — keep root on body
+        if (Overlay.root && Overlay.root.parentElement !== document.body) {
+          document.body.appendChild(Overlay.root);
+        }
         Overlay.overlayEl.style.height = Math.max(
-          document.body.scrollHeight,
-          document.documentElement.scrollHeight
+          document.body.scrollHeight, document.documentElement.scrollHeight
         ) + 'px';
+        Overlay.overlayEl.style.width = '';
       }
     },
     handleClick: function (e) {
       if (!S.commentMode) return;
       if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
-      var x = (e.pageX / Math.max(document.body.scrollWidth, 1)) * 100;
-      var y = (e.pageY / Math.max(document.body.scrollHeight, 1)) * 100;
+      var x, y;
+      var container = S.scrollContainer;
+      if (container) {
+        var rect  = container.getBoundingClientRect();
+        var xPx   = e.clientX - rect.left + container.scrollLeft;
+        var yPx   = e.clientY - rect.top  + container.scrollTop;
+        x = (xPx / Math.max(container.scrollWidth,  1)) * 100;
+        y = (yPx / Math.max(container.scrollHeight, 1)) * 100;
+      } else {
+        x = (e.pageX / Math.max(document.body.scrollWidth,  1)) * 100;
+        y = (e.pageY / Math.max(document.body.scrollHeight, 1)) * 100;
+      }
       Popup.showNewForm(x, y, e.clientX, e.clientY);
     },
     renderPins: function () {
@@ -678,12 +741,18 @@
           item.appendChild(replyCount);
         }
 
-        item.addEventListener('click', function () {
+        item.addEventListener('click', (function (p) { return function () {
           Panel.close();
-          var scrollY = (pin.meta.y / 100) * document.documentElement.scrollHeight;
-          window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
-          setTimeout(function () { Popup.showThread(pin.id); }, 400);
-        });
+          var container = S.scrollContainer;
+          if (container) {
+            var scrollY = (p.meta.y / 100) * container.scrollHeight;
+            container.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+          } else {
+            var scrollY = (p.meta.y / 100) * document.documentElement.scrollHeight;
+            window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+          }
+          setTimeout(function () { Popup.showThread(p.id); }, 400);
+        }; })(pin));
 
         list.appendChild(item);
       });

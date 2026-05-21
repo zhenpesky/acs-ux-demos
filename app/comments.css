@@ -1162,14 +1162,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
   align-items: center;
   justify-content: center;
   gap: 0;
-  transition: background 0.15s, transform 0.12s, max-width 0.22s ease, padding 0.22s ease, gap 0.22s ease;
+  transition: background 0.15s, transform 0.12s;
   color: #fff;
   font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
 }
-.rhacs-fab__btn:hover,
+/* Unauthenticated: expand to show label by default */
 .rhacs-fab--unauthenticated .rhacs-fab__btn {
   max-width: 220px;
   padding: 0 16px 0 12px;
@@ -1194,10 +1194,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   white-space: nowrap;
   transition: max-width 0.2s ease, opacity 0.15s ease;
 }
-.rhacs-fab__btn:hover .rhacs-fab__label {
-  max-width: 180px;
-  opacity: 1;
-}
+/* No hover expand — label only shows in unauthenticated expanded state */
 /* Unauthenticated: keep label always expanded until user logs in */
 .rhacs-fab--unauthenticated .rhacs-fab__btn .rhacs-fab__label {
   max-width: 180px;

@@ -24,7 +24,7 @@
 
 /* ── Panel open: shift FAB left so it's never hidden behind the panel ───── */
 #rhacs-mount.rhacs-panel-open .rhacs-fab {
-  right: 344px; /* 320px panel + 24px original margin */
+  right: 328px; /* 320px panel + 8px new margin */
 }
 
 /* ── Comment mode cursor: restore normal cursor inside all comment UI ──────
@@ -932,8 +932,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 /* ── Floating action button ──────────────────────────────────────────────── */
 .rhacs-fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: 16px;
+  right: 8px;
   transition: right 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column-reverse;
@@ -947,7 +947,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-fab__btn {
   position: relative;
   height: 40px;
-  padding: 0 16px 0 12px;
+  padding: 0 12px;
   background: var(--pf-v6-global--palette--purple-400, #6753ac);
   border: none;
   border-radius: 20px;
@@ -955,7 +955,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   gap: 7px;
-  transition: background 0.15s, transform 0.12s, padding 0.2s;
+  transition: background 0.15s, transform 0.12s;
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -968,10 +968,33 @@ body.rhacs-comment-mode-active .rhacs-pin {
   flex-shrink: 0;
 }
 
+/* Label hidden by default — slides in on hover */
 .rhacs-fab__label {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.01em;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.2s ease, opacity 0.15s ease;
+}
+.rhacs-fab__btn:hover .rhacs-fab__label {
+  max-width: 180px;
+  opacity: 1;
+}
+
+/* Panel "View all" label hidden by default — slides in on hover */
+.rhacs-fab__panel-label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.2s ease, opacity 0.15s ease;
+}
+.rhacs-fab__panel-btn:hover .rhacs-fab__panel-label {
+  max-width: 60px;
+  opacity: 1;
 }
 
 .rhacs-fab__btn:hover {
@@ -1545,59 +1568,64 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: #fff5f5;
 }
 
-/* ── Comment mode: collapse guest wrap to icon pill, expand on hover ──────── */
+/* ── Guest wrap: always collapsed to icon pill, hover to expand ───────────── */
 
-/* Collapsed: hide text, arrow, and logout; show only icon as a 40px pill */
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
+/* Collapsed (default) — show only the person icon as a 40px pill */
+.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
   max-width: 0;
   opacity: 0;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__toggle,
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-guest-logout-btn {
+.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__toggle,
+.rhacs-guest-wrap:not(:hover) .rhacs-guest-logout-btn {
   display: none;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn {
+.rhacs-guest-wrap:not(:hover) .rhacs-split-btn {
   border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
   background: #fff;
   border-radius: 20px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.10);
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label {
+.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label {
   padding: 10px 12px;
   border-right: none;
   gap: 0;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
+.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
   width: 18px;
   height: 18px;
 }
 
-/* Expanded on hover: horizontal row expanding to the left */
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
-  flex-direction: row;
-  align-items: center;
-}
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn {
+/* Expanded on hover — vertical by default */
+.rhacs-guest-wrap:hover .rhacs-split-btn {
   border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
   background: #f9f9f9;
   border-radius: 6px;
   box-shadow: none;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label {
+.rhacs-guest-wrap:hover .rhacs-split-btn__label {
   padding: 7px 12px;
   border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
   gap: 6px;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label-icon svg {
+.rhacs-guest-wrap:hover .rhacs-split-btn__label-icon svg {
   width: 13px;
   height: 13px;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label-text {
+.rhacs-guest-wrap:hover .rhacs-split-btn__label-text {
   max-width: 80px;
   opacity: 1;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__toggle {
+.rhacs-guest-wrap:hover .rhacs-split-btn__toggle {
   display: inline-flex;
+}
+.rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
+  display: block;
+}
+
+/* In comment mode: expand horizontally instead of vertically */
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
+  flex-direction: row;
+  align-items: center;
 }
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
   display: inline-flex;

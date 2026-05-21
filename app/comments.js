@@ -415,6 +415,7 @@
     handleClick: function (e) {
       if (!S.commentMode) return;
       if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
+      e.stopPropagation(); // prevent the document click-outside handler from closing the popup we're about to open
       var ci = containerInfo();
       var x = ((e.clientX - ci.clientLeft + ci.scrollLeft) / Math.max(ci.scrollWidth,  1)) * 100;
       var y = ((e.clientY - ci.clientTop  + ci.scrollTop)  / Math.max(ci.scrollHeight, 1)) * 100;

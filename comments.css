@@ -15,7 +15,7 @@
   z-index: 9990;
   pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   line-height: 1.4;
   color: #24292f;
   box-sizing: border-box;
@@ -101,7 +101,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 700;
   color: #fff;
   cursor: pointer;
@@ -174,7 +174,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: var(--pf-v6-global--BackgroundColor--dark-100, #1b1d21);
   color: #fff;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 400;
   line-height: 1.5;
   padding: 6px 10px;
@@ -211,7 +211,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   box-shadow: var(--pf-v5-global--BoxShadow--lg, 0 8px 24px rgba(0,0,0,0.18));
   z-index: 9995;
   font-family: var(--pf-v5-global--FontFamily--text, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
-  font-size: var(--pf-v5-global--FontSize--sm, 13px);
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: var(--pf-v5-global--Color--100, #151515);
   box-sizing: border-box;
 }
@@ -261,7 +261,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-popup__title {
   font-weight: var(--pf-v5-global--FontWeight--bold, 700);
-  font-size: var(--pf-v5-global--FontSize--sm, 13px);
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
 }
 
 .rhacs-popup__header-left {
@@ -274,14 +274,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-popup__author {
   font-weight: var(--pf-v5-global--FontWeight--bold, 700);
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .rhacs-popup__time {
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: var(--pf-v5-global--Color--200, #6a6e73);
   white-space: nowrap;
 }
@@ -294,7 +294,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   padding: 10px 12px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: var(--pf-v5-global--FontSize--sm, 13px);
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
 }
 
 /* Textarea — PF6 applies pf-v6-c-form-control directly on the element */
@@ -317,7 +317,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-popup__input-error {
   display: none;
   margin: -4px 12px 6px;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: var(--pf-t--global--text--color--status--danger--default, #c9190b);
 }
 
@@ -392,7 +392,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-btn--sm {
   padding: 4px 10px;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
 }
 
 /* Compact inline row for Save/Cancel, Reply, etc. */
@@ -432,7 +432,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: 1px solid #d0d7de;
   border-radius: 20px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   padding: 2px 8px;
   display: inline-flex;
   align-items: center;
@@ -553,7 +553,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: var(--pf-v6-global--Color--100, #151515);
   font-family: inherit;
   white-space: nowrap;
@@ -588,7 +588,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
   padding: 6px 8px;
   background: #f6f8fa;
@@ -608,7 +608,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: none;
   color: var(--pf-v6-global--info-color--100, #0066cc);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   padding: 0;
   text-decoration: underline;
@@ -652,7 +652,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   justify-content: space-between;
   padding: 14px 14px 10px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   flex-shrink: 0;
 }
 
@@ -685,13 +685,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 4px;
   padding: 8px 8px;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
   font-weight: 400;
   transition: color 0.12s, border-color 0.12s;
@@ -718,7 +718,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: #eaecef;
   color: #57606a;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 600;
 }
 
@@ -742,7 +742,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   padding: 6px 28px 6px 30px;
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
   border-radius: var(--pf-v6-global--BorderRadius--sm, 4px);
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   line-height: 1.4;
   color: var(--pf-v6-global--Color--100, #151515);
@@ -813,7 +813,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__select-all-label {
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: #57606a;
   cursor: pointer;
@@ -863,13 +863,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__empty-title {
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 600;
   color: #57606a;
 }
 
 .rhacs-panel__empty-hint {
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #8c959f;
   line-height: 1.5;
 }
@@ -930,13 +930,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-panel__item-num {
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #6753ac;
 }
 
 .rhacs-panel__item-author {
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -944,13 +944,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__item-time {
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
   white-space: nowrap;
 }
 
 .rhacs-panel__state-badge {
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 10px;
@@ -967,7 +967,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__item-preview {
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
   white-space: nowrap;
   overflow: hidden;
@@ -977,7 +977,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-panel__item-replies {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #0052cc;
   padding: 0;
   padding-left: 22px;
@@ -1010,7 +1010,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__bulk-count {
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: #24292f;
   margin-right: 4px;
@@ -1026,7 +1026,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: var(--pf-v6-global--BorderRadius--sm, 4px);
   background: transparent;
   color: var(--pf-v6-global--primary-color--100, #0066cc);
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   font-weight: 400;
   line-height: 1.4;
@@ -1121,7 +1121,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-confirm-dialog__close:hover { color: #151515; }
 .rhacs-confirm-dialog__body {
   padding: 0 24px 20px;
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #3c3f42;
   line-height: 1.5;
 }
@@ -1161,7 +1161,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 7px;
   transition: background 0.15s, transform 0.12s;
   color: #fff;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1174,7 +1174,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 /* Label hidden by default — slides in on hover */
 .rhacs-fab__label {
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   letter-spacing: 0.01em;
   max-width: 0;
@@ -1234,7 +1234,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   color: #fff;
   border: 1.5px solid #fff;
   border-radius: 9px;
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1252,7 +1252,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #24292f;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   transition: background 0.12s, transform 0.12s;
@@ -1314,7 +1314,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: 1px solid #d0d7de;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   padding: 5px 12px;
   transition: background 0.12s, border-color 0.12s;
@@ -1334,13 +1334,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-color: #0041a3;
 }
 
-.rhacs-btn--sm { padding: 3px 8px; font-size: 12px; }
+.rhacs-btn--sm { padding: 3px 8px; font-size: var(--pf-v6-global--FontSize--md, 16px); }
 
 .rhacs-link-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   color: #0052cc;
   padding: 0;
@@ -1599,7 +1599,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-auth-dialog__sub {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
 }
 
@@ -1611,7 +1611,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: 8px;
   border: 1px solid #d0d7de;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   font-family: inherit;
   text-align: left;
@@ -1635,7 +1635,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-auth-dialog__btn span:nth-child(2) { flex: 1; }
 
 .rhacs-auth-dialog__badge {
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 10px;
@@ -1647,7 +1647,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-auth-dialog__features {
   margin: 0;
   padding: 0 0 0 14px;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #57606a;
   display: flex;
   flex-direction: column;
@@ -1660,7 +1660,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #8c959f;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1686,7 +1686,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 4px;
 }
 .rhacs-guest-field__label {
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: #57606a;
 }
@@ -1699,7 +1699,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   padding: 8px 10px;
   border: 1px solid #d0d7de;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   outline: none;
   box-sizing: border-box;
@@ -1713,7 +1713,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #8c959f;
   text-align: center;
   font-family: inherit;
@@ -1731,7 +1731,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: #57606a;
 }
@@ -1759,7 +1759,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: var(--pf-v6-global--Color--100, #151515);
   border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
@@ -1818,7 +1818,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
   border-radius: 20px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: var(--pf-v6-global--Color--100, #151515);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -1865,7 +1865,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 8px;
   width: 100%;
   padding: 9px 14px;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 400;
   color: var(--pf-v6-global--Color--100, #151515);
   background: none;
@@ -1911,7 +1911,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-guest-logout-btn {
   width: 100%;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 400;
   background: #fff;
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
@@ -2011,7 +2011,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   padding: 8px 14px;
   background: #fff8e6;
   border-bottom: 1px solid #e8d4a0;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #7d5800;
   line-height: 1.5;
 }
@@ -2021,7 +2021,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-family: inherit;
   color: #0052cc;
   text-decoration: underline;

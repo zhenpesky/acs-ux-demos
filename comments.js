@@ -452,10 +452,7 @@
         iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
 
         var titleEl = el('h3', { className: 'rhacs-auth-dialog__title' });
-        titleEl.appendChild(txt('Who are you?'));
-
-        var subEl = el('p', { className: 'rhacs-auth-dialog__sub' });
-        subEl.appendChild(txt('Enter your first name to continue. Title and company are optional.'));
+        titleEl.appendChild(txt('How would you like to be identified?'));
 
         function makeField(labelText, placeholder, required) {
           var wrap  = el('div', { className: 'rhacs-guest-field' });

@@ -668,7 +668,7 @@
         createdAt: new Date().toISOString(),
         author: guestAuthor || { login: 'Guest', name: 'Guest' },
         replies: [],
-        meta: Object.assign(parseMeta(body), { pinNumber: num, resolved: false }),
+        meta: Object.assign({}, parseMeta(body) || {}, { pinNumber: num, resolved: false }),
         _guest: true,
         _pendingUpload: true,
       };
@@ -1264,12 +1264,17 @@
       var num = S.pins.length + 1;
       Auth.requireAuth()
         .then(function () {
-          if (S.guestMode) {
-            // Guests can submit feedback but cannot see pins — post silently and close.
+          // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
+          if (S.guestMode && !S.token) {
             Auth.addGuestPin(text, x, y, num);
             Popup.close();
             FAB.setMode(false);
-            // S.pins stays empty; guests never see the overlay.
+            S.pins = Auth.loadGuestPins().map(function (p) {
+              if (!p.meta) p.meta = parseMeta(p.body);
+              return p;
+            });
+            Overlay.renderPins();
+            Notify.toast('Comment submitted — thank you!');
           } else {
             // Optimistic: show pin immediately, sync in background
             var body = buildBody(x, y, num, text);

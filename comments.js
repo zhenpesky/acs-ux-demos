@@ -943,8 +943,12 @@
           void Popup.el.offsetWidth;
           Popup.el.classList.add('rhacs-popup--shake');
           Popup.el.addEventListener('animationend', function removeShake() {
-            Popup.el.classList.remove('rhacs-popup--shake');
             Popup.el.removeEventListener('animationend', removeShake);
+            requestAnimationFrame(function () {
+              requestAnimationFrame(function () {
+                Popup.el.classList.remove('rhacs-popup--shake');
+              });
+            });
           });
           return;
         }
@@ -2367,8 +2371,12 @@
             void Popup.el.offsetWidth; // force reflow so the animation restarts
             Popup.el.classList.add('rhacs-popup--shake');
             Popup.el.addEventListener('animationend', function removeShake() {
-              Popup.el.classList.remove('rhacs-popup--shake');
               Popup.el.removeEventListener('animationend', removeShake);
+              requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                  Popup.el.classList.remove('rhacs-popup--shake');
+                });
+              });
             });
           } else {
             Popup.close();

@@ -1462,6 +1462,10 @@
       this.updateUser();
 
       document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && S.commentMode) {
+          FAB.setMode(false);
+          return;
+        }
         if (e.key !== 'c' && e.key !== 'C') return;
         var tag = document.activeElement && document.activeElement.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;

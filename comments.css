@@ -577,6 +577,16 @@
   max-width: calc(100vw - 48px);
   pointer-events: all;
   animation: rhacs-toast-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #1b1d21 !important;
+  color: #fff !important;
+  padding: 10px 14px !important;
+  border: none !important;
+}
+
+.rhacs-toast .pf-v6-c-alert__icon,
+.rhacs-toast .pf-v6-c-alert__title,
+.rhacs-toast .pf-v6-c-button {
+  color: #fff !important;
 }
 
 .rhacs-toast__close {

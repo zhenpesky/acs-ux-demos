@@ -898,7 +898,7 @@
     toastEl: null,
     timer: null,
     init: function () {
-      this.toastEl = el('div', { className: 'pf-v5-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
+      this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
       this.toastEl.setAttribute('aria-live', 'polite');
       this.toastEl.style.display = 'none';
       document.body.appendChild(this.toastEl);
@@ -907,13 +907,12 @@
       ms = ms || 4000;
       clearTimeout(this.timer);
       this.toastEl.innerHTML = '';
-      // PF alert structure: icon | title | action (close)
-      var iconEl = el('div', { className: 'pf-v5-c-alert__icon' });
+      var iconEl = el('div', { className: 'pf-v6-c-alert__icon' });
       iconEl.appendChild(txt('ℹ'));
-      var titleEl = el('p', { className: 'pf-v5-c-alert__title' });
+      var titleEl = el('p', { className: 'pf-v6-c-alert__title' });
       titleEl.appendChild(txt(msg));
-      var actionEl = el('div', { className: 'pf-v5-c-alert__action' });
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain' });
+      var actionEl = el('div', { className: 'pf-v6-c-alert__action' });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain' });
       closeBtn.setAttribute('aria-label', 'Close alert');
       closeBtn.appendChild(txt('×'));
       closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });

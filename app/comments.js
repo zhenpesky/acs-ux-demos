@@ -1260,11 +1260,11 @@
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
       fpTm.appendChild(txt(timeAgo(pin.createdAt)));
       append(fpHdr, fpAv, fpAu, fpTm);
-      if (isOwner) {
+      if (canDelete) {
         var msgKebab = Popup.makeKebab([
-          { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } },
+          isProtoOwner ? { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } } : null,
           { label: 'Delete', danger: true, action: function () { Popup.confirmDelete(pin.id); } }
-        ]);
+        ].filter(Boolean));
         fpHdr.appendChild(msgKebab);
       }
       var fpBody = el('div', { className: 'rhacs-reply__body' });

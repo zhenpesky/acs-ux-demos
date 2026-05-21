@@ -2264,10 +2264,20 @@
   }
 
   // Toggle the single mount wrapper — hides everything at once.
+  // Also resets per-page state so navigating to a new page never shows stale pins.
   function syncVisibility() {
     var active = isPrototypePage();
     var mount = rhacsMount();
     mount.style.display = active ? '' : 'none';
+
+    // Always clear per-page state on every navigation so stale pins from the
+    // previous page are never rendered on the new page.
+    S.discussionId = null;
+    S.pins = [];
+    S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
+    if (Overlay.pinLayerEl) Overlay.renderPins();
+    if (FAB.badge) FAB.updateBadge();
+
     // Close the panel and popup on every route/tab navigation
     Panel.close();
     Popup.close();
@@ -2277,6 +2287,9 @@
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
+    } else {
+      // Load the correct comments for the newly active prototype page
+      loadAndRender();
     }
   }
 

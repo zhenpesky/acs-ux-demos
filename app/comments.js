@@ -356,7 +356,9 @@
             S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
-            Auth.fetchUser().then(function () { FAB.updateUser(); resolve(S.user); });
+            Auth.fetchUser()
+              .then(function () { FAB.updateUser(); resolve(S.user); })
+              .catch(function (err) { reject(err || new Error('Failed to fetch GitHub user')); });
           } else {
             reject(new Error('GitHub login failed'));
           }
@@ -371,12 +373,22 @@
     fetchUser: function () {
       if (!S.token) return Promise.resolve();
       return fetch('https://api.github.com/user', { headers: { Authorization: 'token ' + S.token } })
-        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (r) {
+          if (r.status === 401) {
+            // Token is invalid — clear it so we don't loop
+            console.warn('[rhacs] GitHub token rejected (401), clearing.');
+            S.token = null;
+            localStorage.removeItem(CFG.tokenKey);
+            return Promise.reject(new Error('GitHub token invalid or expired. Please log in again.'));
+          }
+          if (!r.ok) return Promise.reject(new Error('GitHub API error: ' + r.status));
+          return r.json();
+        })
         .then(function (u) {
           if (!u) return;
           S.user = { login: u.login, avatarUrl: u.avatar_url, name: u.name };
           localStorage.setItem(CFG.userKey, JSON.stringify(S.user));
-        }).catch(function () {});
+        });
     },
     logout: function () {
       S.token = null; S.user = null; S.guestMode = false;
@@ -1883,7 +1895,12 @@
 
     // If token exists but user profile is missing, fetch it now (e.g. after page reload)
     var userPromise = (S.token && !S.user)
-      ? Auth.fetchUser().then(function () { FAB.updateUser(); })
+      ? Auth.fetchUser()
+          .then(function () { FAB.updateUser(); })
+          .catch(function (e) {
+            console.warn('[rhacs] fetchUser on init failed:', e && e.message);
+            FAB.updateUser(); // still update so the UI reflects logged-out state
+          })
       : Promise.resolve();
 
     userPromise.then(function () {

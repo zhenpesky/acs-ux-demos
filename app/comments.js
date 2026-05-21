@@ -1033,7 +1033,10 @@
       var pin = S.pins.find(function (p) { return p.id === pinId; });
       if (!pin) return;
       this.el.innerHTML = '';
-      var isOwner = S.user && pin.author.login === S.user.login;
+      var isOwner = S.user && (
+        String(pin.id).startsWith('guest-') ||          // guest pins always owned by current session
+        pin.author.login === S.user.login               // GitHub pins matched by login
+      );
 
       // ── Level 1: conversation header with conversation-level kebab ──
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1181,6 +1184,17 @@
         .catch(function (e) { Notify.toast(e.message); });
     },
     toggleResolve: function (pin) {
+      if (String(pin.id).startsWith('guest-')) {
+        var guestPins = Auth.loadGuestPins();
+        var idx = guestPins.findIndex(function (p) { return p.id === pin.id; });
+        if (idx !== -1) {
+          guestPins[idx].body = setMeta(guestPins[idx].body, { resolved: !pin.meta.resolved });
+          if (guestPins[idx].meta) guestPins[idx].meta.resolved = !pin.meta.resolved;
+          Auth.saveGuestPins(guestPins);
+        }
+        loadAndRender().then(function () { Popup.close(); Panel.render(); });
+        return;
+      }
       Auth.requireLogin()
         .then(function () { return updateComment(pin.id, setMeta(pin.body, { resolved: !pin.meta.resolved })); })
         .then(function () { return loadAndRender(); })
@@ -1200,6 +1214,21 @@
         if (!newText) return;
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving…';
+
+        if (String(pin.id).startsWith('guest-')) {
+          // Guest pin: update in localStorage
+          var guestPins = Auth.loadGuestPins();
+          var idx = guestPins.findIndex(function (p) { return p.id === pin.id; });
+          if (idx !== -1) {
+            var metaMatch2 = guestPins[idx].body.match(/<!--\s*RHACS_PIN[\s\S]*?-->/);
+            var metaPart2  = metaMatch2 ? metaMatch2[0] : '';
+            guestPins[idx].body = metaPart2 + '\n' + newText;
+            Auth.saveGuestPins(guestPins);
+          }
+          loadAndRender().then(function () { Popup.showThread(pin.id); });
+          return;
+        }
+
         var metaMatch = pin.body.match(/<!--\s*RHACS_PIN[\s\S]*?-->/);
         var metaPart  = metaMatch ? metaMatch[0] : '';
         updateComment(pin.id, metaPart + '\n' + newText)

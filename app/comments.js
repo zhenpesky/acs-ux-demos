@@ -1776,32 +1776,8 @@
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   var Notify = {
-    toastEl: null,
-    timer: null,
-    init: function () {
-      this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
-      this.toastEl.setAttribute('aria-live', 'polite');
-      this.toastEl.style.display = 'none';
-      rhacsMount().appendChild(this.toastEl);
-    },
-    toast: function (msg, ms) {
-      ms = ms || 4000;
-      clearTimeout(this.timer);
-      this.toastEl.innerHTML = '';
-      var iconEl = el('div', { className: 'pf-v6-c-alert__icon' });
-      iconEl.appendChild(txt('ℹ'));
-      var titleEl = el('p', { className: 'pf-v6-c-alert__title' });
-      titleEl.appendChild(txt(msg));
-      var actionEl = el('div', { className: 'pf-v6-c-alert__action' });
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain' });
-      closeBtn.setAttribute('aria-label', 'Close alert');
-      closeBtn.appendChild(txt('×'));
-      closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });
-      actionEl.appendChild(closeBtn);
-      append(this.toastEl, iconEl, titleEl, actionEl);
-      this.toastEl.style.display = 'flex';
-      this.timer = setTimeout(function () { Notify.toastEl.style.display = 'none'; }, ms);
-    },
+    init: function () { /* toast removed */ },
+    toast: function () { /* toasts disabled */ },
     startPolling: function () {
       var poll = function () {
         if (document.visibilityState !== 'visible') return;
@@ -1829,7 +1805,6 @@
       S.unread += count;
       document.title = '(' + S.unread + ') ' + S.origTitle;
       FAB.updateBadge();
-      Notify.toast(count + ' new comment' + (count > 1 ? 's' : '') + ' added');
     },
     clearUnread: function () {
       S.unread = 0;

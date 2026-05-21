@@ -895,58 +895,7 @@
 }
 .rhacs-btn--light:hover { background: rgba(0,0,0,0.1); }
 
-/* ── Toast notification ───────────────────────────────────────────────────── */
-@keyframes rhacs-toast-enter {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.97); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
-}
-.rhacs-toast {
-  position: fixed;
-  bottom: 88px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 9998;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.22);
-  max-width: calc(100vw - 48px);
-  pointer-events: all;
-  animation: rhacs-toast-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  background: #fff !important;
-  border: 1px solid #bee1f4 !important;
-  border-left: 4px solid var(--pf-v6-global--info-color--100, #0066cc) !important;
-  color: #24292f !important;
-  padding: 10px 14px !important;
-  white-space: normal;
-}
-
-.rhacs-toast .pf-v6-c-alert__icon {
-  color: var(--pf-v6-global--info-color--100, #0066cc) !important;
-  flex-shrink: 0;
-}
-.rhacs-toast .pf-v6-c-alert__title {
-  color: #24292f !important;
-  font-weight: 500;
-  flex: 1;
-}
-.rhacs-toast .pf-v6-c-button { color: #57606a !important; }
-
-.rhacs-toast__close {
-  background: none;
-  border: none;
-  color: #57606a;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.rhacs-toast__close:hover { color: #fff; }
+/* toast removed */
 
 /* ── Shared atoms ─────────────────────────────────────────────────────────── */
 .rhacs-avatar {
@@ -1109,8 +1058,6 @@
     border-color: #30363d;
     color: #e6edf3;
   }
-
-  .rhacs-toast__close { color: #57606a; }
 
   .rhacs-btn {
     background: #21262d;

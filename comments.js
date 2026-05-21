@@ -37,17 +37,16 @@
     unread:       0,
     origTitle:    document.title,
     pollTimer:    null,
-    pageViewState: 'view', // 'view' | 'edit' — detected from DOM
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
-  // PatternFly SPAs scroll inside .pf-v6-c-page__main rather than window/body.
+  // PatternFly SPAs scroll inside .pf-v5-c-page__main rather than window/body.
   // We detect this read-only (never move the overlay into it) and recompute each
   // pin's viewport position on every scroll / resize event.
 
   function findScrollContainer() {
     // Try PF-specific selectors first (most reliable, avoids false positives)
-    var pf = ['.pf-v6-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
+    var pf = ['.pf-v5-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
     for (var i = 0; i < pf.length; i++) {
       var c = document.querySelector(pf[i]);
       if (c && c.scrollHeight > c.clientHeight + 4) return c;
@@ -100,6 +99,24 @@
     };
   }
 
+  // ── Page-state detection ─────────────────────────────────────────────────────
+  // The prototype has two distinct states: read-only view and edit form.
+  // Pins are scoped to the state they were dropped in so they don't bleed across.
+  function detectViewState() {
+    var main = document.querySelector('.pf-v6-c-page__main, .pf-c-page__main, main');
+    if (!main) return 'view';
+    // Edit state: non-trivial form inputs exist in the app content area
+    // (exclude our own commenting textareas, and search/hidden/checkbox inputs)
+    var appInputs = Array.prototype.slice.call(
+      main.querySelectorAll('input, select, .pf-v6-c-form-control')
+    ).filter(function (el) {
+      if (el.closest('#rhacs-comment-root') || el.closest('#rhacs-popup') || el.closest('#rhacs-panel')) return false;
+      var t = (el.getAttribute('type') || '').toLowerCase();
+      return t !== 'hidden' && t !== 'search' && t !== 'checkbox' && t !== 'radio';
+    });
+    return appInputs.length > 0 ? 'edit' : 'view';
+  }
+
   // ── Utility helpers ───────────────────────────────────────────────────────────
   function timeAgo(iso) {
     var s = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -120,8 +137,7 @@
   }
 
   function buildBody(x, y, num, text) {
-    var vs = detectViewState();
-    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: vs }) + '-->\n' + text;
+    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num }) + ' -->\n' + text;
   }
 
   function setMeta(body, updates) {
@@ -336,7 +352,7 @@
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = []; Overlay._pinEls = {}; Overlay.renderPins(); return; }
+        if (!id) { S.pins = []; Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
           S.pins = parseComments(comments);
@@ -359,7 +375,6 @@
     root: null,
     overlayEl: null,
     _scrollListener: null,
-    _pinEls: {},   // cache of pinId -> DOM element for smooth scroll updates
 
     init: function () {
       this.root = el('div', { id: 'rhacs-comment-root' });
@@ -407,59 +422,27 @@
     },
 
     renderPins: function () {
-      S.pageViewState = detectViewState();
-
-      // Which pins are visible in the current state
-      var visibleMap = {};
+      this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
-        if (pin.meta.viewState && pin.meta.viewState !== S.pageViewState) return;
-        visibleMap[pin.id] = pin;
-      });
-
-      // Remove cached pins no longer visible (animate out)
-      Object.keys(Overlay._pinEls).forEach(function (id) {
-        if (!visibleMap[id]) {
-          var dying = Overlay._pinEls[id];
-          dying.classList.add('rhacs-pin--exit');
-          setTimeout(function () { if (dying.parentNode) dying.parentNode.removeChild(dying); }, 200);
-          delete Overlay._pinEls[id];
-        }
-      });
-
-      // Update or create each visible pin
-      S.pins.forEach(function (pin) {
-        if (!visibleMap[pin.id]) return;
-        var vp        = pinToViewport(pin.meta);
-        var isUnread  = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var vp = pinToViewport(pin.meta);
+        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
         var isResolved = pin.meta.resolved;
-        var baseCls   = 'rhacs-pin' +
+        var cls = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '');
-
-        if (Overlay._pinEls[pin.id]) {
-          // Existing pin — just update position and classes (no animation replay)
-          var pinEl = Overlay._pinEls[pin.id];
-          pinEl.className = baseCls;
-          pinEl.style.left       = vp.left + 'px';
-          pinEl.style.top        = vp.top  + 'px';
-          pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
-        } else {
-          // New pin — create with entrance animation
-          var pinEl = el('div', { className: baseCls + ' rhacs-pin--enter', 'data-pin-id': pin.id });
-          pinEl.appendChild(txt(String(pin.meta.pinNumber)));
-          pinEl.style.left       = vp.left + 'px';
-          pinEl.style.top        = vp.top  + 'px';
-          pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
-          pinEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            Popup.showThread(pin.id);
-          });
-          Overlay.overlayEl.appendChild(pinEl);
-          Overlay._pinEls[pin.id] = pinEl;
-          // Remove enter class after animation completes
-          setTimeout(function () { pinEl.classList.remove('rhacs-pin--enter'); }, 300);
-        }
+        var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
+        pinEl.appendChild(txt(String(pin.meta.pinNumber)));
+        // Fixed-pixel viewport position (pin scrolls with content because we
+        // subtract the container's scrollTop/scrollLeft each render)
+        pinEl.style.left       = vp.left + 'px';
+        pinEl.style.top        = vp.top  + 'px';
+        pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
+        pinEl.addEventListener('click', function (e) {
+          e.stopPropagation();
+          Popup.showThread(pin.id);
+        });
+        Overlay.overlayEl.appendChild(pinEl);
       });
     },
 
@@ -489,10 +472,6 @@
     },
     positionFixed: function (clientX, clientY) {
       this.el.style.display = 'block';
-      // Force entrance animation to replay each time popup opens
-      this.el.style.animation = 'none';
-      void this.el.offsetHeight; // trigger reflow
-      this.el.style.animation = '';
       var margin = 16;
       var pw = this.el.offsetWidth  || 320;
       var ph = this.el.offsetHeight || 220;
@@ -512,7 +491,7 @@
       var header = el('div', { className: 'rhacs-popup__header' });
       var titleEl = el('span', { className: 'rhacs-popup__title' });
       titleEl.appendChild(txt('Add comment'));
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(header, titleEl, closeBtn);
@@ -672,9 +651,12 @@
     },
     showEdit: function (pin, bodyEl) {
       bodyEl.innerHTML = '';
-      var editArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', rows: '3' });
+      var editWrap = el('div', { className: 'pf-v5-c-form-control rhacs-popup__form-ctrl' });
+      var editArea = document.createElement('textarea');
+      editArea.rows = 3;
       editArea.value = pinText(pin.body);
-      var saveBtn = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
+      editWrap.appendChild(editArea);
+      var saveBtn = el('button', { className: 'pf-v5-c-button pf-m-primary pf-m-small' });
       saveBtn.appendChild(txt('Save'));
       saveBtn.addEventListener('click', function () {
         var newText = editArea.value.trim();
@@ -686,7 +668,7 @@
           .then(function () { Popup.showThread(pin.id); })
           .catch(function (e) { Notify.toast(e.message); });
       });
-      append(bodyEl, editArea, saveBtn);
+      append(bodyEl, editWrap, saveBtn);
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
@@ -697,7 +679,7 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
@@ -707,7 +689,7 @@
       bd.appendChild(txt(reply.body));
       append(wrap, hdr, bd);
       if (S.user && reply.author.login === S.user.login) {
-        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-danger' });
+        var delBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-danger' });
         delBtn.appendChild(txt('Delete'));
         delBtn.addEventListener('click', function () {
           if (!confirm('Delete this reply?')) return;
@@ -759,22 +741,17 @@
       var hdr  = el('div', { className: 'rhacs-panel__header' });
       var title = el('span', { className: 'rhacs-panel__title' }); title.appendChild(txt('Comments'));
       var hdrActions = el('div', { className: 'rhacs-panel__header-actions' });
-      var showResBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-small' });
+      var showResBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-small' });
       showResBtn.appendChild(txt(Panel.showResolved ? 'Hide resolved' : 'Show resolved'));
       showResBtn.addEventListener('click', function () { Panel.showResolved = !Panel.showResolved; Panel.render(); });
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
+      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(hdrActions, showResBtn, closeBtn);
       append(hdr, title, hdrActions);
       this.el.appendChild(hdr);
 
-      var vs = detectViewState();
-      var visible = S.pins.filter(function (p) {
-        if (!p.meta) return false;
-        if (p.meta.viewState && p.meta.viewState !== vs) return false;
-        return Panel.showResolved || !p.meta.resolved;
-      });
+      var visible = S.pins.filter(function (p) { return p.meta && (Panel.showResolved || !p.meta.resolved); });
       if (visible.length === 0) {
         var empty = el('div', { className: 'rhacs-panel__empty' });
         empty.appendChild(txt('No comments yet. Click the comment button to add one.'));
@@ -791,8 +768,8 @@
         var item = el('div', { className: cls });
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
-        var av  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
-        var num = el('span', { className: 'pf-v6-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
+        var av  = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
@@ -809,7 +786,7 @@
 
         if (pin.replies && pin.replies.length > 0) {
           var replyCount = el('div', { className: 'rhacs-panel__item-replies' });
-          var rc = el('span', { className: 'pf-v6-c-badge' });
+          var rc = el('span', { className: 'pf-v5-c-badge' });
           rc.appendChild(txt(String(pin.replies.length)));
           replyCount.appendChild(rc);
           replyCount.appendChild(txt(' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
@@ -891,13 +868,13 @@
       if (!this.userEl) return;
       this.userEl.innerHTML = '';
       if (S.user) {
-        var av = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
-        var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-plain pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
+        var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var logoutBtn = el('button', { className: 'pf-v5-c-button pf-m-plain pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('↩'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
+        var loginBtn = el('button', { className: 'pf-v5-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
         loginBtn.appendChild(txt('Login'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {
@@ -921,7 +898,7 @@
     toastEl: null,
     timer: null,
     init: function () {
-      this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
+      this.toastEl = el('div', { className: 'pf-v5-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
       this.toastEl.setAttribute('aria-live', 'polite');
       this.toastEl.style.display = 'none';
       document.body.appendChild(this.toastEl);
@@ -931,12 +908,12 @@
       clearTimeout(this.timer);
       this.toastEl.innerHTML = '';
       // PF alert structure: icon | title | action (close)
-      var iconEl = el('div', { className: 'pf-v6-c-alert__icon' });
+      var iconEl = el('div', { className: 'pf-v5-c-alert__icon' });
       iconEl.appendChild(txt('ℹ'));
-      var titleEl = el('p', { className: 'pf-v6-c-alert__title' });
+      var titleEl = el('p', { className: 'pf-v5-c-alert__title' });
       titleEl.appendChild(txt(msg));
-      var actionEl = el('div', { className: 'pf-v6-c-alert__action' });
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain' });
+      var actionEl = el('div', { className: 'pf-v5-c-alert__action' });
+      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain' });
       closeBtn.setAttribute('aria-label', 'Close alert');
       closeBtn.appendChild(txt('×'));
       closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });
@@ -1037,28 +1014,6 @@
     }).then(function () {
       Notify.startPolling();
     });
-
-    // Watch for DOM changes (e.g. clicking Edit/Cancel) and re-render pins
-    // so only the pins for the current view state are shown.
-    setTimeout(function () {
-      var watchTarget = document.querySelector('.pf-v6-c-page__main, .pf-c-page__main, main') || document.body;
-      var observer = new MutationObserver(function () {
-        var newState = detectViewState();
-        if (newState !== S.pageViewState) {
-          S.pageViewState = newState;
-          Overlay.renderPins();
-          if (Panel.el && Panel.el.classList.contains('rhacs-panel--open')) Panel.render();
-          // Close popup if its pin is no longer visible in the new state
-          if (S.activePinId) {
-            var activePin = S.pins.find(function (p) { return p.id === S.activePinId; });
-            if (activePin && activePin.meta && activePin.meta.viewState && activePin.meta.viewState !== newState) {
-              Popup.close();
-            }
-          }
-        }
-      });
-      observer.observe(watchTarget, { childList: true, subtree: true });
-    }, 3000); // delay until React is stable
   }
 
   if (document.readyState === 'loading') {

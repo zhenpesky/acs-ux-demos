@@ -1434,7 +1434,7 @@
   // ── Side Panel ────────────────────────────────────────────────────────────────
   var Panel = {
     el: null,
-    activeTab: 'all', // 'all' | 'unresolved' | 'resolved'
+    activeTab: 'unread', // 'unread' | 'all' | 'unresolved' | 'resolved'
     init: function () {
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
       rhacsMount().appendChild(this.el);
@@ -1476,9 +1476,10 @@
     },
     renderEmpty: function (tab) {
       var msgs = {
-        all:        { title: 'No comments yet',       hint: 'Click anywhere on the page to pin a comment.' },
-        unresolved: { title: 'No open comments',      hint: 'All comments have been resolved.' },
-        resolved:   { title: 'No resolved comments',  hint: 'Resolved comments will appear here.' },
+        unread:     { title: 'All caught up',          hint: 'No new comments since your last visit.' },
+        all:        { title: 'No comments yet',        hint: 'Click anywhere on the page to pin a comment.' },
+        unresolved: { title: 'No open comments',       hint: 'All comments have been resolved.' },
+        resolved:   { title: 'No resolved comments',   hint: 'Resolved comments will appear here.' },
       };
       var m = msgs[tab] || msgs.all;
       var empty = el('div', { className: 'rhacs-panel__empty' });
@@ -1519,13 +1520,15 @@
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
+      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen; });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
 
       var tabs = [
-        { id: 'all',        label: 'All',        count: allPins.length },
-        { id: 'unresolved', label: 'Unresolved', count: unresolvedPins.length },
-        { id: 'resolved',   label: 'Resolved',   count: resolvedPins.length },
+        { id: 'unread',     label: 'Unread',     count: unreadPins.length },
+        { id: 'all',        label: 'All',         count: allPins.length },
+        { id: 'unresolved', label: 'Unresolved',  count: unresolvedPins.length },
+        { id: 'resolved',   label: 'Resolved',    count: resolvedPins.length },
       ];
 
       var tabList = el('div', { className: 'rhacs-panel__tabs', role: 'tablist' });
@@ -1547,7 +1550,8 @@
       this.el.appendChild(tabList);
 
       // ── Visible pins for active tab ───────────────────────────────────────
-      var visible = Panel.activeTab === 'all'        ? allPins
+      var visible = Panel.activeTab === 'unread'     ? unreadPins
+                  : Panel.activeTab === 'all'        ? allPins
                   : Panel.activeTab === 'unresolved' ? unresolvedPins
                   : resolvedPins;
 

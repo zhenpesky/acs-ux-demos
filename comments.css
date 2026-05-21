@@ -24,7 +24,7 @@
 
 /* ── Panel open: shift FAB left so it's never hidden behind the panel ───── */
 #rhacs-mount.rhacs-panel-open .rhacs-fab {
-  right: 324px; /* 300px panel + 24px original margin */
+  right: 344px; /* 320px panel + 24px original margin */
 }
 
 /* ── Comment mode cursor: restore normal cursor inside all comment UI ──────
@@ -626,7 +626,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-panel {
   top: 0;
   right: 0;
-  width: 300px;
+  width: 320px;
   height: 100vh;
   border-radius: 0;
   border-right: none;

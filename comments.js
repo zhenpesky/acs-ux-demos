@@ -1099,7 +1099,7 @@
       var popupEl = this.el;
       var margin = 12;
       var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
-      var panelW    = panelOpen ? 300 : 0;
+      var panelW    = panelOpen ? 320 : 0;
       var vw = window.innerWidth - panelW, vh = window.innerHeight;
       popupEl.style.display = 'block';
       // Temporarily remove max-height to measure true content height
@@ -1773,7 +1773,7 @@
           'margin-right 0.26s cubic-bezier(0.16,1,0.3,1)';
         page._rhacsTransitionSet = true;
       }
-      page.style.marginRight = open ? '300px' : '';
+      page.style.marginRight = open ? '320px' : '';
     },
     open: function () {
       this.render(); // render BEFORE updating lastSeen so unread yellows show

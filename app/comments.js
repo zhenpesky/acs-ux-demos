@@ -835,29 +835,62 @@
     });
   }
 
+  // Debounced pin re-render after page layout settles (React hydrate, fonts, images).
+  var _layoutSettleRenderTimer = null;
+  var _layoutSettleObserverUntil = 0;
+
+  function scheduleRenderPinsAfterLayout() {
+    if (_layoutSettleRenderTimer) clearTimeout(_layoutSettleRenderTimer);
+    _layoutSettleRenderTimer = setTimeout(function () {
+      _layoutSettleRenderTimer = null;
+      requestAnimationFrame(function () {
+        if (Overlay.pinLayerEl) Overlay.renderPins();
+      });
+    }, 300);
+  }
+
+  function startLayoutSettleObserver() {
+    if (!window.ResizeObserver || Overlay._layoutSettleRO) return;
+    _layoutSettleObserverUntil = Date.now() + 5000;
+    var lastHeight = document.documentElement.scrollHeight;
+    var debounceTimer = null;
+    Overlay._layoutSettleRO = new ResizeObserver(function () {
+      if (Date.now() > _layoutSettleObserverUntil) return;
+      var h = document.documentElement.scrollHeight;
+      if (Math.abs(h - lastHeight) < 8) return;
+      lastHeight = h;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function () {
+        debounceTimer = null;
+        requestAnimationFrame(function () { Overlay.refresh(); });
+      }, 100);
+    });
+    Overlay._layoutSettleRO.observe(document.body);
+  }
+
   function loadAndRender() {
     // Comments are only visible to GitHub-authenticated users.
     // Guests and unauthenticated visitors can add comments but cannot see pins.
     if (!S.token) {
       S.pins = [];
-      if (Overlay.pinLayerEl) Overlay.renderPins();
+      if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
       if (FAB.badge) FAB.updateBadge();
       return Promise.resolve();
     }
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = []; Overlay.renderPins(); return; }
+        if (!id) { S.pins = []; scheduleRenderPinsAfterLayout(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
           S.pins = parseComments(comments);
-          Overlay.renderPins();
+          scheduleRenderPinsAfterLayout();
           FAB.updateBadge();
         });
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
         S.pins = [];
-        Overlay.renderPins();
+        scheduleRenderPinsAfterLayout();
       });
   }
 
@@ -896,6 +929,13 @@
       window.addEventListener('resize', function () { Overlay.refresh(); });
       // Use capturing scroll so we catch scroll on any nested element
       document.addEventListener('scroll', function () { Overlay.onScroll(); }, true);
+
+      // Re-render after fonts/images load — they change document height.
+      window.addEventListener('load', function () {
+        if (Overlay.pinLayerEl) Overlay.refresh();
+      });
+
+      startLayoutSettleObserver();
 
       // Re-detect scroll container after React finishes hydrating
       setTimeout(function () { Overlay.refresh(); }, 800);

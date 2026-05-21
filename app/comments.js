@@ -830,7 +830,9 @@
       this._anchorY = clientY;
       var popupEl = this.el;
       var margin = 12;
-      var vw = window.innerWidth, vh = window.innerHeight;
+      var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
+      var panelW    = panelOpen ? 300 : 0;
+      var vw = window.innerWidth - panelW, vh = window.innerHeight;
       popupEl.style.display = 'block';
       // Temporarily remove max-height to measure true content height
       var prevMaxH = popupEl.style.maxHeight;
@@ -895,9 +897,10 @@
     reposition: function () {
       var popupEl = this.el;
       if (!popupEl || popupEl.style.display === 'none' || popupEl.style.visibility === 'hidden') return;
-      var margin = 12;
+      var margin    = 12;
+      var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
       var vh = window.innerHeight;
-      var vw = window.innerWidth;
+      var vw = window.innerWidth - (panelOpen ? 300 : 0);
 
       // Let content determine natural height — remove any previous cap first
       if (Popup._ro) Popup._ro.disconnect();

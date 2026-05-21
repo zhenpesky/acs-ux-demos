@@ -708,12 +708,12 @@
 .rhacs-panel__item:hover { background: #f6f8fa; }
 
 .rhacs-panel__item--unread {
-  background: #f0f6ff;
-  border-left: 3px solid #0052cc;
+  background: #fefce8;
+  border-left: 3px solid #6753ac;
   padding-left: 11px;
 }
 
-.rhacs-panel__item--unread:hover { background: #dbeafe; }
+.rhacs-panel__item--unread:hover { background: #fef9c3; }
 
 .rhacs-panel__item--resolved { opacity: 0.55; }
 
@@ -727,7 +727,7 @@
 .rhacs-panel__item-num {
   font-weight: 700;
   font-size: 11px;
-  color: #0052cc;
+  color: #6753ac;
 }
 
 .rhacs-panel__item-author {
@@ -1037,11 +1037,11 @@
   .rhacs-panel__item:hover { background: #1c2128; }
 
   .rhacs-panel__item--unread {
-    background: #131c2e;
-    border-left-color: #388bfd;
+    background: #2a2510;
+    border-left-color: #6753ac;
   }
 
-  .rhacs-panel__item--unread:hover { background: #1a2a45; }
+  .rhacs-panel__item--unread:hover { background: #33300f; }
 
   .rhacs-panel__item-num { color: #388bfd; }
 

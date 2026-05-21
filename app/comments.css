@@ -856,11 +856,16 @@
 }
 
 .rhacs-fab--active .rhacs-fab__btn {
-  background: var(--pf-v6-global--palette--purple-400, #6753ac);
+  background: #fff;
+  color: var(--pf-v6-global--palette--purple-400, #6753ac);
+  border: 1.5px solid var(--pf-v6-global--palette--purple-400, #6753ac);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
 
 .rhacs-fab--active .rhacs-fab__btn:hover {
-  background: var(--pf-v6-global--palette--purple-500, #4f3e8c);
+  background: var(--pf-v6-global--palette--purple-50, #f5f0ff);
+  border-color: var(--pf-v6-global--palette--purple-500, #4f3e8c);
+  color: var(--pf-v6-global--palette--purple-500, #4f3e8c);
 }
 
 .rhacs-fab__badge {
@@ -1078,7 +1083,14 @@
 
   .rhacs-fab__btn { background: var(--pf-v6-global--palette--purple-400, #6753ac); }
   .rhacs-fab__btn:hover { background: var(--pf-v6-global--palette--purple-500, #4f3e8c); }
-  .rhacs-fab--active .rhacs-fab__btn { background: var(--pf-v6-global--palette--purple-400, #6753ac); }
+  .rhacs-fab--active .rhacs-fab__btn {
+    background: #1f2937;
+    color: var(--pf-v6-global--palette--purple-300, #a08de8);
+    border-color: var(--pf-v6-global--palette--purple-300, #a08de8);
+  }
+  .rhacs-fab--active .rhacs-fab__btn:hover {
+    background: #2d3748;
+  }
 
   .rhacs-fab__panel-btn {
     background: #21262d;

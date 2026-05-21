@@ -1546,19 +1546,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 /* ── Comment mode: collapse guest wrap to icon pill, expand on hover ──────── */
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap {
-  transition: gap 0.2s ease;
-}
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap .rhacs-split-btn {
-  border-color: transparent;
-  background: transparent;
-}
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap .rhacs-split-btn__label {
-  padding: 5px 6px;
-  border-right: none;
-  gap: 0;
-}
-/* Collapse: hide text, toggle arrow, and logout button */
+
+/* Collapsed: hide text, arrow, and logout; show only icon as a 40px pill */
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
   max-width: 0;
   opacity: 0;
@@ -1567,24 +1556,44 @@ body.rhacs-comment-mode-active .rhacs-pin {
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-guest-logout-btn {
   display: none;
 }
-/* Expand on hover: restore full layout */
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn {
+  border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label {
+  padding: 10px 12px;
+  border-right: none;
+  gap: 0;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Expanded on hover: restore full split-button look */
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn {
   border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
   background: #f9f9f9;
+  border-radius: 6px;
+  box-shadow: none;
 }
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label {
   padding: 7px 12px;
   border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
   gap: 6px;
 }
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label-icon svg {
+  width: 13px;
+  height: 13px;
+}
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label-text {
   max-width: 80px;
   opacity: 1;
 }
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__toggle,
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
-  display: flex;
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__toggle {
+  display: inline-flex;
 }
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
   display: block;

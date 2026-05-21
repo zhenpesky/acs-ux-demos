@@ -107,22 +107,50 @@
     };
   }
 
-  // ── Page-state detection ─────────────────────────────────────────────────────
-  // The prototype has two distinct states: read-only view and edit form.
-  // Pins are scoped to the state they were dropped in so they don't bleed across.
+  // ── Page-state detection (4-state CRUD) ──────────────────────────────────────
+  // Priority: URL signals → visible delete dialog → DOM form signals → view
   function detectViewState() {
+    var url = window.location.href.toLowerCase();
+    var params = new URLSearchParams(window.location.search);
+    var mode = (params.get('mode') || '').toLowerCase();
+
+    // 1. URL / query-param signals
+    if (/\/create(\/|$)|\bnew\b|mode=create/.test(url) || mode === 'create') return 'create';
+    if (/\/edit(\/|$)|[?&]edit=|mode=edit/.test(url) || mode === 'edit') return 'edit';
+    if (/\/delete(\/|$)|mode=delete/.test(url) || mode === 'delete') return 'delete';
+
+    // 2. Visible PF6 modal/dialog with delete/remove action
+    var dialogs = document.querySelectorAll(
+      '.pf-v6-c-modal-box, .pf-c-modal-box, [role="dialog"], [role="alertdialog"]'
+    );
+    for (var d = 0; d < dialogs.length; d++) {
+      var dlg = dialogs[d];
+      if (getComputedStyle(dlg).display === 'none') continue;
+      var dlgText = (dlg.textContent || '').toLowerCase();
+      if (/\bdelete\b|\bremove\b|\bdestroy\b/.test(dlgText)) return 'delete';
+    }
+
+    // 3. DOM form signals — non-trivial inputs in app content (exclude our own UI)
     var main = document.querySelector('.pf-v6-c-page__main, .pf-c-page__main, main');
     if (!main) return 'view';
-    // Edit state: non-trivial form inputs exist in the app content area
-    // (exclude our own commenting textareas, and search/hidden/checkbox inputs)
     var appInputs = Array.prototype.slice.call(
-      main.querySelectorAll('input, select, .pf-v6-c-form-control')
+      main.querySelectorAll('input, select, textarea, .pf-v6-c-form-control')
     ).filter(function (el) {
       if (el.closest('#rhacs-comment-root') || el.closest('#rhacs-popup') || el.closest('#rhacs-panel')) return false;
       var t = (el.getAttribute('type') || '').toLowerCase();
-      return t !== 'hidden' && t !== 'search' && t !== 'checkbox' && t !== 'radio';
+      if (t === 'hidden' || t === 'search' || t === 'checkbox' || t === 'radio') return false;
+      return true;
     });
-    return appInputs.length > 0 ? 'edit' : 'view';
+
+    if (appInputs.length > 0) {
+      // Create vs edit: if most required fields are empty → creating, otherwise editing
+      var filledCount = appInputs.filter(function (el) {
+        return (el.value || '').trim().length > 0;
+      }).length;
+      return filledCount === 0 ? 'create' : 'edit';
+    }
+
+    return 'view';
   }
 
   // ── Utility helpers ───────────────────────────────────────────────────────────
@@ -160,7 +188,7 @@
   }
 
   function buildBody(x, y, num, text, guestAuthor) {
-    var meta = { x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() };
+    var meta = { x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState(), pageUrl: window.location.href };
     if (guestAuthor) meta.guestAuthor = guestAuthor;
     return '<!-- RHACS_PIN ' + JSON.stringify(meta) + ' -->\n' + text;
   }
@@ -2234,8 +2262,10 @@
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
         if (pin.meta.viewState) {
+          var stateLabels = { view: 'Viewing', edit: 'Editing', create: 'Creating', delete: 'Deleting' };
+          var stateLabel = stateLabels[pin.meta.viewState] || 'Viewing';
           var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
-          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit mode' : 'Read-only view'));
+          stateBadge.appendChild(txt(stateLabel));
           itemHdr.appendChild(stateBadge);
         }
         if (isUnread) {
@@ -2307,32 +2337,13 @@
             Panel.render();
           }
 
-          var pinState = p.meta.viewState;
-          var curState = detectViewState();
-          var delay    = 400;
+          var delay = 400;
 
-          if (pinState && pinState !== curState) {
-            var switched = false;
-            if (pinState === 'edit') {
-              var editBtns = Array.prototype.slice.call(
-                document.querySelectorAll('button, a[role="button"]')
-              ).filter(function (b) {
-                if (b.closest('#rhacs-mount')) return false;
-                var txt = (b.textContent || b.getAttribute('aria-label') || '').trim().toLowerCase();
-                return txt === 'edit' || txt === 'edit configuration';
-              });
-              if (editBtns.length) { editBtns[0].click(); switched = true; }
-            } else {
-              var cancelBtns = Array.prototype.slice.call(
-                document.querySelectorAll('button')
-              ).filter(function (b) {
-                if (b.closest('#rhacs-mount')) return false;
-                var txt = (b.textContent || '').trim().toLowerCase();
-                return txt === 'cancel';
-              });
-              if (cancelBtns.length) { cancelBtns[0].click(); switched = true; }
-            }
-            if (switched) delay = 600;
+          // Navigate to the exact URL where this pin was created (SPA-safe, no reload)
+          if (p.meta.pageUrl && p.meta.pageUrl !== window.location.href) {
+            history.pushState({}, '', p.meta.pageUrl);
+            window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+            delay = 600; // allow React to re-render before scrolling
           }
 
           var ci = containerInfo();

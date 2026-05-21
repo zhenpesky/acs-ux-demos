@@ -1007,20 +1007,37 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-panel__state-badge {
-  font-size: 10px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 10px;
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.01em;
 }
-.rhacs-panel__state-badge--edit {
-  background: #fff0e6;
-  color: #7d4000;
-}
+/* View — neutral gray */
 .rhacs-panel__state-badge--view {
-  background: #e6f3ff;
-  color: #003d7a;
+  background: var(--pf-v6-global--BackgroundColor--200, #f5f5f5);
+  color: var(--pf-v6-global--Color--200, #6a6e73);
+  border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+}
+/* Edit — PF6 info blue */
+.rhacs-panel__state-badge--edit {
+  background: #e7f1fa;
+  color: #00476b;
+  border: 1px solid #b8d9ef;
+}
+/* Create — PF6 success green */
+.rhacs-panel__state-badge--create {
+  background: #ecf9ec;
+  color: #1a4d1a;
+  border: 1px solid #a7d7a7;
+}
+/* Delete — PF6 danger red */
+.rhacs-panel__state-badge--delete {
+  background: #fce9e9;
+  color: #7d1007;
+  border: 1px solid #f4b8b2;
 }
 
 .rhacs-panel__item-preview {

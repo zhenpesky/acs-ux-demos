@@ -493,16 +493,28 @@
       popupEl.style.maxHeight = 'none';
 
       function applyPos(top, left) {
-        top  = Math.min(Math.max(margin, top),  vh - margin);
-        left = Math.min(Math.max(margin, left), vw - margin);
-        var availH = vh - top - margin;
-        // Pause the ResizeObserver so setting maxHeight doesn't re-trigger positionFixed
         if (Popup._ro) Popup._ro.disconnect();
-        popupEl.style.top       = top  + 'px';
-        popupEl.style.left      = left + 'px';
-        popupEl.style.maxHeight = Math.max(120, availH) + 'px';
+        popupEl.style.maxHeight = '';
+        popupEl.style.overflowY = '';
+
+        var naturalH = popupEl.scrollHeight;
+        var maxAvail = vh - 2 * margin;
+
+        // Shift up if needed so bottom stays in viewport
+        if (top + naturalH > vh - margin) top = vh - margin - naturalH;
+        top  = Math.max(margin, top);
+        left = Math.min(Math.max(margin, left), vw - (popupEl.offsetWidth || 320) - margin);
+
+        popupEl.style.top        = top  + 'px';
+        popupEl.style.left       = left + 'px';
         popupEl.style.visibility = '';
-        // Re-attach after paint so future content changes trigger reposition()
+
+        // Scroll only if content exceeds full viewport height
+        if (naturalH > maxAvail) {
+          popupEl.style.maxHeight = maxAvail + 'px';
+          popupEl.style.overflowY = 'auto';
+        }
+
         requestAnimationFrame(function () {
           if (Popup._ro) Popup._ro.observe(popupEl);
         });
@@ -542,22 +554,44 @@
       var margin = 12;
       var vh = window.innerHeight;
       var vw = window.innerWidth;
-      var rect = popupEl.getBoundingClientRect();
 
-      // Shift up if overflowing bottom
-      var top = rect.top;
-      if (rect.bottom > vh - margin) {
-        top = Math.max(margin, top - (rect.bottom - (vh - margin)));
-        popupEl.style.top = top + 'px';
+      // Let content determine natural height — remove any previous cap first
+      if (Popup._ro) Popup._ro.disconnect();
+      popupEl.style.maxHeight = '';
+      popupEl.style.overflowY = '';
+
+      var naturalH = popupEl.scrollHeight;
+      var naturalW = popupEl.offsetWidth;
+      var curTop   = parseFloat(popupEl.style.top)  || 0;
+      var curLeft  = parseFloat(popupEl.style.left) || 0;
+
+      // Best top: shift up just enough so bottom fits, but never above margin
+      var idealTop = curTop;
+      if (curTop + naturalH > vh - margin) {
+        idealTop = vh - margin - naturalH;
       }
-      // Shift left if overflowing right
-      if (rect.right > vw - margin) {
-        var left = Math.max(margin, rect.left - (rect.right - (vw - margin)));
-        popupEl.style.left = left + 'px';
+      idealTop = Math.max(margin, idealTop);
+
+      // Best left: shift left just enough so right edge fits
+      var idealLeft = curLeft;
+      if (curLeft + naturalW > vw - margin) {
+        idealLeft = vw - margin - naturalW;
       }
-      // Cap max-height so it never overflows bottom regardless of content
-      var availH = vh - parseFloat(popupEl.style.top || '0') - margin;
-      popupEl.style.maxHeight = Math.max(120, availH) + 'px';
+      idealLeft = Math.max(margin, idealLeft);
+
+      popupEl.style.top  = idealTop  + 'px';
+      popupEl.style.left = idealLeft + 'px';
+
+      // Only add scroll if content is taller than the entire viewport
+      var maxAvail = vh - 2 * margin;
+      if (naturalH > maxAvail) {
+        popupEl.style.maxHeight = maxAvail + 'px';
+        popupEl.style.overflowY = 'auto';
+      }
+
+      requestAnimationFrame(function () {
+        if (Popup._ro) Popup._ro.observe(popupEl);
+      });
     },
     showNewForm: function (x, y, clientX, clientY) {
       S.activePinId = null;

@@ -137,12 +137,13 @@
 }
 .rhacs-popup {
   width: 320px;
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
+  /* height is fully content-driven — JS clamps top & applies max-height only if needed */
   padding: 0;
   pointer-events: all;
   animation: rhacs-popup-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top left;
+  transition: top 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              max-height 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .rhacs-popup__header {

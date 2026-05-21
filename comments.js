@@ -501,7 +501,7 @@
       var header = el('div', { className: 'rhacs-popup__header' });
       var titleEl = el('span', { className: 'rhacs-popup__title' });
       titleEl.appendChild(txt('Add comment'));
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(header, titleEl, closeBtn);
@@ -509,11 +509,15 @@
       var textarea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
 
       var actions = el('div', { className: 'rhacs-popup__actions' });
-      var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
+      var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
       postBtn.appendChild(txt('Post'));
-      postBtn.addEventListener('click', function () { Popup.submitNew(textarea.value, x, y); });
+      postBtn.addEventListener('click', function () {
+        postBtn.disabled = true;
+        postBtn.textContent = 'Posting…';
+        Popup.submitNew(textarea.value, x, y);
+      });
 
-      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small' });
+      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
       cancelBtn.appendChild(txt('Cancel'));
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
@@ -568,13 +572,13 @@
       var actionsEl = el('div', { className: 'rhacs-popup__pin-actions' });
       var isOwner = S.user && pin.author.login === S.user.login;
       if (isOwner) {
-        var editBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline', onclick: function () { Popup.showEdit(pin, body); } });
+        var editBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', onclick: function () { Popup.showEdit(pin, body); } });
         editBtn.appendChild(txt('Edit'));
-        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-danger', onclick: function () { Popup.confirmDelete(pin.id); } });
+        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-danger pf-m-small', onclick: function () { Popup.confirmDelete(pin.id); } });
         delBtn.appendChild(txt('Delete'));
         append(actionsEl, editBtn, delBtn);
       }
-      var resolveBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline', onclick: function () { Popup.toggleResolve(pin); } });
+      var resolveBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', onclick: function () { Popup.toggleResolve(pin); } });
       resolveBtn.appendChild(txt(pin.meta.resolved ? 'Unresolve' : 'Resolve'));
       actionsEl.appendChild(resolveBtn);
 
@@ -584,9 +588,13 @@
 
       // Reply form
       var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
-      var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
+      var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
       replyBtn.appendChild(txt('Reply'));
-      replyBtn.addEventListener('click', function () { Popup.submitReply(pinId, replyArea.value, replyArea); });
+      replyBtn.addEventListener('click', function () {
+        replyBtn.disabled = true;
+        replyBtn.textContent = 'Replying…';
+        Popup.submitReply(pinId, replyArea.value, replyArea);
+      });
       var replyForm = el('div', { className: 'rhacs-reply-form' });
       append(replyForm, replyArea, replyBtn);
 
@@ -661,24 +669,23 @@
     },
     showEdit: function (pin, bodyEl) {
       bodyEl.innerHTML = '';
-      var editWrap = el('div', { className: 'pf-v5-c-form-control rhacs-popup__form-ctrl' });
-      var editArea = document.createElement('textarea');
-      editArea.rows = 3;
+      var editArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', rows: '3' });
       editArea.value = pinText(pin.body);
-      editWrap.appendChild(editArea);
-      var saveBtn = el('button', { className: 'pf-v5-c-button pf-m-primary pf-m-small' });
+      var saveBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
       saveBtn.appendChild(txt('Save'));
       saveBtn.addEventListener('click', function () {
         var newText = editArea.value.trim();
         if (!newText) return;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
         var metaMatch = pin.body.match(/<!--\s*RHACS_PIN[\s\S]*?-->/);
         var metaPart  = metaMatch ? metaMatch[0] : '';
         updateComment(pin.id, metaPart + '\n' + newText)
           .then(function () { return loadAndRender(); })
           .then(function () { Popup.showThread(pin.id); })
-          .catch(function (e) { Notify.toast(e.message); });
+          .catch(function (e) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; Notify.toast(e.message); });
       });
-      append(bodyEl, editWrap, saveBtn);
+      append(bodyEl, editArea, saveBtn);
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
@@ -689,7 +696,7 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
@@ -699,7 +706,7 @@
       bd.appendChild(txt(reply.body));
       append(wrap, hdr, bd);
       if (S.user && reply.author.login === S.user.login) {
-        var delBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-danger' });
+        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-danger pf-m-small' });
         delBtn.appendChild(txt('Delete'));
         delBtn.addEventListener('click', function () {
           if (!confirm('Delete this reply?')) return;
@@ -751,10 +758,10 @@
       var hdr  = el('div', { className: 'rhacs-panel__header' });
       var title = el('span', { className: 'rhacs-panel__title' }); title.appendChild(txt('Comments'));
       var hdrActions = el('div', { className: 'rhacs-panel__header-actions' });
-      var showResBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-small' });
+      var showResBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small' });
       showResBtn.appendChild(txt(Panel.showResolved ? 'Hide resolved' : 'Show resolved'));
       showResBtn.addEventListener('click', function () { Panel.showResolved = !Panel.showResolved; Panel.render(); });
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(hdrActions, showResBtn, closeBtn);
@@ -778,7 +785,7 @@
         var item = el('div', { className: cls });
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
-        var av  = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var av  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
@@ -878,13 +885,13 @@
       if (!this.userEl) return;
       this.userEl.innerHTML = '';
       if (S.user) {
-        var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var av = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
         var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'pf-v5-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
+        var loginBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
         loginBtn.appendChild(txt('Login'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {

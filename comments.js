@@ -348,20 +348,13 @@
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
 
-        // Always use full-page redirect — avoids all cross-window communication issues.
-        // auth-callback.html will redirect back here with ?rhacs_token=
-        localStorage.setItem('rhacs_return_url', window.location.href);
-        window.location.href = url;
-        return;
-
-        /* ---- popup path kept for reference but not used ----
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
+        // Fallback: if popup is blocked, use a full-page redirect instead
         if (!popup) {
           localStorage.setItem('rhacs_return_url', window.location.href);
           window.location.href = url;
           return;
         }
-        ---- end popup path ---- */
 
         var done = false;
         var pollTimer, closedTimer, storageHandler, msgHandler, bc;
@@ -741,12 +734,13 @@
           ghBtn.disabled = true;
           ghBtn.style.opacity = '0.6';
           var origHTML = ghBtn.innerHTML;
-          ghBtn.innerHTML = '<span>Redirecting to GitHub…</span>';
+          ghBtn.innerHTML = '<span>Opening GitHub…</span>';
           Auth.login()
             .then(function () {
               overlay.remove();
-              resolve(); // resolve FIRST so the outer chain always continues
-              try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
+              resolve(); // resolve FIRST — triggers FAB.setMode(true) in the toggleMode chain
+              try { FAB.updateUser(); } catch (e) {}
+              try { loadAndRender(); } catch (e) {}
             })
             .catch(function (e) {
               // Login failed — restore button so user can retry

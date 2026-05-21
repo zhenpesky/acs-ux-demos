@@ -351,13 +351,14 @@
         if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
 
         var done = false;
-        var pollTimer, closedTimer, storageHandler, msgHandler;
+        var pollTimer, closedTimer, storageHandler, msgHandler, bc;
 
         function cleanup() {
           clearInterval(pollTimer);
           clearInterval(closedTimer);
           window.removeEventListener('message', msgHandler);
           window.removeEventListener('storage', storageHandler);
+          try { if (bc) { bc.close(); bc = null; } } catch (e) {}
           localStorage.removeItem('rhacs_oauth_result');
         }
 
@@ -380,6 +381,14 @@
             reject(new Error('GitHub login failed'));
           }
         }
+
+        // Channel 0: BroadcastChannel — purpose-built same-origin cross-tab messaging
+        try {
+          bc = new BroadcastChannel('rhacs_auth');
+          bc.onmessage = function (e) {
+            if (e.data && e.data.type === 'rhacs_token' && !done) handleToken(e.data.token);
+          };
+        } catch (e) { bc = null; }
 
         // Channel 1: storage event — fires INSTANTLY in the main window when
         // auth-callback.html writes to localStorage in the popup tab

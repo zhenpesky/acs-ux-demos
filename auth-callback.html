@@ -89,11 +89,17 @@
     }
 
     function notifyOpener(token) {
-      // Primary: localStorage signal (reliable across all browsers/configs)
+      // Channel A: BroadcastChannel — purpose-built for same-origin cross-tab messaging
+      try {
+        const bc = new BroadcastChannel('rhacs_auth');
+        bc.postMessage({ type: 'rhacs_token', token, ts: Date.now() });
+        setTimeout(() => bc.close(), 2000);
+      } catch (e) {}
+      // Channel B: localStorage + storage event (fires in all other same-origin windows)
       try {
         localStorage.setItem('rhacs_oauth_result', JSON.stringify({ token, ts: Date.now() }));
       } catch (e) {}
-      // Secondary: postMessage (may be blocked in some browser configs)
+      // Channel C: postMessage directly to opener
       if (window.opener && !window.opener.closed) {
         try {
           window.opener.postMessage(

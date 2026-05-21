@@ -832,6 +832,14 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────────
   function init() {
+    // Dev convenience: ?rhacs_token=xxx auto-injects token and removes param from URL
+    var devToken = new URLSearchParams(window.location.search).get('rhacs_token');
+    if (devToken) {
+      localStorage.setItem(CFG.tokenKey, devToken);
+      var clean = window.location.pathname + window.location.search.replace(/[?&]rhacs_token=[^&]*/g, '').replace(/^&/, '?') + window.location.hash;
+      history.replaceState({}, '', clean || window.location.pathname);
+    }
+
     Auth.init();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
 

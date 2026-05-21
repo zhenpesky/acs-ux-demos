@@ -235,8 +235,9 @@ body.rhacs-comment-mode-active .rhacs-pin {
   font-weight: 400;
   line-height: 1.5;
   padding: 6px 10px;
-  max-width: 240px;
-  white-space: nowrap;
+  max-width: 320px;
+  white-space: normal;
+  word-break: normal;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0,0,0,0.22);
 }

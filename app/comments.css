@@ -1462,6 +1462,92 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-guest-exit { color: #cf222e !important; }
 
+/* ── Guest FAB: PF6-style split menu toggle ─────────────────────────────── */
+.rhacs-guest-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.rhacs-split-btn {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  border-radius: 6px;
+  background: #fff;
+  position: relative;
+  overflow: visible;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.rhacs-split-btn__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pf-v6-global--Color--100, #151515);
+  border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  user-select: none;
+  line-height: 1;
+}
+.rhacs-split-btn__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--pf-v6-global--Color--200, #6a6e73);
+  border-radius: 0 5px 5px 0;
+  transition: background 0.1s;
+}
+.rhacs-split-btn__toggle:hover {
+  background: var(--pf-v6-global--BackgroundColor--200, #f0f0f0);
+  color: var(--pf-v6-global--Color--100, #151515);
+}
+.rhacs-split-btn__dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 10001;
+  min-width: 180px;
+  padding: 4px 0;
+}
+.rhacs-split-btn__dropdown--open { display: block; }
+.rhacs-guest-logout-btn {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 400;
+  background: none;
+  border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  border-radius: 6px;
+  color: var(--pf-v6-global--danger-color--100, #c9190b);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s;
+}
+.rhacs-guest-logout-btn:hover {
+  background: #fff5f5;
+}
+/* dark mode */
+@media (prefers-color-scheme: dark) {
+  .rhacs-split-btn { background: #21262d; border-color: #30363d; }
+  .rhacs-split-btn__label { color: #e6edf3; border-color: #30363d; }
+  .rhacs-split-btn__toggle { color: #8b949e; }
+  .rhacs-split-btn__toggle:hover { background: #30363d; color: #e6edf3; }
+  .rhacs-split-btn__dropdown { background: #21262d; border-color: #30363d; }
+  .rhacs-guest-logout-btn { border-color: #30363d; color: #f85149; }
+  .rhacs-guest-logout-btn:hover { background: #3d1f1f; }
+}
+
 /* ── Guest notice banner (panel) ─────────────────────────────────────────── */
 .rhacs-panel__guest-banner {
   display: flex;

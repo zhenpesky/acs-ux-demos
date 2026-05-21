@@ -1233,13 +1233,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 7px;
   justify-content: flex-start;
 }
-/* Active (exit comment mode): always show label */
-.rhacs-fab--active .rhacs-fab__btn {
-  max-width: 260px;
-  padding: 0 16px 0 12px;
-  gap: 7px;
-  justify-content: flex-start;
-}
 
 .rhacs-fab__icon {
   display: flex;
@@ -1262,11 +1255,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
 /* Unauthenticated: keep label always expanded until user logs in */
 .rhacs-fab--unauthenticated .rhacs-fab__btn .rhacs-fab__label {
   max-width: 180px;
-  opacity: 1;
-}
-/* Active: always show exit label */
-.rhacs-fab--active .rhacs-fab__btn .rhacs-fab__label {
-  max-width: 200px;
   opacity: 1;
 }
 

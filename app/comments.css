@@ -1781,19 +1781,20 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-split-btn {
   display: inline-flex;
   align-items: stretch;
+  height: 36px;
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  border-radius: 6px;
-  background: #f9f9f9;
+  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
+  background: var(--pf-v6-global--BackgroundColor--100, #fff);
   position: relative;
   overflow: visible;
 }
 .rhacs-split-btn__label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 8px;
+  padding: 0 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
+  font-weight: var(--pf-v6-global--FontWeight--normal, 400);
   color: var(--pf-v6-global--Color--100, #151515);
   border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
   user-select: none;
@@ -1811,12 +1812,12 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 10px;
+  padding: 0 10px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--pf-v6-global--Color--200, #6a6e73);
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--pf-v6-global--BorderRadius--sm, 3px) var(--pf-v6-global--BorderRadius--sm, 3px) 0;
   transition: background 0.1s;
 }
 .rhacs-split-btn__toggle:hover {
@@ -1966,15 +1967,19 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-guest-logout-btn {
-  width: 100%;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 400;
-  background: #fff;
-  border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
+  font-weight: var(--pf-v6-global--FontWeight--normal, 400);
+  background: var(--pf-v6-global--BackgroundColor--100, #fff);
+  border: 1px solid var(--pf-v6-global--danger-color--100, #c9190b);
+  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
   color: var(--pf-v6-global--danger-color--100, #c9190b);
   cursor: pointer;
+  white-space: nowrap;
   text-align: center;
   transition: background 0.1s;
 }
@@ -2053,9 +2058,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: inline-flex;
   align-items: center;
   width: auto;
-  white-space: nowrap;
-  padding: 8px 14px;
-  border-radius: 6px;
+  height: 36px;
+  padding: 0 16px;
 }
 /* dark mode */
 @media (prefers-color-scheme: dark) {

@@ -779,11 +779,11 @@
 }
 
 .rhacs-fab--active .rhacs-fab__btn {
-  background: #cf222e;
+  background: var(--pf-v6-global--danger-color--100, #c9190b);
 }
 
 .rhacs-fab--active .rhacs-fab__btn:hover {
-  background: #a8101b;
+  background: var(--pf-v6-global--danger-color--200, #a30000);
 }
 
 .rhacs-fab__badge {
@@ -837,6 +837,13 @@
   color: #fff;
 }
 .rhacs-btn--dark:hover { background: #2d3139; border-color: #2d3139; }
+
+.rhacs-btn--light {
+  background: rgba(0,0,0,0.06);
+  border-color: transparent;
+  color: #24292f;
+}
+.rhacs-btn--light:hover { background: rgba(0,0,0,0.1); }
 
 /* ── Toast notification ───────────────────────────────────────────────────── */
 @keyframes rhacs-toast-enter {
@@ -1040,7 +1047,7 @@
 
   .rhacs-fab__btn { background: #388bfd; }
   .rhacs-fab__btn:hover { background: #58a6ff; }
-  .rhacs-fab--active .rhacs-fab__btn { background: #da3633; }
+  .rhacs-fab--active .rhacs-fab__btn { background: var(--pf-v6-global--danger-color--100, #c9190b); }
 
   .rhacs-fab__panel-btn {
     background: #21262d;

@@ -1072,6 +1072,24 @@
     document.head.appendChild(s);
   }
 
+  // Returns true only when the current URL is a versioned prototype page (not baseline).
+  // Prototype pages carry ?prototype=<version> where version !== 'baseline'.
+  function isPrototypePage() {
+    var v = new URLSearchParams(window.location.search).get('prototype');
+    return v !== null && v !== 'baseline';
+  }
+
+  // Show or hide the entire commenting system depending on the current route.
+  function syncVisibility() {
+    var active = isPrototypePage();
+    if (FAB.el) FAB.el.style.display = active ? '' : 'none';
+    if (!active) {
+      Popup.close();
+      Panel.close();
+      FAB.setMode(false);
+    }
+  }
+
   function init() {
     loadFloatingUI(function () {}); // load eagerly so it's ready before first click
     // Dev convenience: ?rhacs_token=xxx auto-injects token and removes param from URL
@@ -1090,6 +1108,28 @@
     Panel.init();
     FAB.init();
     Notify.init();
+
+    // Hide immediately if starting on baseline; show only on prototype pages.
+    syncVisibility();
+
+    // React Router changes URLs via history.pushState / replaceState — intercept both.
+    (function patchHistory(type) {
+      var orig = history[type];
+      history[type] = function () {
+        var ret = orig.apply(this, arguments);
+        setTimeout(syncVisibility, 0);
+        return ret;
+      };
+    })('pushState');
+    (function patchHistory(type) {
+      var orig = history[type];
+      history[type] = function () {
+        var ret = orig.apply(this, arguments);
+        setTimeout(syncVisibility, 0);
+        return ret;
+      };
+    })('replaceState');
+    window.addEventListener('popstate', function () { setTimeout(syncVisibility, 0); });
 
     // ── Click-outside dismissal ──────────────────────────────────────────────
     // Dismiss popup / panel when clicking outside, but ONLY if the user is not

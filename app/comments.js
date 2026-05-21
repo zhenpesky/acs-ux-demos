@@ -1139,11 +1139,26 @@
       append(header, titleEl, closeBtn);
 
       var textarea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
+      var inputError = el('div', { className: 'rhacs-popup__input-error' });
+      inputError.appendChild(txt('Comment can\u2019t be empty'));
+
+      textarea.addEventListener('input', function () {
+        if (textarea.value.trim()) {
+          textarea.classList.remove('rhacs-popup__textarea--error');
+          inputError.style.display = 'none';
+        }
+      });
 
       var actions = el('div', { className: 'rhacs-popup__actions' });
       var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
       postBtn.appendChild(txt('Post'));
       postBtn.addEventListener('click', function () {
+        if (!textarea.value.trim()) {
+          textarea.classList.add('rhacs-popup__textarea--error');
+          inputError.style.display = 'block';
+          textarea.focus();
+          return;
+        }
         postBtn.disabled = true;
         postBtn.textContent = 'Posting…';
         Popup.submitNew(textarea.value, x, y);
@@ -1154,7 +1169,7 @@
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
       append(actions, postBtn, cancelBtn);
-      append(this.el, header, textarea, actions);
+      append(this.el, header, textarea, inputError, actions);
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
       textarea.focus();
@@ -1189,9 +1204,10 @@
       var pin = S.pins.find(function (p) { return p.id === pinId; });
       if (!pin) return;
       this.el.innerHTML = '';
-      var isOwner = S.user && (
-        String(pin.id).startsWith('guest-') ||          // guest pins always owned by current session
-        pin.author.login === S.user.login               // GitHub pins matched by login
+      var isOwner = !!(
+        S.token ||                                        // GitHub-authenticated users can manage all pins
+        (S.user && String(pin.id).startsWith('guest-')) || // guest session owns its own pending pins
+        (S.user && pin.author.login === S.user.login)      // matched by login
       );
 
       // ── Level 1: conversation header with conversation-level kebab ──
@@ -2000,14 +2016,24 @@
           d.classList.remove('rhacs-kebab__dropdown--open');
         });
       }
-      // Popup: close on outside click unless a textarea/input inside is focused
+      // Popup: close on outside click; shake instead if there's unsaved input
       if (Popup.el && Popup.el.style.display !== 'none') {
         if (!Popup.el.contains(e.target)) {
-          var active = document.activeElement;
-          var isTyping = active &&
-            (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT') &&
-            Popup.el.contains(active);
-          if (!isTyping) Popup.close();
+          var hasUnsavedInput = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
+            return ta.value.trim().length > 0;
+          });
+          if (hasUnsavedInput) {
+            // Shake to signal "you have unsaved text"
+            Popup.el.classList.remove('rhacs-popup--shake');
+            void Popup.el.offsetWidth; // force reflow so the animation restarts
+            Popup.el.classList.add('rhacs-popup--shake');
+            Popup.el.addEventListener('animationend', function removeShake() {
+              Popup.el.classList.remove('rhacs-popup--shake');
+              Popup.el.removeEventListener('animationend', removeShake);
+            });
+          } else {
+            Popup.close();
+          }
         }
       }
       // Panel: close on outside click, but not when clicking the FAB or an open popup

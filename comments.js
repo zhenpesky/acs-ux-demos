@@ -453,7 +453,7 @@
         titleEl.appendChild(txt('Choose a display name'));
 
         var subEl = el('p', { className: 'rhacs-auth-dialog__sub' });
-        subEl.appendChild(txt('Optional — we'll pair your initial with a nature word. Leave blank for a random name.'));
+        subEl.appendChild(txt('Optional \u2014 we\u2019ll pair your initial with a nature word. Leave blank for a random name.'));
 
         var input = el('input', { className: 'rhacs-guest-name-input', placeholder: 'e.g. Alex → AlexAmber', maxLength: '20', type: 'text' });
 

@@ -1308,7 +1308,6 @@
           if (S.guestMode && !S.token) {
             Auth.addGuestPin(text, x, y, num);
             Popup.close();
-            FAB.setMode(false);
             S.pins = Auth.loadGuestPins().map(function (p) {
               if (!p.meta) p.meta = parseMeta(p.body);
               return p;
@@ -1329,7 +1328,6 @@
             };
             S.pins = S.pins.concat([optimisticPin]);
             Popup.close();
-            FAB.setMode(false);
             Overlay.renderPins();
             Panel.render();
             FAB.updateBadge();

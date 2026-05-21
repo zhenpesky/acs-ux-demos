@@ -774,15 +774,8 @@
 
     setMode: function (active) {
       var cursorSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">' +
-        '<defs>' +
-          '<radialGradient id="cg" cx="40%" cy="35%" r="65%">' +
-            '<stop offset="0%" stop-color="#4d9fff"/>' +
-            '<stop offset="60%" stop-color="#0052cc"/>' +
-            '<stop offset="100%" stop-color="#003a91"/>' +
-          '</radialGradient>' +
-        '</defs>' +
-        '<circle cx="15" cy="15" r="13.5" fill="url(#cg)" stroke="rgba(0,0,0,0.35)" stroke-width="1.2"/>' +
-        '<path fill="#fff" d="M6.9 20.4a1.4 1.4 0 0 1 .4 1.1 15 15 0 0 1-.56 2.8c1.95-.45 3.14-.97 3.68-1.25a1.4 1.4 0 0 1 .99-.1A11.2 11.2 0 0 0 15 23.4c5.6 0 9.8-3.93 9.8-8.4s-4.2-8.4-9.8-8.4-9.8 3.93-9.8 8.4c0 1.95.87 3.75 2.35 5.1 0 0 0 0-.65-.1z" opacity="0.95"/>' +
+        '<circle cx="15" cy="15" r="14" fill="#dbeafe"/>' +
+        '<path fill="#3b82f6" d="M6.9 20.4a1.4 1.4 0 0 1 .4 1.1 15 15 0 0 1-.56 2.8c1.95-.45 3.14-.97 3.68-1.25a1.4 1.4 0 0 1 .99-.1A11.2 11.2 0 0 0 15 23.4c5.6 0 9.8-3.93 9.8-8.4s-4.2-8.4-9.8-8.4-9.8 3.93-9.8 8.4c0 1.95.87 3.75 2.35 5.1 0 0 0 0-.65-.1z"/>' +
         '</svg>';
       var commentCursor = [
         'url("data:image/svg+xml,' + encodeURIComponent(cursorSvg) + '") 15 15',

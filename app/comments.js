@@ -362,12 +362,12 @@
             S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
+            // Resolve immediately — don't block on fetchUser so login always completes
+            resolve(S.user);
+            // Fetch profile in background; failure just means no avatar this session
             Auth.fetchUser()
-              .then(function () {
-                resolve(S.user);
-                try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
-              })
-              .catch(function (err) { reject(err || new Error('Failed to fetch GitHub user')); });
+              .then(function () { try { FAB.updateUser(); } catch (e) {} })
+              .catch(function (e) { console.warn('[rhacs] fetchUser after login:', e && e.message); });
           } else {
             reject(new Error('GitHub login failed'));
           }

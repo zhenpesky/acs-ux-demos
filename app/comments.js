@@ -339,8 +339,9 @@
         }
       }
     },
-    isLoggedIn: function () { return !!S.token; },
-    isAuthed:   function () { return !!S.token || S.guestMode; },
+    isLoggedIn:        function () { return !!S.token; },
+    isAuthed:          function () { return !!S.token || S.guestMode; },
+    isPrototypeOwner:  function () { return !!(S.user && S.user.login === CFG.owner); },
 
     // ── GitHub OAuth ──────────────────────────────────────────────────────────
     login: function () {
@@ -1204,11 +1205,13 @@
       var pin = S.pins.find(function (p) { return p.id === pinId; });
       if (!pin) return;
       this.el.innerHTML = '';
-      var isOwner = !!(
-        S.token ||                                        // GitHub-authenticated users can manage all pins
-        (S.user && String(pin.id).startsWith('guest-')) || // guest session owns its own pending pins
-        (S.user && pin.author.login === S.user.login)      // matched by login
-      );
+      var isProtoOwner = Auth.isPrototypeOwner();
+      var isOwnComment = !!(S.user && (
+        pin.author.login === S.user.login ||
+        String(pin.id).startsWith('guest-')
+      ));
+      var canDelete  = isProtoOwner || isOwnComment;
+      var canResolve = isProtoOwner;
 
       // ── Level 1: conversation header with conversation-level kebab ──
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1220,12 +1223,12 @@
       time.appendChild(txt(timeAgo(pin.createdAt)));
       append(headerLeft, avatar, author, time);
 
-      // Conversation kebab: Delete (owner), Resolve/Unresolve, Mark as read/unread
+      // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
       var pinTs   = new Date(pin.createdAt).getTime();
       var isUnread = pinTs > S.lastSeen;
       var convKebab = Popup.makeKebab([
-        isOwner ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
-        { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } },
+        canDelete  ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
+        canResolve ? { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } } : null,
         isUnread
           ? { label: 'Mark as read', action: function () {
               S.lastSeen = Math.max(S.lastSeen, pinTs);
@@ -1638,12 +1641,20 @@
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
 
-      var tabs = [
+      var ownerTabs = [
         { id: 'unread',     label: 'Unread',     count: unreadPins.length },
         { id: 'all',        label: 'All',         count: allPins.length },
         { id: 'unresolved', label: 'Unresolved',  count: unresolvedPins.length },
         { id: 'resolved',   label: 'Resolved',    count: resolvedPins.length },
       ];
+      var nonOwnerTabs = [
+        { id: 'unread', label: 'Unread', count: unreadPins.length },
+        { id: 'all',    label: 'All',    count: allPins.length },
+      ];
+      var tabs = Auth.isPrototypeOwner() ? ownerTabs : nonOwnerTabs;
+      // Guard: if activeTab is a restricted tab for this role, fall back to 'all'
+      var allowedTabIds = tabs.map(function (t) { return t.id; });
+      if (allowedTabIds.indexOf(Panel.activeTab) === -1) Panel.activeTab = 'all';
 
       var tabList = el('div', { className: 'rhacs-panel__tabs', role: 'tablist' });
       tabs.forEach(function (tab) {

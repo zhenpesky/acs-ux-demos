@@ -384,7 +384,10 @@
             // Fetch profile in background; a failure just means no avatar
             Auth.fetchUser()
               .then(function () { try { FAB.updateUser(); } catch (e) {} })
-              .catch(function (e) { console.warn('[rhacs] fetchUser after login:', e && e.message); });
+              .catch(function (e) {
+                console.warn('[rhacs] fetchUser after login:', e && e.message);
+                try { FAB.updateUser(); } catch (ex) {}
+              });
           } else {
             reject(new Error('GitHub login failed'));
           }
@@ -1836,7 +1839,7 @@
 
       // "View all" panel button: only for GitHub-authenticated users, not guests
       if (this.panelBtn) {
-        this.panelBtn.style.display = (S.token && S.user) ? '' : 'none';
+        this.panelBtn.style.display = S.token ? '' : 'none';
       }
       this.userEl.innerHTML = '';
       if (S.guestMode && S.user) {

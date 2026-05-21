@@ -55,7 +55,11 @@ async function handleOAuth(body, env) {
     }),
   });
   const data = await res.json();
-  return jsonResp(res.status, data);
+  // GitHub returns { access_token, token_type, scope } on success, or { error, error_description } on failure.
+  // Pass errors through; normalize access_token → token for the frontend.
+  if (data.error) return jsonResp(400, { error: data.error, error_description: data.error_description });
+  if (!data.access_token) return jsonResp(500, { error: 'No access_token in GitHub response' });
+  return jsonResp(200, { token: data.access_token });
 }
 
 // ── Guest comment post ────────────────────────────────────────────────────────

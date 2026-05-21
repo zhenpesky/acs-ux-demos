@@ -880,6 +880,7 @@
   var Overlay = {
     root: null,
     overlayEl: null,
+    pinLayerEl: null,
     _scrollListener: null,
 
     init: function () {
@@ -897,6 +898,11 @@
 
       this.root.appendChild(this.overlayEl);
       rhacsMount().appendChild(this.root);
+
+      // Separate pin layer appended directly to <body> so pins are in the
+      // document flow and follow the browser's rubber-band overscroll bounce.
+      this.pinLayerEl = el('div', { id: 'rhacs-pin-layer' });
+      document.body.appendChild(this.pinLayerEl);
 
       window.addEventListener('resize', function () { Overlay.refresh(); });
       // Use capturing scroll so we catch scroll on any nested element
@@ -938,8 +944,13 @@
     },
 
     renderPins: function () {
-      this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
+      // Clear existing pins from the document-flow pin layer
+      this.pinLayerEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
       var curState = detectViewState();
+      // Capture window scroll once per render — pin layer is position:absolute in
+      // the document, so we convert viewport coords → document coords by adding scrollX/Y.
+      var winScrollX = window.scrollX || window.pageXOffset || 0;
+      var winScrollY = window.scrollY || window.pageYOffset || 0;
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
         // Only show pins that match the current view state.
@@ -955,16 +966,18 @@
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
         pinEl.appendChild(txt(pinInitials(pin.author)));
         pinEl.title = (pin.author ? pin.author.login : '') + ' — click to view';
-        // Fixed-pixel viewport position (pin scrolls with content because we
-        // subtract the container's scrollTop/scrollLeft each render)
-        pinEl.style.left       = vp.left + 'px';
-        pinEl.style.top        = vp.top  + 'px';
+        // Document-pixel position: viewport coords + window scroll offset.
+        // Because #rhacs-pin-layer is position:absolute in the document, these
+        // document coordinates make pins move with page content including the
+        // browser's rubber-band overscroll bounce on macOS Chrome/Safari.
+        pinEl.style.left       = (vp.left + winScrollX) + 'px';
+        pinEl.style.top        = (vp.top  + winScrollY) + 'px';
         pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
         pinEl.addEventListener('click', function (e) {
           e.stopPropagation();
           Popup.showThread(pin.id);
         });
-        Overlay.overlayEl.appendChild(pinEl);
+        Overlay.pinLayerEl.appendChild(pinEl);
       });
     },
 
@@ -980,10 +993,12 @@
       if (active) {
         this.overlayEl.classList.add('rhacs-overlay--active');
         document.body.style.cursor = commentCursor;
+        document.body.classList.add('rhacs-comment-mode-active');
         rhacsMount().classList.add('rhacs-comment-mode');
       } else {
         this.overlayEl.classList.remove('rhacs-overlay--active');
         document.body.style.cursor = '';
+        document.body.classList.remove('rhacs-comment-mode-active');
         rhacsMount().classList.remove('rhacs-comment-mode');
       }
     },

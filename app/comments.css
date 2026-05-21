@@ -33,16 +33,16 @@
 #rhacs-mount.rhacs-comment-mode .rhacs-popup,
 #rhacs-mount.rhacs-comment-mode .rhacs-panel,
 #rhacs-mount.rhacs-comment-mode .rhacs-fab,
-#rhacs-mount.rhacs-comment-mode .rhacs-pin,
-#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack {
+#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack,
+body.rhacs-comment-mode-active .rhacs-pin {
   cursor: auto;
 }
 
 #rhacs-mount.rhacs-comment-mode .rhacs-popup *,
 #rhacs-mount.rhacs-comment-mode .rhacs-panel *,
 #rhacs-mount.rhacs-comment-mode .rhacs-fab *,
-#rhacs-mount.rhacs-comment-mode .rhacs-pin *,
-#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack * {
+#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack *,
+body.rhacs-comment-mode-active .rhacs-pin * {
   cursor: auto;
 }
 
@@ -54,7 +54,7 @@
 #rhacs-mount.rhacs-comment-mode .rhacs-panel a,
 #rhacs-mount.rhacs-comment-mode .rhacs-panel textarea,
 #rhacs-mount.rhacs-comment-mode .rhacs-fab button,
-#rhacs-mount.rhacs-comment-mode .rhacs-pin {
+body.rhacs-comment-mode-active .rhacs-pin {
   cursor: pointer;
 }
 
@@ -74,10 +74,23 @@
   touch-action: pan-y pan-x;
 }
 
+/* ── Pin layer — lives in document flow so pins bounce with page content ── */
+/* Pins use position:absolute with document-pixel coords so they follow      */
+/* the browser's rubber-band overscroll bounce on macOS Chrome/Safari.       */
+#rhacs-pin-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 9990;
+}
+
 /* ── Pins ────────────────────────────────────────────────────────────────── */
-/* Fixed so JS can set viewport-pixel coords that update on scroll           */
-#rhacs-comment-root .rhacs-pin {
-  position: fixed;
+#rhacs-pin-layer .rhacs-pin {
+  position: absolute;
   min-width: 28px;
   height: 28px;
   padding: 0 5px;
@@ -100,18 +113,18 @@
   user-select: none;
 }
 
-#rhacs-comment-root .rhacs-pin:hover {
+#rhacs-pin-layer .rhacs-pin:hover {
   transform: translate(-50%, -50%) scale(1.25);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
-#rhacs-comment-root .rhacs-pin--resolved {
+#rhacs-pin-layer .rhacs-pin--resolved {
   background: #8c959f;
   border-color: #d0d7de;
   opacity: 0.7;
 }
 
-#rhacs-comment-root .rhacs-pin--resolved:hover {
+#rhacs-pin-layer .rhacs-pin--resolved:hover {
   opacity: 1;
 }
 
@@ -121,7 +134,7 @@
   70%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
-#rhacs-comment-root .rhacs-pin--enter {
+#rhacs-pin-layer .rhacs-pin--enter {
   animation: rhacs-pin-enter 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
@@ -130,13 +143,13 @@
   from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   to   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
 }
-#rhacs-comment-root .rhacs-pin--exit {
+#rhacs-pin-layer .rhacs-pin--exit {
   animation: rhacs-pin-exit 0.18s ease forwards;
   pointer-events: none;
 }
 
 /* Pulsing unread indicator */
-#rhacs-comment-root .rhacs-pin--unread::after {
+#rhacs-pin-layer .rhacs-pin--unread::after {
   content: '';
   position: absolute;
   top: -4px;

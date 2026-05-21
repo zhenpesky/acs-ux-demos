@@ -774,7 +774,7 @@
 
         // Guest option
         var guestBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--secondary' });
-        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span>';
+        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Comment without login</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No account needed</span>';
         guestBtn.addEventListener('click', function () {
           overlay.remove();
           Auth.loginAsGuest()
@@ -921,7 +921,7 @@
       Overlay.renderPins();
       // Reposition popup next to its pin if open
       if (S.activePinId) {
-        var pinEl = Overlay.overlayEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
+        var pinEl = Overlay.pinLayerEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
         if (!pinEl || pinEl.style.visibility === 'hidden') { Popup.close(); return; }
         var r = pinEl.getBoundingClientRect();
         Popup.positionFixed(r.right + 4, r.top);
@@ -1134,12 +1134,16 @@
           var pw = popupEl.offsetWidth || 320;
           var left = clientX + margin;
           if (left + pw > vw - margin) left = clientX - pw - margin;
+          left = Math.min(Math.max(margin, left), vw - pw - margin);
           applyPos(clientY, left);
         });
       } else {
         var pw = popupEl.offsetWidth || 320;
         var left = clientX + margin;
+        // Flip to the left side if it overflows the right edge
         if (left + pw > vw - margin) left = clientX - pw - margin;
+        // Clamp: never go off the left or right edge
+        left = Math.min(Math.max(margin, left), vw - pw - margin);
         applyPos(clientY, left);
       }
     },
@@ -1410,8 +1414,8 @@
       append(this.el, header, firstPost, reactionsEl, repliesEl, replyForm);
       this.el.style.display = 'block';
 
-      // Position near pin element
-      var pinEl = Overlay.overlayEl.querySelector('[data-pin-id="' + pinId + '"]');
+      // Position near pin element (pins now live in pinLayerEl)
+      var pinEl = Overlay.pinLayerEl.querySelector('[data-pin-id="' + pinId + '"]');
       if (pinEl) {
         var r = pinEl.getBoundingClientRect();
         this.positionFixed(r.right + 4, r.top);

@@ -516,21 +516,14 @@
           resolve(Auth._createGuestIdentity(firstF.input.value, lastF.input.value, titleF.input.value, companyF.input.value));
         });
 
-        var skipBtn = el('button', { className: 'rhacs-auth-dialog__cancel' });
-        skipBtn.appendChild(txt('Skip \u2014 comment anonymously'));
-        skipBtn.addEventListener('click', function () {
-          overlay.remove();
-          resolve(Auth._createGuestIdentity('', '', '', ''));
-        });
-
         [firstF, lastF, titleF, companyF].forEach(function (f) {
           f.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !continueBtn.disabled) continueBtn.click(); });
         });
 
-        append(card, iconEl, titleEl, subEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn, skipBtn);
+        append(card, iconEl, titleEl, subEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn);
         overlay.appendChild(card);
         overlay.addEventListener('click', function (e) {
-          if (e.target === overlay) { overlay.remove(); resolve(Auth._createGuestIdentity('', '', '', '')); }
+          if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); }
         });
         rhacsMount().appendChild(overlay);
         setTimeout(function () { firstF.input.focus(); }, 50);

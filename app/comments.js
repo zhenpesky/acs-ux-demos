@@ -1558,8 +1558,8 @@
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
-        loginBtn.appendChild(txt('Login'));
+        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
+        loginBtn.appendChild(txt('Log in'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {
             var pat = window.prompt('Paste a GitHub Personal Access Token (needs public_repo scope):\n\nCreate one at: github.com/settings/tokens/new\nSelect scope: public_repo');

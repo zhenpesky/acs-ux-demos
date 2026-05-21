@@ -1087,18 +1087,18 @@
   .rhacs-auth-dialog__sub { color: #8b949e; }
 
   .rhacs-auth-dialog__btn--primary {
-    background: #0066cc;
-    border-color: #0052a3;
-    color: #fff;
-  }
-  .rhacs-auth-dialog__btn--primary:hover { background: #0052a3; }
-
-  .rhacs-auth-dialog__btn--secondary {
     background: #21262d;
     border-color: #30363d;
     color: #e6edf3;
   }
-  .rhacs-auth-dialog__btn--secondary:hover { background: #30363d; color: #fff; }
+  .rhacs-auth-dialog__btn--primary:hover { background: #30363d; }
+
+  .rhacs-auth-dialog__btn--secondary {
+    background: transparent;
+    border-color: #30363d;
+    color: #8b949e;
+  }
+  .rhacs-auth-dialog__btn--secondary:hover { background: #21262d; color: #e6edf3; }
 
   .rhacs-auth-dialog__features { color: #8b949e; }
   .rhacs-auth-dialog__features--muted { color: #6e7681; }
@@ -1175,20 +1175,18 @@
 }
 
 .rhacs-auth-dialog__btn--primary {
-  background: #0066cc;
-  border-color: #0052a3;
-  color: #fff;
-  font-weight: 600;
-}
-.rhacs-auth-dialog__btn--primary:hover { background: #0052a3; border-color: #003d7a; }
-.rhacs-auth-dialog__btn--primary svg { fill: #fff; }
-
-.rhacs-auth-dialog__btn--secondary {
-  background: #fff;
+  background: #f6f8fa;
   border-color: #d0d7de;
   color: #24292f;
 }
-.rhacs-auth-dialog__btn--secondary:hover { background: #f6f8fa; border-color: #b0bac6; }
+.rhacs-auth-dialog__btn--primary:hover { background: #eaecef; border-color: #b0bac6; }
+
+.rhacs-auth-dialog__btn--secondary {
+  background: transparent;
+  border-color: #d0d7de;
+  color: #57606a;
+}
+.rhacs-auth-dialog__btn--secondary:hover { background: #f6f8fa; color: #24292f; }
 
 .rhacs-auth-dialog__btn span:nth-child(2) { flex: 1; }
 
@@ -1199,9 +1197,7 @@
   border-radius: 10px;
   flex-shrink: 0;
 }
-/* Badge on blue primary button — white tint */
-.rhacs-auth-dialog__badge--full  { background: rgba(255,255,255,0.2); color: #fff; }
-/* Badge on white secondary button — subtle gray */
+.rhacs-auth-dialog__badge--full { background: #dbeafe; color: #0052cc; }
 .rhacs-auth-dialog__badge--local { background: #f3f4f6; color: #6e7681; }
 
 .rhacs-auth-dialog__features {

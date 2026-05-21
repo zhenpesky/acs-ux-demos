@@ -2195,6 +2195,70 @@
     },
   };
 
+  // ── PF6 Tooltip manager ───────────────────────────────────────────────────────
+  // Appends a real DOM node to document.body so it's never clipped by a parent's
+  // stacking context or overflow. Positioned via getBoundingClientRect.
+  var Tooltip = {
+    el: null,
+    show: function (text, target) {
+      this.hide();
+      if (!text) return;
+      var tip = document.createElement('div');
+      tip.className = 'rhacs-tooltip';
+      tip.textContent = text;
+      tip.style.visibility = 'hidden'; // measure before placing
+      document.body.appendChild(tip);
+      this.el = tip;
+      this._place(target);
+      tip.style.visibility = '';
+    },
+    _place: function (target) {
+      var tip = this.el;
+      if (!tip) return;
+      var r   = target.getBoundingClientRect();
+      var tw  = tip.offsetWidth;
+      var th  = tip.offsetHeight;
+      var vw  = window.innerWidth;
+      var vh  = window.innerHeight;
+      var gap = 8;
+
+      // Prefer above; fall back to below if not enough room
+      var top = r.top - th - gap;
+      var below = top < gap;
+      if (below) { top = r.bottom + gap; tip.classList.add('rhacs-tooltip--below'); }
+
+      // Centre horizontally over target, clamp to viewport
+      var left = r.left + r.width / 2 - tw / 2;
+      left = Math.max(gap, Math.min(vw - tw - gap, left));
+
+      // Arrow x offset relative to tooltip box (for accurate pointer)
+      var arrowX = (r.left + r.width / 2 - left);
+      arrowX = Math.max(10, Math.min(tw - 10, arrowX));
+      tip.style.setProperty('--rhacs-tip-arrow-x', arrowX + 'px');
+      tip.style.top  = top + 'px';
+      tip.style.left = left + 'px';
+    },
+    hide: function () {
+      if (this.el) { this.el.remove(); this.el = null; }
+    },
+    init: function () {
+      // Event delegation — works for dynamically created [data-tip] elements
+      document.addEventListener('mouseover', function (e) {
+        var el = e.target.closest('[data-tip]');
+        if (!el) return;
+        Tooltip.show(el.getAttribute('data-tip'), el);
+      });
+      document.addEventListener('mouseout', function (e) {
+        var rel = e.relatedTarget;
+        if (Tooltip.el && rel && Tooltip.el.contains(rel)) return;
+        var el = e.target.closest('[data-tip]');
+        if (el) Tooltip.hide();
+      });
+      // Hide on scroll so tooltips don't drift
+      document.addEventListener('scroll', function () { Tooltip.hide(); }, true);
+    }
+  };
+
   // ── Notifications ─────────────────────────────────────────────────────────────
   var Notify = {
     init: function () { /* toast removed */ },
@@ -2306,6 +2370,7 @@
     Popup.init();
     Panel.init();
     FAB.init();
+    Tooltip.init();
     Notify.init();
 
     // Hide immediately if starting on baseline; show only on prototype pages.

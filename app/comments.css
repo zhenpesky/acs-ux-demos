@@ -852,7 +852,9 @@
   max-width: calc(100vw - 48px);
   pointer-events: all;
   animation: rhacs-toast-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  background: #1b1d21 !important;
+  background: rgba(27, 29, 33, 0.8) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: #fff !important;
   padding: 10px 14px !important;
   border: none !important;

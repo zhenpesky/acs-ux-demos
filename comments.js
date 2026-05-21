@@ -561,8 +561,9 @@
       var pin = S.pins.find(function (p) { return p.id === pinId; });
       if (!pin) return;
       this.el.innerHTML = '';
+      var isOwner = S.user && pin.author.login === S.user.login;
 
-      // Header
+      // ── Level 1: conversation header with conversation-level kebab ──
       var header = el('div', { className: 'rhacs-popup__header' });
       var headerLeft = el('div', { className: 'rhacs-popup__header-left' });
       var avatar = el('img', { className: 'pf-v6-c-avatar rhacs-avatar', src: pin.author.avatarUrl, alt: pin.author.login });
@@ -571,31 +572,46 @@
       var time = el('span', { className: 'rhacs-popup__time' });
       time.appendChild(txt(timeAgo(pin.createdAt)));
       append(headerLeft, avatar, author, time);
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+
+      // Conversation kebab: Delete (owner), Resolve/Unresolve, Mark as read
+      var convKebab = Popup.makeKebab([
+        isOwner ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
+        { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } },
+        { label: 'Mark as read', action: function () {
+          S.lastSeen = Math.max(S.lastSeen, new Date(pin.createdAt).getTime());
+          localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+          Overlay.renderPins();
+          Notify.clearUnread();
+        }}
+      ].filter(Boolean));
+
+      var closeBtn = el('button', { className: 'rhacs-btn rhacs-btn--plain rhacs-popup__close', onclick: function () { Popup.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
-      append(header, headerLeft, closeBtn);
+      append(header, headerLeft, convKebab, closeBtn);
 
-      // Body text
-      var body = el('div', { className: 'rhacs-popup__body' });
-      body.appendChild(txt(pinText(pin.body)));
+      // ── Level 2: first post as a message row with message-level kebab ──
+      var firstPost = el('div', { className: 'rhacs-reply rhacs-reply--first' });
+      var fpHdr = el('div', { className: 'rhacs-reply__header' });
+      var fpAv  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+      var fpAu  = el('span', { className: 'rhacs-popup__author' });
+      fpAu.appendChild(txt(pin.author.login));
+      var fpTm  = el('span', { className: 'rhacs-popup__time' });
+      fpTm.appendChild(txt(timeAgo(pin.createdAt)));
+      append(fpHdr, fpAv, fpAu, fpTm);
+      if (isOwner) {
+        var msgKebab = Popup.makeKebab([
+          { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } },
+          { label: 'Delete', danger: true, action: function () { Popup.confirmDelete(pin.id); } }
+        ]);
+        fpHdr.appendChild(msgKebab);
+      }
+      var fpBody = el('div', { className: 'rhacs-reply__body' });
+      fpBody.appendChild(txt(pinText(pin.body)));
+      append(firstPost, fpHdr, fpBody);
 
       // Reactions
       var reactionsEl = Popup.buildReactions(pin);
-
-      // Pin actions
-      var actionsEl = el('div', { className: 'rhacs-popup__pin-actions' });
-      var isOwner = S.user && pin.author.login === S.user.login;
-      if (isOwner) {
-        var editBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', onclick: function () { Popup.showEdit(pin, body); } });
-        editBtn.appendChild(txt('Edit'));
-        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-danger pf-m-small', onclick: function () { Popup.confirmDelete(pin.id); } });
-        delBtn.appendChild(txt('Delete'));
-        append(actionsEl, editBtn, delBtn);
-      }
-      var resolveBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', onclick: function () { Popup.toggleResolve(pin); } });
-      resolveBtn.appendChild(txt(pin.meta.resolved ? 'Unresolve' : 'Resolve'));
-      actionsEl.appendChild(resolveBtn);
 
       // Replies
       var repliesEl = el('div', { className: 'rhacs-replies' });
@@ -603,7 +619,7 @@
 
       // Reply form
       var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
-      var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
+      var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary' });
       replyBtn.appendChild(txt('Reply'));
       replyBtn.addEventListener('click', function () {
         replyBtn.disabled = true;
@@ -613,7 +629,7 @@
       var replyForm = el('div', { className: 'rhacs-reply-form' });
       append(replyForm, replyArea, replyBtn);
 
-      append(this.el, header, body, reactionsEl, actionsEl, repliesEl, replyForm);
+      append(this.el, header, firstPost, reactionsEl, repliesEl, replyForm);
       this.el.style.display = 'block';
 
       // Position near pin element
@@ -718,50 +734,50 @@
       tm.appendChild(txt(timeAgo(reply.createdAt)));
       append(hdr, av, au, tm);
 
+      var bd = el('div', { className: 'rhacs-reply__body' });
+      bd.appendChild(txt(reply.body));
+
       if (S.user && reply.author.login === S.user.login) {
-        var kebabWrap = el('div', { className: 'rhacs-kebab' });
-        var kebabBtn  = el('button', { className: 'rhacs-kebab__btn', 'aria-label': 'Reply actions' });
-        kebabBtn.appendChild(txt('⋮'));
-        var dropdown  = el('div', { className: 'rhacs-kebab__dropdown' });
-
-        var editItem = el('button', { className: 'rhacs-kebab__item' });
-        editItem.appendChild(txt('Edit'));
-        editItem.addEventListener('click', function (e) {
-          e.stopPropagation();
-          dropdown.classList.remove('rhacs-kebab__dropdown--open');
-          Popup.showReplyEdit(reply, pinId, bd);
-        });
-
-        var delItem = el('button', { className: 'rhacs-kebab__item rhacs-kebab__item--danger' });
-        delItem.appendChild(txt('Delete'));
-        delItem.addEventListener('click', function (e) {
-          e.stopPropagation();
-          dropdown.classList.remove('rhacs-kebab__dropdown--open');
-          if (!confirm('Delete this reply?')) return;
-          deleteComment(reply.id)
-            .then(function () { return loadAndRender(); })
-            .then(function () { Popup.showThread(pinId); })
-            .catch(function (e) { Notify.toast(e.message); });
-        });
-
-        append(dropdown, editItem, delItem);
-        append(kebabWrap, kebabBtn, dropdown);
-        hdr.appendChild(kebabWrap);
-
-        kebabBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var isOpen = dropdown.classList.contains('rhacs-kebab__dropdown--open');
-          // close all other open dropdowns first
-          document.querySelectorAll('.rhacs-kebab__dropdown--open').forEach(function (d) {
-            d.classList.remove('rhacs-kebab__dropdown--open');
-          });
-          if (!isOpen) dropdown.classList.add('rhacs-kebab__dropdown--open');
-        });
+        hdr.appendChild(Popup.makeKebab([
+          { label: 'Edit',   action: function () { Popup.showReplyEdit(reply, pinId, bd); } },
+          { label: 'Delete', danger: true, action: function () {
+            if (!confirm('Delete this reply?')) return;
+            deleteComment(reply.id)
+              .then(function () { return loadAndRender(); })
+              .then(function () { Popup.showThread(pinId); })
+              .catch(function (e) { Notify.toast(e.message); });
+          }}
+        ]));
       }
 
-      var bd   = el('div', { className: 'rhacs-reply__body' });
-      bd.appendChild(txt(reply.body));
       append(wrap, hdr, bd);
+      return wrap;
+    },
+    // Build a kebab ⋮ button with a dropdown. items: [{ label, action, danger? }]
+    makeKebab: function (items) {
+      var wrap     = el('div', { className: 'rhacs-kebab' });
+      var btn      = el('button', { className: 'rhacs-kebab__btn', 'aria-label': 'Actions' });
+      btn.appendChild(txt('⋮'));
+      var dropdown = el('div', { className: 'rhacs-kebab__dropdown' });
+      items.forEach(function (item) {
+        var i = el('button', { className: 'rhacs-kebab__item' + (item.danger ? ' rhacs-kebab__item--danger' : '') });
+        i.appendChild(txt(item.label));
+        i.addEventListener('click', function (e) {
+          e.stopPropagation();
+          dropdown.classList.remove('rhacs-kebab__dropdown--open');
+          item.action();
+        });
+        dropdown.appendChild(i);
+      });
+      append(wrap, btn, dropdown);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = dropdown.classList.contains('rhacs-kebab__dropdown--open');
+        document.querySelectorAll('.rhacs-kebab__dropdown--open').forEach(function (d) {
+          d.classList.remove('rhacs-kebab__dropdown--open');
+        });
+        if (!isOpen) dropdown.classList.add('rhacs-kebab__dropdown--open');
+      });
       return wrap;
     },
     showReplyEdit: function (reply, pinId, bodyEl) {

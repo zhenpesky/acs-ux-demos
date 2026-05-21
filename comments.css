@@ -361,11 +361,17 @@
 }
 
 .rhacs-reply {
-  padding: 6px 0;
+  padding: 8px 12px;
   border-bottom: 1px solid #f6f8fa;
 }
 
 .rhacs-reply:last-child { border-bottom: none; }
+
+.rhacs-reply--first {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--pf-v6-global--BorderColor--100, #e8e8e8);
+  margin-bottom: 2px;
+}
 
 .rhacs-reply__header {
   display: flex;
@@ -393,10 +399,14 @@
   opacity: 0;
   transition: opacity 0.1s, background 0.1s;
 }
+/* Show on hover for reply rows */
 .rhacs-reply:hover .rhacs-kebab__btn,
-.rhacs-kebab__dropdown--open ~ * .rhacs-kebab__btn,
-.rhacs-kebab__dropdown--open + .rhacs-kebab__btn,
-.rhacs-kebab:focus-within .rhacs-kebab__btn {
+.rhacs-kebab:focus-within .rhacs-kebab__btn,
+.rhacs-kebab__dropdown--open + .rhacs-kebab__btn {
+  opacity: 1;
+}
+/* Always visible in the popup header (conversation-level kebab) */
+.rhacs-popup__header .rhacs-kebab__btn {
   opacity: 1;
 }
 .rhacs-kebab__btn:hover {

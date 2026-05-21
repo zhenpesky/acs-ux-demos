@@ -78,6 +78,17 @@
           return;
         }
 
+        // Check if we arrived via a redirect (popup was blocked)
+        const returnUrl = localStorage.getItem('rhacs_return_url');
+        if (returnUrl) {
+          localStorage.removeItem('rhacs_return_url');
+          document.getElementById('status').textContent = 'Logged in! Redirecting…';
+          document.getElementById('spinner').style.display = 'none';
+          const sep = returnUrl.includes('?') ? '&' : '?';
+          window.location.href = returnUrl + sep + 'rhacs_token=' + encodeURIComponent(data.token);
+          return;
+        }
+
         notifyOpener(data.token);
         document.getElementById('status').textContent = 'Logged in! Closing…';
         document.getElementById('spinner').style.display = 'none';
@@ -89,11 +100,24 @@
     }
 
     function notifyOpener(token) {
+      // Channel A: BroadcastChannel — purpose-built for same-origin cross-tab messaging
+      try {
+        const bc = new BroadcastChannel('rhacs_auth');
+        bc.postMessage({ type: 'rhacs_token', token, ts: Date.now() });
+        setTimeout(() => bc.close(), 2000);
+      } catch (e) {}
+      // Channel B: localStorage + storage event (fires in all other same-origin windows)
+      try {
+        localStorage.setItem('rhacs_oauth_result', JSON.stringify({ token, ts: Date.now() }));
+      } catch (e) {}
+      // Channel C: postMessage directly to opener
       if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(
-          { type: 'rhacs_auth_done', token },
-          'https://zhenpesky.github.io'
-        );
+        try {
+          window.opener.postMessage(
+            { type: 'rhacs_auth_done', token },
+            'https://zhenpesky.github.io'
+          );
+        } catch (e) {}
       }
     }
 

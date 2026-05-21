@@ -345,8 +345,9 @@
       return new Promise(function (resolve, reject) {
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
-        var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
-        if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
+        localStorage.setItem('rhacs_return_url', window.location.href);
+        window.location.href = url;
+        return;
         var handler = function (e) {
           if (e.origin !== 'https://zhenpesky.github.io') return;
           if (!e.data || e.data.type !== 'rhacs_auth_done') return;

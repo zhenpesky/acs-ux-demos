@@ -1784,6 +1784,14 @@
           (pin.meta.resolved ? ' rhacs-panel__item--resolved' : '');
         var item = el('div', { className: cls });
 
+        // Per-pin permissions (mirrors showThread logic)
+        var pIsProtoOwner = Auth.isPrototypeOwner();
+        var pIsOwnComment = !!(S.user && (
+          pin.author.login === S.user.login || String(pin.id).startsWith('guest-')
+        ));
+        var pCanDelete  = pIsProtoOwner || pIsOwnComment;
+        var pCanResolve = pIsProtoOwner;
+
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
         var av  = makeAvatar(pin.author, 'rhacs-avatar--sm');
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
@@ -1800,6 +1808,43 @@
           var dot = el('span', { className: 'rhacs-unread-dot' });
           itemHdr.appendChild(dot);
         }
+
+        // Panel-row kebab — mirrors thread-level header kebab actions
+        (function (p, unread, canDel, canRes) {
+          var pinTs = new Date(p.createdAt).getTime();
+          var menuItems = [
+            canDel ? { label: 'Delete thread', danger: true, action: function () {
+              showConfirm('Delete this comment and all its replies?', {
+                title: 'Delete comment', confirmLabel: 'Delete', cancelLabel: 'Cancel', danger: true
+              }).then(function (ok) {
+                if (!ok) return;
+                if (String(p.id).startsWith('guest-')) {
+                  Auth.deleteGuestPin(p.id); return loadAndRender();
+                }
+                deleteComment(p.id).then(loadAndRender).catch(function (e) { Notify.toast(e.message); });
+              });
+            }} : null,
+            canRes ? { label: p.meta.resolved ? 'Unresolve' : 'Resolve', action: function () {
+              Popup.toggleResolve(p);
+            }} : null,
+            unread
+              ? { label: 'Mark as read', action: function () {
+                  S.lastSeen = Math.max(S.lastSeen, pinTs);
+                  localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+                  Overlay.renderPins(); Notify.clearUnread(); Panel.render();
+                }}
+              : { label: 'Mark as unread', action: function () {
+                  S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
+                  localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+                  S.unread = Math.max(1, S.unread);
+                  FAB.updateBadge(); Overlay.renderPins(); Panel.render();
+                }}
+          ].filter(Boolean);
+          var panelKebab = Popup.makeKebab(menuItems);
+          panelKebab.style.marginLeft = 'auto';
+          panelKebab.style.flexShrink = '0';
+          itemHdr.appendChild(panelKebab);
+        })(pin, isUnread, pCanDelete, pCanResolve);
 
         var preview = el('div', { className: 'rhacs-panel__item-preview' });
         var ptext = pinText(pin.body);

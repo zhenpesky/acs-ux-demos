@@ -158,8 +158,10 @@
     return (author.login || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
   }
 
-  function buildBody(x, y, num, text) {
-    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() }) + ' -->\n' + text;
+  function buildBody(x, y, num, text, guestAuthor) {
+    var meta = { x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() };
+    if (guestAuthor) meta.guestAuthor = guestAuthor;
+    return '<!-- RHACS_PIN ' + JSON.stringify(meta) + ' -->\n' + text;
   }
 
   function setMeta(body, updates) {
@@ -578,18 +580,58 @@
       localStorage.setItem(Auth.guestPinsKey(), JSON.stringify(pins));
     },
     addGuestPin: function (text, x, y, num) {
-      var pins = Auth.loadGuestPins();
+      // Build the comment body with embedded guest author identity
+      var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : null;
+      var body = buildBody(x, y, num, text, guestAuthor);
+      var tempId = 'guest-' + Date.now();
       var pin = {
-        id: 'guest-' + Date.now(),
-        body: buildBody(x, y, num, text),
+        id: tempId,
+        body: body,
         createdAt: new Date().toISOString(),
-        author: S.user,
+        author: guestAuthor || { login: 'Guest', name: 'Guest' },
         replies: [],
-        meta: Object.assign(parseMeta(buildBody(x, y, num, text)), { pinNumber: num, resolved: false }),
+        meta: Object.assign(parseMeta(body), { pinNumber: num, resolved: false }),
         _guest: true,
+        _pendingUpload: true,
       };
+
+      // Store immediately in localStorage so the guest sees it right away (optimistic)
+      var pins = Auth.loadGuestPins();
       pins.push(pin);
       Auth.saveGuestPins(pins);
+
+      // Fire-and-forget: POST to worker → GitHub Discussions so the prototype owner can see it
+      fetch(CFG.workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'guest_post',
+          pageKey: getPageKey(),
+          pageUrl: window.location.href,
+          commentBody: body,
+          owner: CFG.owner,
+          repo: CFG.repo,
+          categoryName: CFG.categoryName,
+        }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data && data.id) {
+          // Replace the temp ID with the real GitHub comment ID
+          var stored = Auth.loadGuestPins();
+          for (var i = 0; i < stored.length; i++) {
+            if (stored[i].id === tempId) {
+              stored[i].id = data.id;
+              stored[i]._pendingUpload = false;
+              break;
+            }
+          }
+          Auth.saveGuestPins(stored);
+          if (data.discussionId) S.discussionId = data.discussionId;
+        }
+      }).catch(function (e) {
+        console.warn('[rhacs] Guest comment upload to GitHub failed:', e && e.message);
+        // Pin stays in localStorage as a local-only draft
+      });
+
       return pin;
     },
     deleteGuestPin: function (id) {
@@ -651,7 +693,7 @@
 
         // Guest option
         var guestBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--secondary' });
-        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No login required</span>';
+        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Comment without login</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No account needed</span>';
         guestBtn.addEventListener('click', function () {
           overlay.remove();
           Auth.loginAsGuest()
@@ -664,7 +706,7 @@
 
         // Feature list for guest
         var guestFeatures = el('ul', { className: 'rhacs-auth-dialog__features rhacs-auth-dialog__features--muted' });
-        ['Only visible to you on this device', 'No notifications or sharing', 'Others cannot see your comments'].forEach(function (f) {
+        ['No GitHub account needed', 'Comments are visible to the prototype owner', 'No notifications — log in with GitHub for those'].forEach(function (f) {
           var li = el('li'); li.appendChild(txt(f)); guestFeatures.appendChild(li);
         });
 
@@ -687,7 +729,13 @@
   function parseComments(comments) {
     return comments
       .map(function (c) {
-        return Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+        var pin = Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+        // Guest comments are posted via the owner token; restore the real guest identity from meta
+        if (pin.meta && pin.meta.guestAuthor) {
+          pin.author = pin.meta.guestAuthor;
+          pin._guest = true;
+        }
+        return pin;
       })
       .filter(function (c) { return c.meta !== null; })
       .sort(function (a, b) { return a.meta.pinNumber - b.meta.pinNumber; });
@@ -723,17 +771,11 @@
         if (!id) { S.pins = Auth.loadGuestPins(); Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
+          // Guest comments are now posted to GitHub Discussions via the worker,
+          // so they appear in `comments` already. No localStorage merge needed
+          // (that would create duplicates). localStorage is a local-only cache
+          // for the guest's own session only.
           S.pins = parseComments(comments);
-          // Merge in any guest pins on top of GitHub pins
-          var guestPins = Auth.loadGuestPins().map(function (p) {
-            if (!p.meta) p.meta = parseMeta(p.body);
-            return p;
-          });
-          if (guestPins.length) {
-            S.pins = S.pins.concat(guestPins).sort(function (a, b) {
-              return new Date(a.createdAt) - new Date(b.createdAt);
-            });
-          }
           Overlay.renderPins();
           FAB.updateBadge();
         });

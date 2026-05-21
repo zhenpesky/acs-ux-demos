@@ -471,18 +471,28 @@
       S.activePinId = null;
     },
     positionFixed: function (clientX, clientY) {
-      this.el.style.display = 'block';
-      var margin = 16;
-      var pw = this.el.offsetWidth  || 320;
-      var ph = this.el.offsetHeight || 220;
+      var margin = 12;
       var vw = window.innerWidth;
       var vh = window.innerHeight;
+      // Render off-screen first so we can measure the real dimensions
+      this.el.style.visibility = 'hidden';
+      this.el.style.left = '0px';
+      this.el.style.top  = '0px';
+      this.el.style.display = 'block';
+      var pw = this.el.offsetWidth  || 320;
+      var ph = this.el.offsetHeight || 220;
+      // Try right of the pin first, fall back to left
       var left = clientX + margin;
-      var top  = clientY;
       if (left + pw > vw - margin) left = clientX - pw - margin;
-      if (top  + ph > vh - margin) top  = vh - ph - margin;
-      this.el.style.left = Math.max(margin, left) + 'px';
-      this.el.style.top  = Math.max(margin, top)  + 'px';
+      // Try below the pin first, fall back to above
+      var top = clientY;
+      if (top + ph > vh - margin) top = vh - ph - margin;
+      // Hard-clamp so it never exits the viewport
+      left = Math.min(Math.max(margin, left), vw - pw - margin);
+      top  = Math.min(Math.max(margin, top),  vh - ph - margin);
+      this.el.style.left = left + 'px';
+      this.el.style.top  = top  + 'px';
+      this.el.style.visibility = '';
     },
     showNewForm: function (x, y, clientX, clientY) {
       S.activePinId = null;

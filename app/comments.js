@@ -1660,12 +1660,14 @@
       label.appendChild(txt('Add comment'));
 
       var mainBtn = el('button', { className: 'rhacs-fab__btn', title: 'Toggle comment mode (C)' });
-      append(mainBtn, icon, label, this.badge);
+      append(mainBtn, icon, label);
       mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
 
-      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments' });
+      // Badge lives on the "View all" button so it doesn't conflict with the main button label
+      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments', style: 'position:relative' });
       panelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg><span style="font-size:12px;font-weight:500">View all</span>';
-      panelBtn.style.cssText = 'display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
+      panelBtn.style.cssText = 'position:relative;display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
+      panelBtn.appendChild(this.badge);
       panelBtn.addEventListener('click', function () { Panel.toggle(); });
       this.panelBtn = panelBtn;
 

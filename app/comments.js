@@ -1817,6 +1817,9 @@
     var active = isPrototypePage();
     var mount = rhacsMount();
     mount.style.display = active ? '' : 'none';
+    // Close the panel and popup on every route/tab navigation
+    Panel.close();
+    Popup.close();
     if (!active) {
       FAB.setMode(false);
       if (Popup.el) Popup.el.style.display = 'none';

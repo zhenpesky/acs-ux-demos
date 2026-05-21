@@ -931,7 +931,26 @@
     handleClick: function (e) {
       if (!S.commentMode) return;
       if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
-      e.stopPropagation(); // prevent the document click-outside handler from closing the popup we're about to open
+
+      // If popup is open with unsaved input, shake it and block the new-pin action
+      if (Popup.el && Popup.el.style.display !== 'none' && !Popup.el.contains(e.target)) {
+        var hasUnsaved = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
+          return ta.value.trim().length > 0;
+        });
+        if (hasUnsaved) {
+          e.stopPropagation();
+          Popup.el.classList.remove('rhacs-popup--shake');
+          void Popup.el.offsetWidth;
+          Popup.el.classList.add('rhacs-popup--shake');
+          Popup.el.addEventListener('animationend', function removeShake() {
+            Popup.el.classList.remove('rhacs-popup--shake');
+            Popup.el.removeEventListener('animationend', removeShake);
+          });
+          return;
+        }
+      }
+
+      e.stopPropagation(); // prevent the document click-outside handler from firing redundantly
       var ci = containerInfo();
       var x = ((e.clientX - ci.clientLeft + ci.scrollLeft) / Math.max(ci.scrollWidth,  1)) * 100;
       var y = ((e.clientY - ci.clientTop  + ci.scrollTop)  / Math.max(ci.scrollHeight, 1)) * 100;

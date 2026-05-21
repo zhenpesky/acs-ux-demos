@@ -41,6 +41,7 @@
     pins:         [],
     activePinId:  null,
     lastSeen:     0,
+    seenIds:      new Set(),
     unread:       0,
     origTitle:    document.title,
     pollTimer:    null,
@@ -328,6 +329,10 @@
     init: function () {
       S.token = localStorage.getItem(CFG.tokenKey);
       try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
+      try {
+        var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
+        S.seenIds = new Set(Array.isArray(ids) ? ids : []);
+      } catch (e) { S.seenIds = new Set(); }
       // Guest mode is NOT auto-restored on page load — the user must explicitly
       // choose "Continue as guest" each session via the auth dialog.
       // (The stored guest identity key is kept so the same name/avatar is reused
@@ -1010,7 +1015,7 @@
         var pinState = pin.meta.viewState;
         if (pinState && pinState !== curState) return;
         var vp = pinToViewport(pin.meta);
-        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
         var isResolved = pin.meta.resolved;
         var cls = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
@@ -1369,24 +1374,28 @@
 
       // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
       var pinTs   = new Date(pin.createdAt).getTime();
-      var isUnread = pinTs > S.lastSeen;
+      var isUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
       var convKebab = Popup.makeKebab([
         canDelete  ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
         canResolve ? { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } } : null,
         isUnread
           ? { label: 'Mark as read', action: function () {
-              S.lastSeen = Math.max(S.lastSeen, pinTs);
-              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+              S.seenIds.add(pin.id);
+              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
               Overlay.renderPins();
-              Notify.clearUnread();
+              FAB.updateBadge();
+              Panel.render();
             }}
           : { label: 'Mark as unread', action: function () {
+              S.seenIds.delete(pin.id);
+              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
               // Set lastSeen to just before this pin so it becomes unread again
               S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
               localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
               S.unread = Math.max(1, S.unread);
               FAB.updateBadge();
               Overlay.renderPins();
+              Panel.render();
             }}
       ].filter(Boolean));
 
@@ -1916,7 +1925,7 @@
     },
     _getTabPins: function () {
       var allPins        = S.pins.filter(function (p) { return p.meta; });
-      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen; });
+      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id); });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
       return Panel.activeTab === 'unread'     ? unreadPins
@@ -1962,11 +1971,13 @@
       Panel.selected.forEach(function (id) {
         var pin = S.pins.find(function (p) { return p.id === id; });
         if (!pin) return;
+        S.seenIds.add(id);
         var ts = new Date(pin.createdAt).getTime();
         if (ts > maxTs) maxTs = ts;
       });
       S.lastSeen = maxTs;
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
       Panel.selected.clear();
       Notify.clearUnread();
       Overlay.renderPins();
@@ -2064,11 +2075,17 @@
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
       Panel._pushPage(true);
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
+      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
     },
     close: function () {
       // Mark everything as seen when the user closes the panel
       S.lastSeen = Date.now();
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
+      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
       this.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
@@ -2126,7 +2143,7 @@
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
-      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen; });
+      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id); });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
 
@@ -2183,7 +2200,7 @@
       }
 
       visible.forEach(function (pin) {
-        var isUnread = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var isUnread = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
         var cls = 'rhacs-panel__item' +
           (isUnread   ? ' rhacs-panel__item--unread'   : '') +
           (pin.meta.resolved ? ' rhacs-panel__item--resolved' : '');
@@ -2237,11 +2254,13 @@
             }} : null,
             unread
               ? { label: 'Mark as read', action: function () {
-                  S.lastSeen = Math.max(S.lastSeen, pinTs);
-                  localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-                  Overlay.renderPins(); Notify.clearUnread(); Panel.render();
+                  S.seenIds.add(p.id);
+                  localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+                  Overlay.renderPins(); FAB.updateBadge(); Panel.render();
                 }}
               : { label: 'Mark as unread', action: function () {
+                  S.seenIds.delete(p.id);
+                  localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
                   S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
                   localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
                   S.unread = Math.max(1, S.unread);
@@ -2265,11 +2284,9 @@
           replyCount.appendChild(txt(pin.replies.length + ' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
           replyCount.addEventListener('click', (function (p) { return function (e) {
             e.stopPropagation();
-            var pinTs = new Date(p.createdAt).getTime();
-            if (pinTs > S.lastSeen) {
-              S.lastSeen = Math.max(S.lastSeen, pinTs);
-              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-              Notify.clearUnread();
+            if (new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id)) {
+              S.seenIds.add(p.id);
+              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
               FAB.updateBadge();
               Overlay.renderPins();
               Panel.render();
@@ -2282,11 +2299,9 @@
         append(item, itemCheck, itemBody);
 
         item.addEventListener('click', (function (p) { return function () {
-          var pinTs = new Date(p.createdAt).getTime();
-          if (pinTs > S.lastSeen) {
-            S.lastSeen = Math.max(S.lastSeen, pinTs);
-            localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-            Notify.clearUnread();
+          if (new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id)) {
+            S.seenIds.add(p.id);
+            localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
             FAB.updateBadge();
             Overlay.renderPins();
             Panel.render();
@@ -2411,7 +2426,7 @@
       var myLogin = S.user && S.user.login;
       var count = S.pins.filter(function (p) {
         if (!p.meta || p.meta.resolved) return false;
-        if (!(new Date(p.createdAt).getTime() > S.lastSeen)) return false;
+        if (!(new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id))) return false;
         // Exclude the current user's own pins
         if (myLogin && p.author && p.author.login === myLogin) return false;
         return true;
@@ -2683,7 +2698,7 @@
         loadComments(S.discussionId).then(function (comments) {
           var freshPins = parseComments(comments);
           var newOnes = freshPins.filter(function (fp) {
-            return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen &&
+            return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen && !S.seenIds.has(fp.id) &&
               !S.pins.some(function (ep) { return ep.id === fp.id; });
           });
           if (newOnes.length > 0) {
@@ -2705,6 +2720,8 @@
     clearUnread: function () {
       S.lastSeen = Date.now();
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
+      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
       FAB.updateBadge();
       Overlay.renderPins();
     },
@@ -2747,7 +2764,12 @@
     // previous page are never rendered on the new page.
     S.discussionId = null;
     S.pins = [];
+    S.seenIds = new Set();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
+    try {
+      var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
+      S.seenIds = new Set(Array.isArray(ids) ? ids : []);
+    } catch (e) { S.seenIds = new Set(); }
     if (Overlay.pinLayerEl) Overlay.renderPins();
     if (FAB.badge) FAB.updateBadge();
 

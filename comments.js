@@ -2495,23 +2495,74 @@
             Panel.render();
           }
 
-          var delay = 400;
+          var pinId = p.id;
+          var targetState = p.meta && p.meta.viewState;
+          var pinPageUrl  = p.meta && p.meta.pageUrl;
 
-          // Navigate to the exact URL where this pin was created (SPA-safe, no reload)
-          if (p.meta.pageUrl && p.meta.pageUrl !== window.location.href) {
-            history.pushState({}, '', p.meta.pageUrl);
+          // Poll until the page reaches the target view state, then scroll + show popup.
+          // Max wait 2.5s to avoid hanging if state never matches (legacy pins, etc.)
+          function showAfterStateReady() {
+            var ci = containerInfo();
+            var scrollY = (p.meta.y / 100) * ci.scrollHeight;
+            if (S.scrollContainer) {
+              S.scrollContainer.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+            } else {
+              window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+            }
+            setTimeout(function () { Popup.showThread(pinId); }, 200);
+          }
+
+          function waitForState(target, onReady, timeoutMs) {
+            if (!target || detectViewState() === target) { onReady(); return; }
+            var elapsed = 0;
+            var interval = setInterval(function () {
+              elapsed += 100;
+              if (detectViewState() === target || elapsed >= timeoutMs) {
+                clearInterval(interval);
+                onReady();
+              }
+            }, 100);
+          }
+
+          function activateAndShow() {
+            waitForState(targetState, showAfterStateReady, 2500);
+          }
+
+          // Step 1: navigate to the correct URL if different
+          if (pinPageUrl && pinPageUrl !== window.location.href) {
+            history.pushState({}, '', pinPageUrl);
             window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
-            delay = 600; // allow React to re-render before scrolling
+            // Give React Router time to start re-rendering, then check state
+            setTimeout(activateAndShow, 300);
+            return;
           }
 
-          var ci = containerInfo();
-          var scrollY = (p.meta.y / 100) * ci.scrollHeight;
-          if (S.scrollContainer) {
-            S.scrollContainer.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
-          } else {
-            window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+          // Step 2: same URL but wrong view state — trigger DOM mode switch
+          if (targetState && targetState !== detectViewState()) {
+            if (targetState === 'edit' || targetState === 'create') {
+              var editBtns = Array.prototype.slice.call(
+                document.querySelectorAll('button, a[role="button"]')
+              ).filter(function (b) {
+                if (b.closest('#rhacs-mount')) return false;
+                var t = (b.textContent || b.getAttribute('aria-label') || '').trim().toLowerCase();
+                return t === 'edit' || t === 'edit configuration' || t === 'edit settings';
+              });
+              if (editBtns.length) editBtns[0].click();
+            } else if (targetState === 'view') {
+              var cancelBtns = Array.prototype.slice.call(
+                document.querySelectorAll('button')
+              ).filter(function (b) {
+                if (b.closest('#rhacs-mount')) return false;
+                return (b.textContent || '').trim().toLowerCase() === 'cancel';
+              });
+              if (cancelBtns.length) cancelBtns[0].click();
+            }
+            activateAndShow();
+            return;
           }
-          setTimeout(function () { Popup.showThread(p.id); }, delay);
+
+          // Step 3: already on the right URL and state — show immediately
+          showAfterStateReady();
         }; })(pin));
 
         Panel.listEl.appendChild(item);

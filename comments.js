@@ -461,11 +461,19 @@
   // ── Popup ─────────────────────────────────────────────────────────────────────
   var Popup = {
     el: null,
+    _ro: null,
     init: function () {
       this.el = el('div', { className: 'rhacs-popup', id: 'rhacs-popup' });
       this.el.style.display = 'none';
       rhacsMount().appendChild(this.el);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') Popup.close(); });
+      // Auto-reposition whenever the popup grows or shrinks
+      if (window.ResizeObserver) {
+        this._ro = new ResizeObserver(function () {
+          if (Popup.el.style.display !== 'none') Popup.reposition();
+        });
+        this._ro.observe(this.el);
+      }
     },
     close: function () {
       this.el.style.display = 'none';
@@ -523,7 +531,7 @@
       }
     },
     reposition: function () {
-      if (this.el && this.el.style.display !== 'none') {
+      if (this.el && this.el.style.display !== 'none' && this.el.style.visibility !== 'hidden') {
         this.positionFixed(this._anchorX, this._anchorY);
       }
     },
@@ -735,7 +743,6 @@
           .catch(function (e) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; Notify.toast(e.message); });
       });
       append(bodyEl, editArea, saveBtn);
-      requestAnimationFrame(function () { Popup.reposition(); });
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
@@ -825,7 +832,6 @@
       append(actions, saveBtn, cancelBtn);
       append(bodyEl, editArea, actions);
       editArea.focus();
-      requestAnimationFrame(function () { Popup.reposition(); });
     },
     submitReply: function (pinId, text, textarea) {
       text = text.trim();

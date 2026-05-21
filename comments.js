@@ -471,19 +471,26 @@
       this.el.style.display = 'none';
       S.activePinId = null;
     },
+    _anchorX: 0,
+    _anchorY: 0,
     positionFixed: function (clientX, clientY) {
+      this._anchorX = clientX;
+      this._anchorY = clientY;
       var popupEl = this.el;
+      var margin = 12;
+      var vw = window.innerWidth, vh = window.innerHeight;
       popupEl.style.display = 'block';
+      // Remove fixed max-height so we can measure natural height first
+      popupEl.style.maxHeight = '';
 
-      function clampPos() {
-        var margin = 12, vw = window.innerWidth, vh = window.innerHeight;
-        var pw = popupEl.offsetWidth || 320, ph = popupEl.offsetHeight || 220;
-        var left = clientX + margin;
-        if (left + pw > vw - margin) left = clientX - pw - margin;
-        var top = clientY;
-        if (top + ph > vh - margin) top = vh - ph - margin;
-        popupEl.style.left = Math.min(Math.max(margin, left), vw - pw - margin) + 'px';
-        popupEl.style.top  = Math.min(Math.max(margin, top),  vh - ph - margin) + 'px';
+      function applyPos(top, left) {
+        top  = Math.min(Math.max(margin, top),  vh - margin);
+        left = Math.min(Math.max(margin, left), vw - margin);
+        // Dynamic max-height: never overflow the bottom edge
+        var availH = vh - top - margin;
+        popupEl.style.top      = top  + 'px';
+        popupEl.style.left     = left + 'px';
+        popupEl.style.maxHeight = Math.max(120, availH) + 'px';
         popupEl.style.visibility = '';
       }
 
@@ -501,12 +508,23 @@
           strategy:  'fixed',
           middleware: [ fui.offset(8), fui.flip({ padding: 12 }), fui.shift({ padding: 12 }) ]
         }).then(function (pos) {
-          popupEl.style.left = pos.x + 'px';
-          popupEl.style.top  = pos.y + 'px';
-          popupEl.style.visibility = '';
-        }).catch(clampPos);
+          applyPos(pos.y, pos.x);
+        }).catch(function () {
+          var pw = popupEl.offsetWidth || 320;
+          var left = clientX + margin;
+          if (left + pw > vw - margin) left = clientX - pw - margin;
+          applyPos(clientY, left);
+        });
       } else {
-        clampPos();
+        var pw = popupEl.offsetWidth || 320;
+        var left = clientX + margin;
+        if (left + pw > vw - margin) left = clientX - pw - margin;
+        applyPos(clientY, left);
+      }
+    },
+    reposition: function () {
+      if (this.el && this.el.style.display !== 'none') {
+        this.positionFixed(this._anchorX, this._anchorY);
       }
     },
     showNewForm: function (x, y, clientX, clientY) {
@@ -717,6 +735,7 @@
           .catch(function (e) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; Notify.toast(e.message); });
       });
       append(bodyEl, editArea, saveBtn);
+      requestAnimationFrame(function () { Popup.reposition(); });
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
@@ -806,6 +825,7 @@
       append(actions, saveBtn, cancelBtn);
       append(bodyEl, editArea, actions);
       editArea.focus();
+      requestAnimationFrame(function () { Popup.reposition(); });
     },
     submitReply: function (pinId, text, textarea) {
       text = text.trim();

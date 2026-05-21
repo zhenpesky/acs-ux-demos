@@ -1062,4 +1062,207 @@
   }
 
   .rhacs-reaction-picker__btn:hover { background: #21262d; }
+
+  /* Auth dialog dark */
+  .rhacs-auth-dialog {
+    background: #161b22;
+    border-color: #30363d;
+    color: #e6edf3;
+  }
+
+  .rhacs-auth-dialog__sub { color: #8b949e; }
+
+  .rhacs-auth-dialog__btn--primary {
+    background: #21262d;
+    border-color: #30363d;
+    color: #e6edf3;
+  }
+  .rhacs-auth-dialog__btn--primary:hover { background: #30363d; }
+
+  .rhacs-auth-dialog__btn--secondary {
+    background: transparent;
+    border-color: #30363d;
+    color: #8b949e;
+  }
+  .rhacs-auth-dialog__btn--secondary:hover { background: #21262d; color: #e6edf3; }
+
+  .rhacs-auth-dialog__features { color: #8b949e; }
+  .rhacs-auth-dialog__features--muted { color: #6e7681; }
+
+  .rhacs-auth-dialog__divider { color: #6e7681; }
+  .rhacs-auth-dialog__divider::before,
+  .rhacs-auth-dialog__divider::after { border-color: #30363d; }
+
+  .rhacs-auth-dialog__cancel { color: #8b949e; }
+  .rhacs-auth-dialog__cancel:hover { color: #e6edf3; }
+
+  /* Guest elements dark */
+  .rhacs-guest-badge { background: #21262d; color: #8b949e; border-color: #30363d; }
+  .rhacs-panel__guest-banner { background: #1c2128; border-color: #30363d; color: #8b949e; }
+  .rhacs-panel__guest-login-link { color: #58a6ff; }
+}
+
+/* ── Auth dialog ────────────────────────────────────────────────────────────── */
+.rhacs-auth-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.rhacs-auth-dialog {
+  background: #fff;
+  border: 1px solid #d0d7de;
+  border-radius: 12px;
+  padding: 28px 28px 20px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #24292f;
+}
+
+.rhacs-auth-dialog__icon {
+  color: #0052cc;
+  line-height: 1;
+}
+
+.rhacs-auth-dialog__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.rhacs-auth-dialog__sub {
+  margin: 0;
+  font-size: 13px;
+  color: #57606a;
+}
+
+.rhacs-auth-dialog__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid #d0d7de;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.rhacs-auth-dialog__btn--primary {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  color: #24292f;
+}
+.rhacs-auth-dialog__btn--primary:hover { background: #eaecef; border-color: #b0bac6; }
+
+.rhacs-auth-dialog__btn--secondary {
+  background: transparent;
+  border-color: #d0d7de;
+  color: #57606a;
+}
+.rhacs-auth-dialog__btn--secondary:hover { background: #f6f8fa; color: #24292f; }
+
+.rhacs-auth-dialog__btn span:nth-child(2) { flex: 1; }
+
+.rhacs-auth-dialog__badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.rhacs-auth-dialog__badge--full { background: #dbeafe; color: #0052cc; }
+.rhacs-auth-dialog__badge--local { background: #f3f4f6; color: #6e7681; }
+
+.rhacs-auth-dialog__features {
+  margin: 0;
+  padding: 0 0 0 14px;
+  font-size: 12px;
+  color: #57606a;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rhacs-auth-dialog__features--muted { color: #8c959f; }
+
+.rhacs-auth-dialog__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: #8c959f;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.rhacs-auth-dialog__divider::before,
+.rhacs-auth-dialog__divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid #d0d7de;
+}
+
+.rhacs-auth-dialog__cancel {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #8c959f;
+  text-align: center;
+  font-family: inherit;
+  padding: 4px;
+  transition: color 0.12s;
+}
+.rhacs-auth-dialog__cancel:hover { color: #57606a; }
+
+/* ── Guest badge (FAB user area) ─────────────────────────────────────────── */
+.rhacs-guest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f3f4f6;
+  border: 1px solid #d0d7de;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #57606a;
+}
+
+.rhacs-guest-exit { color: #cf222e !important; }
+
+/* ── Guest notice banner (panel) ─────────────────────────────────────────── */
+.rhacs-panel__guest-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 8px 14px;
+  background: #fff8e6;
+  border-bottom: 1px solid #e8d4a0;
+  font-size: 12px;
+  color: #7d5800;
+  line-height: 1.5;
+}
+
+.rhacs-panel__guest-login-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  color: #0052cc;
+  text-decoration: underline;
 }

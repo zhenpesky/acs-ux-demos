@@ -16,6 +16,8 @@
     callbackUrl: 'https://zhenpesky.github.io/rhacs-ux-prototypes/auth-callback.html',
     tokenKey:    'rhacs_gh_token',
     userKey:     'rhacs_gh_user',
+    guestKey:    'rhacs_guest_id',
+    guestPinsPrefix: 'rhacs_guest_pins_',
     seenPrefix:  'rhacs_seen_',
     pollMs:      30000,
   };
@@ -27,6 +29,7 @@
   var S = {
     token:        null,
     user:         null,
+    guestMode:    false,   // true when using guest (localStorage-only) commenting
     commentMode:  false,
     repoId:       null,
     categoryId:   null,
@@ -288,8 +291,16 @@
     init: function () {
       S.token = localStorage.getItem(CFG.tokenKey);
       try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
+      // Restore guest session if active
+      if (!S.token && localStorage.getItem(CFG.guestKey)) {
+        S.guestMode = true;
+        S.user = Auth.guestIdentity();
+      }
     },
     isLoggedIn: function () { return !!S.token; },
+    isAuthed:   function () { return !!S.token || S.guestMode; },
+
+    // ── GitHub OAuth ──────────────────────────────────────────────────────────
     login: function () {
       return new Promise(function (resolve, reject) {
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
@@ -302,7 +313,9 @@
           window.removeEventListener('message', handler);
           if (e.data.token) {
             S.token = e.data.token;
+            S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
+            localStorage.removeItem(CFG.guestKey);
             Auth.fetchUser().then(function () { FAB.updateUser(); resolve(S.user); });
           } else {
             reject(new Error('GitHub login failed'));
@@ -326,15 +339,134 @@
         }).catch(function () {});
     },
     logout: function () {
-      S.token = null; S.user = null;
+      S.token = null; S.user = null; S.guestMode = false;
       localStorage.removeItem(CFG.tokenKey);
       localStorage.removeItem(CFG.userKey);
+      localStorage.removeItem(CFG.guestKey);
       FAB.updateUser();
       Notify.toast('Logged out');
     },
-    requireLogin: function () {
-      if (Auth.isLoggedIn()) return Promise.resolve();
-      return Auth.login();
+
+    // ── Guest mode ────────────────────────────────────────────────────────────
+    guestIdentity: function () {
+      var id = localStorage.getItem(CFG.guestKey);
+      if (!id) {
+        id = 'Guest-' + Math.random().toString(36).slice(2, 7).toUpperCase();
+        localStorage.setItem(CFG.guestKey, id);
+      }
+      return { login: id, avatarUrl: '', name: 'Guest' };
+    },
+    loginAsGuest: function () {
+      S.guestMode = true;
+      S.user = Auth.guestIdentity();
+      FAB.updateUser();
+      Notify.toast('Commenting as guest — comments are saved locally only.');
+    },
+    exitGuest: function () {
+      S.guestMode = false;
+      S.user = null;
+      localStorage.removeItem(CFG.guestKey);
+      FAB.updateUser();
+      Notify.toast('Guest session ended');
+    },
+
+    // ── Guest localStorage CRUD ───────────────────────────────────────────────
+    guestPinsKey: function () {
+      return CFG.guestPinsPrefix + window.location.pathname;
+    },
+    loadGuestPins: function () {
+      try { return JSON.parse(localStorage.getItem(Auth.guestPinsKey()) || '[]'); } catch (e) { return []; }
+    },
+    saveGuestPins: function (pins) {
+      localStorage.setItem(Auth.guestPinsKey(), JSON.stringify(pins));
+    },
+    addGuestPin: function (text, x, y, num) {
+      var pins = Auth.loadGuestPins();
+      var pin = {
+        id: 'guest-' + Date.now(),
+        body: buildBody(x, y, num, text),
+        createdAt: new Date().toISOString(),
+        author: S.user,
+        replies: [],
+        meta: Object.assign(parseMeta(buildBody(x, y, num, text)), { pinNumber: num, resolved: false }),
+        _guest: true,
+      };
+      pins.push(pin);
+      Auth.saveGuestPins(pins);
+      return pin;
+    },
+    deleteGuestPin: function (id) {
+      Auth.saveGuestPins(Auth.loadGuestPins().filter(function (p) { return p.id !== id; }));
+    },
+
+    // ── requireAuth: shows choice dialog if not authed ────────────────────────
+    requireAuth: function () {
+      if (Auth.isAuthed()) return Promise.resolve();
+      return Auth.showAuthDialog();
+    },
+    showAuthDialog: function () {
+      return new Promise(function (resolve, reject) {
+        // Remove any stale dialog
+        var existing = document.getElementById('rhacs-auth-dialog');
+        if (existing) existing.remove();
+
+        var overlay = el('div', { id: 'rhacs-auth-dialog', className: 'rhacs-auth-dialog-overlay' });
+
+        var card = el('div', { className: 'rhacs-auth-dialog' });
+
+        var iconEl = el('div', { className: 'rhacs-auth-dialog__icon' });
+        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
+
+        var titleEl = el('h3', { className: 'rhacs-auth-dialog__title' });
+        titleEl.appendChild(txt('Add a comment'));
+
+        var subEl = el('p', { className: 'rhacs-auth-dialog__sub' });
+        subEl.appendChild(txt('Choose how you want to comment on this prototype.'));
+
+        // GitHub login option
+        var ghBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary' });
+        ghBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg><span>Log in with GitHub</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--full">Full features</span>';
+        ghBtn.addEventListener('click', function () {
+          overlay.remove();
+          Auth.login().then(function () { FAB.updateUser(); resolve(); }).catch(function (e) { Notify.toast(e.message); reject(e); });
+        });
+
+        // Feature list for GitHub
+        var ghFeatures = el('ul', { className: 'rhacs-auth-dialog__features' });
+        ['Seen by all reviewers', 'Real-time notifications', 'Full history across sessions'].forEach(function (f) {
+          var li = el('li'); li.appendChild(txt(f)); ghFeatures.appendChild(li);
+        });
+
+        var divider = el('div', { className: 'rhacs-auth-dialog__divider' });
+        divider.appendChild(txt('or'));
+
+        // Guest option
+        var guestBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--secondary' });
+        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">Local only</span>';
+        guestBtn.addEventListener('click', function () {
+          overlay.remove();
+          Auth.loginAsGuest();
+          resolve();
+        });
+
+        // Feature list for guest
+        var guestFeatures = el('ul', { className: 'rhacs-auth-dialog__features rhacs-auth-dialog__features--muted' });
+        ['Stored in this browser only', 'No notifications', 'Not visible to others'].forEach(function (f) {
+          var li = el('li'); li.appendChild(txt(f)); guestFeatures.appendChild(li);
+        });
+
+        var cancelBtn = el('button', { className: 'rhacs-auth-dialog__cancel' });
+        cancelBtn.appendChild(txt('Cancel'));
+        cancelBtn.addEventListener('click', function () { overlay.remove(); reject(new Error('cancelled')); });
+
+        append(card, iconEl, titleEl, subEl, ghBtn, ghFeatures, divider, guestBtn, guestFeatures, cancelBtn);
+        overlay.appendChild(card);
+
+        // Close on backdrop click
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); } });
+
+        rhacsMount().appendChild(overlay);
+      });
     },
   };
 
@@ -348,20 +480,53 @@
       .sort(function (a, b) { return a.meta.pinNumber - b.meta.pinNumber; });
   }
 
+  // Returns merged array: GitHub pins (if logged in) + guest pins from localStorage
+  function loadAllPins() {
+    var ghPins  = S.pins.filter(function (p) { return !p._guest; });
+    var gPins   = Auth.loadGuestPins().map(function (p) {
+      // Ensure meta is parsed (may have been re-read from storage)
+      if (!p.meta) p.meta = parseMeta(p.body);
+      return p;
+    });
+    return ghPins.concat(gPins).sort(function (a, b) {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    });
+  }
+
   function loadAndRender() {
+    // Guest-only: skip GitHub API entirely
+    if (S.guestMode && !S.token) {
+      S.pins = Auth.loadGuestPins().map(function (p) {
+        if (!p.meta) p.meta = parseMeta(p.body);
+        return p;
+      });
+      Overlay.renderPins();
+      FAB.updateBadge();
+      return Promise.resolve();
+    }
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = []; Overlay.renderPins(); return; }
+        if (!id) { S.pins = Auth.loadGuestPins(); Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
           S.pins = parseComments(comments);
+          // Merge in any guest pins on top of GitHub pins
+          var guestPins = Auth.loadGuestPins().map(function (p) {
+            if (!p.meta) p.meta = parseMeta(p.body);
+            return p;
+          });
+          if (guestPins.length) {
+            S.pins = S.pins.concat(guestPins).sort(function (a, b) {
+              return new Date(a.createdAt) - new Date(b.createdAt);
+            });
+          }
           Overlay.renderPins();
           FAB.updateBadge();
         });
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
-        S.pins = [];
+        S.pins = Auth.loadGuestPins();
         Overlay.renderPins();
       });
   }
@@ -636,15 +801,26 @@
       text = text.trim();
       if (!text) return;
       var num = S.pins.length + 1;
-      Auth.requireLogin()
-        .then(function () { return addPinComment(text, x, y, num); })
+      Auth.requireAuth()
         .then(function () {
-          Popup.close();
-          FAB.setMode(false);
-          return loadAndRender();
+          if (S.guestMode) {
+            Auth.addGuestPin(text, x, y, num);
+            Popup.close();
+            FAB.setMode(false);
+            S.pins = loadAllPins();
+            Overlay.renderPins();
+            Panel.render();
+            FAB.updateBadge();
+          } else {
+            return addPinComment(text, x, y, num)
+              .then(function () {
+                Popup.close();
+                FAB.setMode(false);
+                return loadAndRender();
+              });
+          }
         })
-        .then(function () {})
-        .catch(function (e) { Notify.toast('Failed: ' + e.message); });
+        .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
     },
     showThread: function (pinId) {
       S.activePinId = pinId;
@@ -810,6 +986,11 @@
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
+      if (String(pinId).startsWith('guest-')) {
+        Auth.deleteGuestPin(pinId);
+        Popup.close();
+        return loadAndRender();
+      }
       deleteComment(pinId)
         .then(function () { Popup.close(); return loadAndRender(); })
         .catch(function (e) { Notify.toast(e.message); });
@@ -960,6 +1141,16 @@
       closeBtn.addEventListener('click', function () { Panel.close(); });
       append(hdr, title, closeBtn);
       this.el.appendChild(hdr);
+
+      // ── Guest notice banner ──────────────────────────────────────────────────
+      if (S.guestMode) {
+        var guestBanner = el('div', { className: 'rhacs-panel__guest-banner' });
+        guestBanner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> <span>Guest mode — comments are local to this browser. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> for full features.</span>';
+        guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
+          Auth.login().then(function () { FAB.updateUser(); Panel.open(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
+        });
+        this.el.appendChild(guestBanner);
+      }
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
@@ -1114,7 +1305,20 @@
     updateUser: function () {
       if (!this.userEl) return;
       this.userEl.innerHTML = '';
-      if (S.user) {
+      if (S.guestMode) {
+        // Guest mode: show guest badge + login and exit options
+        var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user ? S.user.login : 'Guest' });
+        guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Guest';
+        var ghLoginBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log in with GitHub for full features' });
+        ghLoginBtn.appendChild(txt('Log in'));
+        ghLoginBtn.addEventListener('click', function () {
+          Auth.login().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
+        });
+        var exitGuestBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small rhacs-guest-exit', title: 'Exit guest mode' });
+        exitGuestBtn.appendChild(txt('Exit'));
+        exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
+        append(this.userEl, guestBadge, ghLoginBtn, exitGuestBtn);
+      } else if (S.user) {
         var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
         var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
@@ -1125,7 +1329,6 @@
         loginBtn.appendChild(txt('Login'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {
-            // PAT bypass for testing — Shift+click prompts for a GitHub token
             var pat = window.prompt('Paste a GitHub Personal Access Token (needs public_repo scope):\n\nCreate one at: github.com/settings/tokens/new\nSelect scope: public_repo');
             if (!pat || !pat.trim()) return;
             S.token = pat.trim();

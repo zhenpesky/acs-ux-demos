@@ -2587,7 +2587,7 @@
 
       var subEl = document.createElement('span');
       subEl.className = 'rhacs-mode-announce__sub';
-      subEl.textContent = active ? 'Click anywhere on the page to pin a comment' : 'All comments saved';
+      subEl.textContent = active ? 'Click to pin a comment' : 'All comments saved';
 
       inner.appendChild(iconEl);
       inner.appendChild(textEl);

@@ -40,13 +40,13 @@
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
-  // PatternFly SPAs scroll inside .pf-v5-c-page__main rather than window/body.
+  // PatternFly SPAs scroll inside .pf-v6-c-page__main rather than window/body.
   // We detect this read-only (never move the overlay into it) and recompute each
   // pin's viewport position on every scroll / resize event.
 
   function findScrollContainer() {
     // Try PF-specific selectors first (most reliable, avoids false positives)
-    var pf = ['.pf-v5-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
+    var pf = ['.pf-v6-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
     for (var i = 0; i < pf.length; i++) {
       var c = document.querySelector(pf[i]);
       if (c && c.scrollHeight > c.clientHeight + 4) return c;
@@ -473,26 +473,24 @@
       var header = el('div', { className: 'rhacs-popup__header' });
       var titleEl = el('span', { className: 'rhacs-popup__title' });
       titleEl.appendChild(txt('Add comment'));
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(header, titleEl, closeBtn);
 
-      var taWrap = el('div', { className: 'pf-v5-c-form-control rhacs-popup__form-ctrl' });
-      var textarea = el('textarea', { placeholder: 'Leave a comment…', rows: '3' });
-      taWrap.appendChild(textarea);
+      var textarea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
 
       var actions = el('div', { className: 'rhacs-popup__actions' });
-      var postBtn = el('button', { className: 'pf-v5-c-button pf-m-primary pf-m-small' });
+      var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
       postBtn.appendChild(txt('Post'));
       postBtn.addEventListener('click', function () { Popup.submitNew(textarea.value, x, y); });
 
-      var cancelBtn = el('button', { className: 'pf-v5-c-button pf-m-secondary pf-m-small' });
+      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small' });
       cancelBtn.appendChild(txt('Cancel'));
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
       append(actions, postBtn, cancelBtn);
-      append(this.el, header, taWrap, actions);
+      append(this.el, header, textarea, actions);
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
       textarea.focus();
@@ -520,13 +518,13 @@
       // Header
       var header = el('div', { className: 'rhacs-popup__header' });
       var headerLeft = el('div', { className: 'rhacs-popup__header-left' });
-      var avatar = el('img', { className: 'pf-v5-c-avatar rhacs-avatar', src: pin.author.avatarUrl, alt: pin.author.login });
+      var avatar = el('img', { className: 'pf-v6-c-avatar rhacs-avatar', src: pin.author.avatarUrl, alt: pin.author.login });
       var author = el('span', { className: 'rhacs-popup__author' });
       author.appendChild(txt(pin.author.login));
       var time = el('span', { className: 'rhacs-popup__time' });
       time.appendChild(txt(timeAgo(pin.createdAt)));
       append(headerLeft, avatar, author, time);
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(header, headerLeft, closeBtn);
@@ -542,13 +540,13 @@
       var actionsEl = el('div', { className: 'rhacs-popup__pin-actions' });
       var isOwner = S.user && pin.author.login === S.user.login;
       if (isOwner) {
-        var editBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline', onclick: function () { Popup.showEdit(pin, body); } });
+        var editBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline', onclick: function () { Popup.showEdit(pin, body); } });
         editBtn.appendChild(txt('Edit'));
-        var delBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-danger', onclick: function () { Popup.confirmDelete(pin.id); } });
+        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-danger', onclick: function () { Popup.confirmDelete(pin.id); } });
         delBtn.appendChild(txt('Delete'));
         append(actionsEl, editBtn, delBtn);
       }
-      var resolveBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline', onclick: function () { Popup.toggleResolve(pin); } });
+      var resolveBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline', onclick: function () { Popup.toggleResolve(pin); } });
       resolveBtn.appendChild(txt(pin.meta.resolved ? 'Unresolve' : 'Resolve'));
       actionsEl.appendChild(resolveBtn);
 
@@ -557,14 +555,12 @@
       (pin.replies || []).forEach(function (r) { repliesEl.appendChild(Popup.renderReply(r, pinId)); });
 
       // Reply form
-      var replyWrap = el('div', { className: 'pf-v5-c-form-control rhacs-popup__form-ctrl rhacs-popup__form-ctrl--reply' });
-      var replyArea = el('textarea', { placeholder: 'Reply…', rows: '2' });
-      replyWrap.appendChild(replyArea);
-      var replyBtn  = el('button', { className: 'pf-v5-c-button pf-m-primary pf-m-small' });
+      var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
+      var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
       replyBtn.appendChild(txt('Reply'));
       replyBtn.addEventListener('click', function () { Popup.submitReply(pinId, replyArea.value, replyArea); });
       var replyForm = el('div', { className: 'rhacs-reply-form' });
-      append(replyForm, replyWrap, replyBtn);
+      append(replyForm, replyArea, replyBtn);
 
       append(this.el, header, body, reactionsEl, actionsEl, repliesEl, replyForm);
       this.el.style.display = 'block';
@@ -637,12 +633,9 @@
     },
     showEdit: function (pin, bodyEl) {
       bodyEl.innerHTML = '';
-      var editWrap = el('div', { className: 'pf-v5-c-form-control rhacs-popup__form-ctrl' });
-      var editArea = document.createElement('textarea');
-      editArea.rows = 3;
+      var editArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', rows: '3' });
       editArea.value = pinText(pin.body);
-      editWrap.appendChild(editArea);
-      var saveBtn = el('button', { className: 'pf-v5-c-button pf-m-primary pf-m-small' });
+      var saveBtn = el('button', { className: 'pf-v6-c-button pf-m-primary pf-m-small' });
       saveBtn.appendChild(txt('Save'));
       saveBtn.addEventListener('click', function () {
         var newText = editArea.value.trim();
@@ -654,7 +647,7 @@
           .then(function () { Popup.showThread(pin.id); })
           .catch(function (e) { Notify.toast(e.message); });
       });
-      append(bodyEl, editWrap, saveBtn);
+      append(bodyEl, editArea, saveBtn);
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;
@@ -665,7 +658,7 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
@@ -675,7 +668,7 @@
       bd.appendChild(txt(reply.body));
       append(wrap, hdr, bd);
       if (S.user && reply.author.login === S.user.login) {
-        var delBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-danger' });
+        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-danger' });
         delBtn.appendChild(txt('Delete'));
         delBtn.addEventListener('click', function () {
           if (!confirm('Delete this reply?')) return;
@@ -727,10 +720,10 @@
       var hdr  = el('div', { className: 'rhacs-panel__header' });
       var title = el('span', { className: 'rhacs-panel__title' }); title.appendChild(txt('Comments'));
       var hdrActions = el('div', { className: 'rhacs-panel__header-actions' });
-      var showResBtn = el('button', { className: 'pf-v5-c-button pf-m-link pf-m-inline pf-m-small' });
+      var showResBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-inline pf-m-small' });
       showResBtn.appendChild(txt(Panel.showResolved ? 'Hide resolved' : 'Show resolved'));
       showResBtn.addEventListener('click', function () { Panel.showResolved = !Panel.showResolved; Panel.render(); });
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-panel__close', onclick: function () { Panel.close(); } });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(hdrActions, showResBtn, closeBtn);
@@ -754,8 +747,8 @@
         var item = el('div', { className: cls });
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
-        var av  = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
-        var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
+        var av  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var num = el('span', { className: 'pf-v6-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
@@ -772,7 +765,7 @@
 
         if (pin.replies && pin.replies.length > 0) {
           var replyCount = el('div', { className: 'rhacs-panel__item-replies' });
-          var rc = el('span', { className: 'pf-v5-c-badge' });
+          var rc = el('span', { className: 'pf-v6-c-badge' });
           rc.appendChild(txt(String(pin.replies.length)));
           replyCount.appendChild(rc);
           replyCount.appendChild(txt(' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
@@ -854,13 +847,13 @@
       if (!this.userEl) return;
       this.userEl.innerHTML = '';
       if (S.user) {
-        var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
-        var logoutBtn = el('button', { className: 'pf-v5-c-button pf-m-plain pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
+        var av = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-plain pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('↩'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'pf-v5-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
+        var loginBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary pf-m-small', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
         loginBtn.appendChild(txt('Login'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {
@@ -884,7 +877,7 @@
     toastEl: null,
     timer: null,
     init: function () {
-      this.toastEl = el('div', { className: 'pf-v5-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
+      this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
       this.toastEl.setAttribute('aria-live', 'polite');
       this.toastEl.style.display = 'none';
       document.body.appendChild(this.toastEl);
@@ -894,12 +887,12 @@
       clearTimeout(this.timer);
       this.toastEl.innerHTML = '';
       // PF alert structure: icon | title | action (close)
-      var iconEl = el('div', { className: 'pf-v5-c-alert__icon' });
+      var iconEl = el('div', { className: 'pf-v6-c-alert__icon' });
       iconEl.appendChild(txt('ℹ'));
-      var titleEl = el('p', { className: 'pf-v5-c-alert__title' });
+      var titleEl = el('p', { className: 'pf-v6-c-alert__title' });
       titleEl.appendChild(txt(msg));
-      var actionEl = el('div', { className: 'pf-v5-c-alert__action' });
-      var closeBtn = el('button', { className: 'pf-v5-c-button pf-m-plain' });
+      var actionEl = el('div', { className: 'pf-v6-c-alert__action' });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain' });
       closeBtn.setAttribute('aria-label', 'Close alert');
       closeBtn.appendChild(txt('×'));
       closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });

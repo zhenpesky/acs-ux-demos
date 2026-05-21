@@ -46,7 +46,7 @@
 
   function findScrollContainer() {
     // Try PF-specific selectors first (most reliable, avoids false positives)
-    var pf = ['.pf-v5-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
+    var pf = ['.pf-v6-c-page__main', '.pf-v5-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
     for (var i = 0; i < pf.length; i++) {
       var c = document.querySelector(pf[i]);
       if (c && c.scrollHeight > c.clientHeight + 4) return c;

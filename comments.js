@@ -2203,16 +2203,8 @@
           }
         }
       }
-      // Panel: close on outside click, but not when clicking the FAB or an open popup
-      if (Panel.el && Panel.el.classList.contains('rhacs-panel--open')) {
-        var outsidePanel  = !Panel.el.contains(e.target);
-        var notFab        = !e.target.closest('.rhacs-fab');
-        var notPopup      = !(Popup.el && Popup.el.contains(e.target));
-        var notCommentRoot = !e.target.closest('#rhacs-comment-root');
-        if (outsidePanel && notFab && notPopup && notCommentRoot) {
-          Panel.close();
-        }
-      }
+      // Panel intentionally does NOT close on outside clicks.
+      // It can only be dismissed via its own close (×) button or the FAB "View all" toggle.
     });
 
     // If token exists but user profile is missing, fetch it now (e.g. after page reload)

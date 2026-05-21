@@ -1717,11 +1717,12 @@
         append(item, itemHdr, preview);
 
         if (pin.replies && pin.replies.length > 0) {
-          var replyCount = el('div', { className: 'rhacs-panel__item-replies' });
-          var rc = el('span', { className: 'pf-v5-c-badge' });
-          rc.appendChild(txt(String(pin.replies.length)));
-          replyCount.appendChild(rc);
-          replyCount.appendChild(txt(' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
+          var replyCount = el('button', { className: 'rhacs-panel__item-replies' });
+          replyCount.appendChild(txt(pin.replies.length + ' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
+          replyCount.addEventListener('click', (function (p) { return function (e) {
+            e.stopPropagation();
+            Popup.showThread(p.id);
+          }; })(pin));
           item.appendChild(replyCount);
         }
 

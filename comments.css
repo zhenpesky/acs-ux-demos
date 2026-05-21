@@ -936,7 +936,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   right: 24px;
   transition: right 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   align-items: flex-end;
   gap: 6px;
   z-index: 9994;
@@ -1572,7 +1572,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   height: 18px;
 }
 
-/* Expanded on hover: restore full split-button look */
+/* Expanded on hover: horizontal row expanding to the left */
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
+  flex-direction: row;
+  align-items: center;
+}
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn {
   border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
   background: #f9f9f9;
@@ -1596,7 +1600,12 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: inline-flex;
 }
 #rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: 6px;
 }
 /* dark mode */
 @media (prefers-color-scheme: dark) {

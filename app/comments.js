@@ -1649,6 +1649,7 @@
     userEl: null,
     init: function () {
       this.el = el('div', { className: 'rhacs-fab' });
+      this.el.style.display = 'none'; // hidden until owner identity confirmed
 
       this.badge = el('span', { className: 'rhacs-fab__badge' });
       this.badge.style.display = 'none';
@@ -1680,9 +1681,15 @@
           FAB.setMode(false);
           return;
         }
-        if (e.key !== 'c' && e.key !== 'C') return;
         var tag = document.activeElement && document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
+        // Shift+L → hidden owner login trigger (works even when FAB is hidden)
+        if (e.shiftKey && (e.key === 'l' || e.key === 'L') && !inInput && !S.token) {
+          Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
+          return;
+        }
+        if (e.key !== 'c' && e.key !== 'C') return;
+        if (inInput) return;
         FAB.toggleMode();
       });
     },
@@ -1717,46 +1724,22 @@
     },
     updateUser: function () {
       if (!this.userEl) return;
-      // Show "View all" only when authenticated (GitHub or guest)
+      // FAB is only visible to the repo owner (matched by GitHub username).
+      // All other visitors — logged in or not — see nothing.
+      var isOwner = S.token && S.user && S.user.login === CFG.owner;
+      this.el.style.display = isOwner ? '' : 'none';
+
       if (this.panelBtn) {
-        this.panelBtn.style.display = Auth.isAuthed() ? '' : 'none';
+        this.panelBtn.style.display = isOwner ? '' : 'none';
       }
       this.userEl.innerHTML = '';
-      if (S.guestMode) {
-        // Guest mode: show guest badge + login and exit options
-        var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user ? S.user.login : 'Guest' });
-        guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Guest';
-        var ghLoginBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log in with GitHub for full features' });
-        ghLoginBtn.appendChild(txt('Log in'));
-        ghLoginBtn.addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
-        });
-        var exitGuestBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm rhacs-guest-exit', title: 'Exit guest mode' });
-        exitGuestBtn.appendChild(txt('Exit'));
-        exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
-        append(this.userEl, guestBadge, ghLoginBtn, exitGuestBtn);
-      } else if (S.user) {
+      if (isOwner) {
         var av = makeAvatar(S.user, 'rhacs-avatar--sm');
         av.title = 'Logged in as ' + S.user.login;
         var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
-      } else {
-        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--dark', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
-        loginBtn.appendChild(txt('Log in'));
-        loginBtn.addEventListener('click', function (e) {
-          if (e.shiftKey) {
-            var pat = window.prompt('Paste a GitHub Personal Access Token (needs public_repo scope):\n\nCreate one at: github.com/settings/tokens/new\nSelect scope: public_repo');
-            if (!pat || !pat.trim()) return;
-            S.token = pat.trim();
-            localStorage.setItem(CFG.tokenKey, S.token);
-            Auth.fetchUser().then(function () { FAB.updateUser(); Notify.toast('Logged in via PAT as ' + (S.user ? S.user.login : 'unknown')); }).catch(function () {});
-          } else {
-            Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
-          }
-        });
-        this.userEl.appendChild(loginBtn);
       }
     },
   };

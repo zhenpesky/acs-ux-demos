@@ -1253,8 +1253,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-fab__panel-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   background: #fff;
   border: 1px solid #d0d7de;
   border-radius: 50%;
@@ -1262,10 +1262,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   color: #24292f;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   transition: background 0.12s, transform 0.12s;
+  flex-shrink: 0;
 }
 
 .rhacs-fab__panel-btn:hover {
@@ -1822,23 +1823,31 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-user-menu__trigger {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0;
-  padding: 4px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   background: #fff;
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  border-radius: 20px;
+  border-radius: 50%;
   cursor: pointer;
   font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: var(--pf-v6-global--Color--100, #151515);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, gap 0.2s, padding 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, width 0.2s ease, height 0.2s ease, border-radius 0.2s ease, padding 0.2s ease, gap 0.2s ease;
   white-space: nowrap;
   overflow: hidden;
+  flex-shrink: 0;
 }
 .rhacs-user-menu__trigger:hover {
+  width: auto;
+  height: 40px;
+  border-radius: 20px;
   gap: 7px;
-  padding: 4px 10px 4px 4px;
+  padding: 4px 10px 4px 5px;
+  justify-content: flex-start;
   background: #f5f5f5;
   border-color: var(--pf-v6-global--BorderColor--200, #b8b8b8);
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
@@ -1953,7 +1962,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 /* ── Guest wrap: always collapsed to icon pill, hover to expand ───────────── */
 
-/* Collapsed (default) — show only the person icon as a 40px pill */
+/* Collapsed (default) — perfect 40×40 circle showing only the person icon */
 .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
   max-width: 0;
   opacity: 0;
@@ -1963,15 +1972,23 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: none;
 }
 .rhacs-guest-wrap:not(:hover) .rhacs-split-btn {
+  width: 40px;
+  height: 40px;
   border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
   background: #fff;
-  border-radius: 20px;
+  border-radius: 50%;
   box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+  justify-content: center;
+  overflow: hidden;
 }
 .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label {
-  padding: 10px 12px;
+  width: 100%;
+  height: 100%;
+  padding: 0;
   border-right: none;
   gap: 0;
+  justify-content: center;
+  align-items: center;
 }
 .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
   width: 18px;

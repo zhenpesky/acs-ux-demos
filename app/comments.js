@@ -453,7 +453,7 @@
       return user;
     },
     _showNamePromptThenGuest: function () {
-      return new Promise(function (resolve) {
+      return new Promise(function (resolve, reject) {
         var old = document.getElementById('rhacs-guest-prompt');
         if (old) old.remove();
 
@@ -529,7 +529,7 @@
           f.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !continueBtn.disabled) continueBtn.click(); });
         });
 
-        append(card, iconEl, titleEl, subEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn);
+        append(card, iconEl, titleEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn);
         overlay.appendChild(card);
         overlay.addEventListener('click', function (e) {
           if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); }
@@ -624,8 +624,20 @@
         var ghBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary' });
         ghBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg><span>Log in with GitHub</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--full">Full features</span>';
         ghBtn.addEventListener('click', function () {
-          overlay.remove();
-          Auth.login().then(function () { FAB.updateUser(); resolve(); }).catch(function (e) { Notify.toast(e.message); reject(e); });
+          ghBtn.disabled = true;
+          ghBtn.style.opacity = '0.6';
+          var origHTML = ghBtn.innerHTML;
+          ghBtn.innerHTML = '<span>Opening GitHub…</span>';
+          Auth.login()
+            .then(function () { overlay.remove(); FAB.updateUser(); resolve(); })
+            .catch(function (e) {
+              // Restore button so user can try again
+              ghBtn.disabled = false;
+              ghBtn.style.opacity = '';
+              ghBtn.innerHTML = origHTML;
+              Notify.toast(e.message || 'Login failed. Check if popups are allowed for this site.');
+              // Don't reject outer promise — leave dialog open so user can retry or pick guest
+            });
         });
 
         // Feature list for GitHub
@@ -642,7 +654,12 @@
         guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No login required</span>';
         guestBtn.addEventListener('click', function () {
           overlay.remove();
-          Auth.loginAsGuest().then(function () { resolve(); });
+          Auth.loginAsGuest()
+            .then(function () { resolve(); })
+            .catch(function (e) {
+              // User cancelled the name prompt — that's fine, just reject silently
+              reject(e);
+            });
         });
 
         // Feature list for guest
@@ -1206,7 +1223,7 @@
       }, 0);
     },
     handleReaction: function (pinId, content, hasReacted) {
-      Auth.requireLogin()
+      Auth.requireAuth()
         .then(function () { return toggleReaction(pinId, content, hasReacted); })
         .then(function () { return loadAndRender(); })
         .then(function () { if (S.activePinId === pinId) Popup.showThread(pinId); })
@@ -1224,7 +1241,7 @@
         loadAndRender().then(function () { Popup.close(); Panel.render(); });
         return;
       }
-      Auth.requireLogin()
+      Auth.requireAuth()
         .then(function () { return updateComment(pin.id, setMeta(pin.body, { resolved: !pin.meta.resolved })); })
         .then(function () { return loadAndRender(); })
         .then(function () { Popup.close(); Panel.render(); })

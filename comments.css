@@ -1495,6 +1495,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
   user-select: none;
   line-height: 1;
 }
+.rhacs-split-btn__label-icon { display: inline-flex; align-items: center; flex-shrink: 0; }
+.rhacs-split-btn__label-text {
+  overflow: hidden;
+  max-width: 80px;
+  white-space: nowrap;
+  transition: max-width 0.2s ease, opacity 0.15s ease;
+  opacity: 1;
+}
 .rhacs-split-btn__toggle {
   display: inline-flex;
   align-items: center;
@@ -1540,6 +1548,56 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 .rhacs-guest-logout-btn:hover {
   background: #fff5f5;
+}
+
+/* ── Comment mode: collapse guest wrap to icon pill, expand on hover ──────── */
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap {
+  padding: 4px;
+  border-radius: 20px;
+  transition: padding 0.2s ease, border-radius 0.2s ease;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap .rhacs-split-btn {
+  border-color: transparent;
+  background: transparent;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap .rhacs-split-btn__label {
+  padding: 5px 6px;
+  border-right: none;
+  gap: 0;
+}
+/* Collapse: hide text, toggle arrow, and logout button */
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
+  max-width: 0;
+  opacity: 0;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__toggle,
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:not(:hover) .rhacs-guest-logout-btn {
+  display: none;
+}
+/* Expand on hover: restore full card */
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
+  padding: 8px;
+  border-radius: 8px;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn {
+  border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  background: #f9f9f9;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label {
+  padding: 7px 12px;
+  border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  gap: 6px;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__label-text {
+  max-width: 80px;
+  opacity: 1;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-split-btn__toggle,
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
+  display: flex;
+}
+#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
+  display: block;
 }
 /* dark mode */
 @media (prefers-color-scheme: dark) {

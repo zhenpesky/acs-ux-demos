@@ -841,7 +841,16 @@
     FAB.init();
     Notify.init();
 
-    loadAndRender().then(function () { Notify.startPolling(); });
+    // If token exists but user profile is missing, fetch it now (e.g. after page reload)
+    var userPromise = (S.token && !S.user)
+      ? Auth.fetchUser().then(function () { FAB.updateUser(); })
+      : Promise.resolve();
+
+    userPromise.then(function () {
+      return loadAndRender();
+    }).then(function () {
+      Notify.startPolling();
+    });
   }
 
   if (document.readyState === 'loading') {

@@ -168,6 +168,63 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 /* ── PF6-style JS tooltip (appended to body by Tooltip manager) ───────────── */
+/* ── Mode announcement overlay ──────────────────────────────────────────── */
+.rhacs-mode-announce {
+  position: fixed;
+  inset: 0;
+  z-index: 10300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.rhacs-mode-announce__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: var(--pf-v6-global--palette--purple-500, #4f3e8c);
+  color: #fff;
+  border-radius: 16px;
+  padding: 32px 48px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.16);
+  animation: rhacs-announce-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  min-width: 320px;
+  text-align: center;
+}
+.rhacs-mode-announce__inner--exit {
+  background: var(--pf-v6-global--BackgroundColor--dark-200, #212427);
+}
+.rhacs-mode-announce__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+.rhacs-mode-announce__text {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.rhacs-mode-announce__sub {
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
+  font-weight: 400;
+  opacity: 0.75;
+  line-height: 1.4;
+}
+.rhacs-mode-announce--out .rhacs-mode-announce__inner {
+  animation: rhacs-announce-out 0.4s ease forwards;
+}
+@keyframes rhacs-announce-in {
+  from { opacity: 0; transform: scale(0.88) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes rhacs-announce-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.92) translateY(-6px); }
+}
+
 .rhacs-tooltip {
   position: fixed;
   z-index: 10200;

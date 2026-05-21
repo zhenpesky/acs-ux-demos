@@ -373,18 +373,6 @@
     },
 
     // ── Guest mode ────────────────────────────────────────────────────────────
-    // ── Guest name generation ─────────────────────────────────────────────────
-    _earthWords: [
-      'Amber','Basalt','Birch','Boulder','Breeze','Brook','Canyon','Cedar',
-      'Cliff','Cloud','Cobalt','Coral','Dune','Ember','Fern','Fjord','Flint',
-      'Gale','Garnet','Glacier','Glen','Granite','Grove','Gust','Hazel',
-      'Heath','Jasper','Juniper','Larch','Lava','Linden','Maple','Marble',
-      'Meadow','Mesa','Mist','Moss','Obsidian','Ochre','Opal','Pebble',
-      'Pine','Quartz','Reed','Ridge','River','Rowan','Sage','Sand','Shale',
-      'Sierra','Slate','Spruce','Stone','Storm','Stream','Taiga','Terra',
-      'Thorn','Tide','Timber','Topaz','Tundra','Vale','Vapor','Willow',
-      'Zephyr',
-    ],
     _avatarColors: [
       ['#0052cc','#fff'],['#6f42c1','#fff'],['#1a7f37','#fff'],
       ['#cf222e','#fff'],['#bf8700','#fff'],['#0969da','#fff'],
@@ -397,22 +385,10 @@
       for (var i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
       return arr[Math.abs(h) % arr.length];
     },
-    _buildGuestName: function (providedName) {
-      var words = Auth._earthWords;
-      var word  = words[Math.floor(Math.random() * words.length)];
-      if (providedName && providedName.trim()) {
-        var clean  = providedName.trim().replace(/[^a-zA-Z0-9]/g, '');
-        var prefix = clean.charAt(0).toUpperCase() + (clean.charAt(1) || '').toUpperCase();
-        return prefix + word;
-      }
-      // No name: two earth words
-      var word2 = words[Math.floor(Math.random() * words.length)];
-      return word + word2;
-    },
-    _makeAvatarSvg: function (login) {
-      var pair    = Auth._pickRandom(Auth._avatarColors, login);
-      var bg      = pair[0], fg = pair[1];
-      var initials = login.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?';
+    _makeAvatarSvg: function (seed) {
+      var pair     = Auth._pickRandom(Auth._avatarColors, seed || 'Guest');
+      var bg       = pair[0], fg = pair[1];
+      var initials = (seed || 'G').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'G';
       return 'data:image/svg+xml,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
         '<circle cx="16" cy="16" r="16" fill="' + bg + '"/>' +
@@ -421,6 +397,11 @@
         '</svg>'
       );
     },
+    // Join name · title · company — use whatever is filled in
+    _buildGuestLogin: function (name, title, company) {
+      var parts = [name, title, company].map(function (s) { return (s || '').trim(); }).filter(Boolean);
+      return parts.length ? parts.join(' \u00b7 ') : 'Anonymous Guest';
+    },
     guestIdentity: function () {
       var stored = localStorage.getItem(CFG.guestKey);
       if (stored) {
@@ -428,78 +409,89 @@
           var obj = JSON.parse(stored);
           if (obj && obj.login) return obj;
         } catch (e) {}
-        // Legacy string ID
+        // Legacy plain string — migrate gracefully
         var legacy = { login: stored, avatarUrl: Auth._makeAvatarSvg(stored), name: stored };
         localStorage.setItem(CFG.guestKey, JSON.stringify(legacy));
         return legacy;
       }
-      return null; // caller must call _createGuestIdentity with optional name
+      return null;
     },
-    _createGuestIdentity: function (providedName) {
-      var login = Auth._buildGuestName(providedName);
-      var user  = { login: login, avatarUrl: Auth._makeAvatarSvg(login), name: login };
+    _createGuestIdentity: function (name, title, company) {
+      var login    = Auth._buildGuestLogin(name, title, company);
+      // Avatar initial from the first non-empty field
+      var seed     = (name || title || company || 'Guest').trim();
+      var user     = { login: login, name: name || '', title: title || '', company: company || '', avatarUrl: Auth._makeAvatarSvg(seed) };
       localStorage.setItem(CFG.guestKey, JSON.stringify(user));
       return user;
     },
     _showNamePromptThenGuest: function () {
       return new Promise(function (resolve) {
-        // Remove any stale prompt
         var old = document.getElementById('rhacs-guest-prompt');
         if (old) old.remove();
 
         var overlay = el('div', { id: 'rhacs-guest-prompt', className: 'rhacs-auth-dialog-overlay' });
         var card    = el('div', { className: 'rhacs-auth-dialog' });
 
-        var iconEl  = el('div', { className: 'rhacs-auth-dialog__icon' });
+        var iconEl = el('div', { className: 'rhacs-auth-dialog__icon' });
         iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
 
         var titleEl = el('h3', { className: 'rhacs-auth-dialog__title' });
-        titleEl.appendChild(txt('Choose a display name'));
+        titleEl.appendChild(txt('Who are you?'));
 
         var subEl = el('p', { className: 'rhacs-auth-dialog__sub' });
-        subEl.appendChild(txt('Optional \u2014 we\u2019ll pair your initial with a nature word. Leave blank for a random name.'));
+        subEl.appendChild(txt('All fields are optional. Fill in what helps others know who\u2019s commenting.'));
 
-        var input = el('input', { className: 'rhacs-guest-name-input', placeholder: 'e.g. Alex → AlexAmber', maxLength: '20', type: 'text' });
+        function makeField(labelText, placeholder) {
+          var wrap  = el('div', { className: 'rhacs-guest-field' });
+          var lbl   = el('label', { className: 'rhacs-guest-field__label' });
+          lbl.appendChild(txt(labelText));
+          var input = el('input', { className: 'rhacs-guest-name-input', placeholder: placeholder, maxLength: '60', type: 'text' });
+          append(wrap, lbl, input);
+          return { wrap: wrap, input: input };
+        }
 
-        // Live preview
+        var nameF    = makeField('Your name',           'e.g. Alex Chen');
+        var titleF   = makeField('Your title or role',  'e.g. UX Designer, PM, Engineer');
+        var companyF = makeField('Your company',        'e.g. Red Hat, IBM, Acme');
+
         var preview = el('div', { className: 'rhacs-guest-name-preview' });
         function updatePreview() {
-          var val = input.value.trim();
-          var previewName = val
-            ? (val.charAt(0).toUpperCase() + (val.charAt(1) || '').toUpperCase()) + '…[element]'
-            : '[Element][Element]';
+          var n = nameF.input.value.trim(), t = titleF.input.value.trim(), c = companyF.input.value.trim();
+          var label = Auth._buildGuestLogin(n, t, c);
           preview.innerHTML = '';
-          preview.appendChild(txt('Preview: ' + previewName));
+          preview.appendChild(txt('Will appear as: '));
+          var strong = el('strong');
+          strong.appendChild(txt(label));
+          preview.appendChild(strong);
         }
-        input.addEventListener('input', updatePreview);
+        [nameF, titleF, companyF].forEach(function (f) { f.input.addEventListener('input', updatePreview); });
         updatePreview();
 
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary' });
         continueBtn.innerHTML = '<span>Continue as guest</span>';
         continueBtn.addEventListener('click', function () {
           overlay.remove();
-          var user = Auth._createGuestIdentity(input.value);
-          resolve(user);
+          resolve(Auth._createGuestIdentity(nameF.input.value, titleF.input.value, companyF.input.value));
         });
 
         var skipBtn = el('button', { className: 'rhacs-auth-dialog__cancel' });
-        skipBtn.appendChild(txt('Skip — use a random name'));
+        skipBtn.appendChild(txt('Skip \u2014 comment anonymously'));
         skipBtn.addEventListener('click', function () {
           overlay.remove();
-          var user = Auth._createGuestIdentity('');
-          resolve(user);
+          resolve(Auth._createGuestIdentity('', '', ''));
         });
 
-        // Enter key submits
-        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') continueBtn.click(); });
+        [nameF, titleF, companyF].forEach(function (f) {
+          f.input.addEventListener('keydown', function (e) { if (e.key === 'Enter') continueBtn.click(); });
+        });
 
-        append(card, iconEl, titleEl, subEl, input, preview, continueBtn, skipBtn);
+        append(card, iconEl, titleEl, subEl, nameF.wrap, titleF.wrap, companyF.wrap, preview, continueBtn, skipBtn);
         overlay.appendChild(card);
         overlay.addEventListener('click', function (e) {
-          if (e.target === overlay) { overlay.remove(); resolve(Auth._createGuestIdentity('')); }
+          if (e.target === overlay) { overlay.remove(); resolve(Auth._createGuestIdentity('', '', '')); }
         });
         rhacsMount().appendChild(overlay);
-        setTimeout(function () { input.focus(); }, 50);
+        setTimeout(function () { nameF.input.focus(); }, 50);
       });
     },
     loginAsGuest: function () {

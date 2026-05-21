@@ -165,6 +165,22 @@
 
   function txt(s) { return document.createTextNode(s); }
 
+  // makeAvatar: renders a circular avatar that works for both GitHub URLs and
+  // generated SVG data-URIs (guest mode). Falls back to a coloured SVG circle
+  // if src is empty.
+  function makeAvatar(author, sizeCls) {
+    sizeCls = sizeCls || '';
+    var src = (author && author.avatarUrl) ? author.avatarUrl : '';
+    if (!src && author && author.login) {
+      src = Auth._makeAvatarSvg(author.login);
+    }
+    var cls = 'rhacs-avatar' + (sizeCls ? ' ' + sizeCls : '');
+    var img = el('img', { className: cls, src: src, alt: author ? author.login : '' });
+    img.style.borderRadius = '50%';
+    img.style.objectFit    = 'cover';
+    return img;
+  }
+
   function append(parent) {
     var children = Array.prototype.slice.call(arguments, 1);
     children.forEach(function (c) { if (c) parent.appendChild(typeof c === 'string' ? txt(c) : c); });
@@ -978,7 +994,7 @@
       // ── Level 1: conversation header with conversation-level kebab ──
       var header = el('div', { className: 'rhacs-popup__header' });
       var headerLeft = el('div', { className: 'rhacs-popup__header-left' });
-      var avatar = el('img', { className: 'pf-v6-c-avatar rhacs-avatar', src: pin.author.avatarUrl, alt: pin.author.login });
+      var avatar = makeAvatar(pin.author);
       var author = el('span', { className: 'rhacs-popup__author' });
       author.appendChild(txt(pin.author.login));
       var time = el('span', { className: 'rhacs-popup__time' });
@@ -1005,7 +1021,7 @@
       // ── Level 2: first post as a message row with message-level kebab ──
       var firstPost = el('div', { className: 'rhacs-reply rhacs-reply--first' });
       var fpHdr = el('div', { className: 'rhacs-reply__header' });
-      var fpAv  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+      var fpAv  = makeAvatar(pin.author, 'rhacs-avatar--sm');
       var fpAu  = el('span', { className: 'rhacs-popup__author' });
       fpAu.appendChild(txt(pin.author.login));
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
@@ -1144,7 +1160,7 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = makeAvatar(reply.author, 'rhacs-avatar--sm');
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
@@ -1345,7 +1361,7 @@
         var item = el('div', { className: cls });
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
-        var av  = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var av  = makeAvatar(pin.author, 'rhacs-avatar--sm');
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
@@ -1465,7 +1481,8 @@
         exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
         append(this.userEl, guestBadge, ghLoginBtn, exitGuestBtn);
       } else if (S.user) {
-        var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var av = makeAvatar(S.user, 'rhacs-avatar--sm');
+        av.title = 'Logged in as ' + S.user.login;
         var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));

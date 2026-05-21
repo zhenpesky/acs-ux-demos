@@ -792,7 +792,7 @@
 
         // Feature list for guest
         var guestFeatures = el('ul', { className: 'rhacs-auth-dialog__features rhacs-auth-dialog__features--muted' });
-        ['No GitHub account needed', 'Comments are visible to the prototype owner', 'No notifications — log in with GitHub for those'].forEach(function (f) {
+        ['No GitHub account required', 'Your comment is visible to the prototype owner', 'No reply notifications or comment history \u2014 log in with GitHub for those'].forEach(function (f) {
           var li = el('li'); li.appendChild(txt(f)); guestFeatures.appendChild(li);
         });
 

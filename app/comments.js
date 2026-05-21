@@ -989,6 +989,58 @@
     },
   };
 
+  // ── Confirm dialog (PF6-styled replacement for native confirm()) ─────────────
+  function showConfirm(message, opts) {
+    // opts: { title, confirmLabel, cancelLabel, danger }
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var backdrop = el('div', { className: 'rhacs-confirm-backdrop' });
+      var dialog   = el('div', { className: 'rhacs-confirm-dialog', role: 'dialog', 'aria-modal': 'true' });
+
+      var hdr = el('div', { className: 'rhacs-confirm-dialog__header' });
+      var titleEl = el('span', { className: 'rhacs-confirm-dialog__title' });
+      if (opts.danger !== false) {
+        var icon = el('span', { className: 'rhacs-confirm-dialog__title-icon' });
+        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg>';
+        titleEl.appendChild(icon);
+      }
+      titleEl.appendChild(txt(opts.title || 'Are you sure?'));
+      var closeBtn = el('button', { className: 'rhacs-confirm-dialog__close', 'aria-label': 'Cancel' });
+      closeBtn.appendChild(txt('\u00d7'));
+      append(hdr, titleEl, closeBtn);
+
+      var body = el('div', { className: 'rhacs-confirm-dialog__body' });
+      body.appendChild(txt(message));
+
+      var footer = el('div', { className: 'rhacs-confirm-dialog__footer' });
+      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
+      cancelBtn.appendChild(txt(opts.cancelLabel || 'Cancel'));
+      var confirmBtn = el('button', { className: 'pf-v6-c-button ' + (opts.danger !== false ? 'pf-m-danger' : 'pf-m-primary') });
+      confirmBtn.appendChild(txt(opts.confirmLabel || 'Delete'));
+      append(footer, cancelBtn, confirmBtn);
+
+      append(dialog, hdr, body, footer);
+      backdrop.appendChild(dialog);
+      document.body.appendChild(backdrop);
+      confirmBtn.focus();
+
+      function close(result) {
+        backdrop.style.opacity = '0';
+        backdrop.style.transition = 'opacity 0.12s ease';
+        setTimeout(function () { backdrop.remove(); }, 130);
+        resolve(result);
+      }
+      confirmBtn.addEventListener('click', function () { close(true); });
+      cancelBtn.addEventListener('click', function () { close(false); });
+      closeBtn.addEventListener('click', function () { close(false); });
+      backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(false); });
+      backdrop.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { close(false); }
+        if (e.key === 'Enter')  { close(true); }
+      });
+    });
+  }
+
   // ── Popup ─────────────────────────────────────────────────────────────────────
   var Popup = {
     el: null,
@@ -1464,15 +1516,22 @@
       editArea.focus();
     },
     confirmDelete: function (pinId) {
-      if (!confirm('Delete this comment and all its replies?')) return;
-      if (String(pinId).startsWith('guest-')) {
-        Auth.deleteGuestPin(pinId);
-        Popup.close();
-        return loadAndRender();
-      }
-      deleteComment(pinId)
-        .then(function () { Popup.close(); return loadAndRender(); })
-        .catch(function (e) { Notify.toast(e.message); });
+      showConfirm('Delete this comment and all its replies?', {
+        title: 'Delete comment',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        danger: true
+      }).then(function (confirmed) {
+        if (!confirmed) return;
+        if (String(pinId).startsWith('guest-')) {
+          Auth.deleteGuestPin(pinId);
+          Popup.close();
+          return loadAndRender();
+        }
+        deleteComment(pinId)
+          .then(function () { Popup.close(); return loadAndRender(); })
+          .catch(function (e) { Notify.toast(e.message); });
+      });
     },
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
@@ -1491,11 +1550,18 @@
         hdr.appendChild(Popup.makeKebab([
           { label: 'Edit',   action: function () { Popup.showReplyEdit(reply, pinId, bd); } },
           { label: 'Delete', danger: true, action: function () {
-            if (!confirm('Delete this reply?')) return;
-            deleteComment(reply.id)
-              .then(function () { return loadAndRender(); })
-              .then(function () { Popup.showThread(pinId); })
-              .catch(function (e) { Notify.toast(e.message); });
+            showConfirm('Delete this reply?', {
+              title: 'Delete reply',
+              confirmLabel: 'Delete',
+              cancelLabel: 'Cancel',
+              danger: true
+            }).then(function (confirmed) {
+              if (!confirmed) return;
+              deleteComment(reply.id)
+                .then(function () { return loadAndRender(); })
+                .then(function () { Popup.showThread(pinId); })
+                .catch(function (e) { Notify.toast(e.message); });
+            });
           }}
         ]));
       }

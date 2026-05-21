@@ -516,18 +516,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   font-size: 16px;
   line-height: 1;
   color: var(--pf-v6-global--Color--200, #6a6e73);
-  opacity: 0;
-  transition: opacity 0.1s, background 0.1s;
-}
-/* Show on hover for reply rows */
-.rhacs-reply:hover .rhacs-kebab__btn,
-.rhacs-kebab:focus-within .rhacs-kebab__btn,
-.rhacs-kebab__dropdown--open + .rhacs-kebab__btn {
   opacity: 1;
-}
-/* Always visible in the popup header (conversation-level kebab) */
-.rhacs-popup__header .rhacs-kebab__btn {
-  opacity: 1;
+  transition: background 0.1s;
 }
 .rhacs-kebab__btn:hover {
   background: var(--pf-v6-global--BackgroundColor--200, #f0f0f0);

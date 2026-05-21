@@ -293,8 +293,13 @@
       try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
       // Restore guest session if active
       if (!S.token && localStorage.getItem(CFG.guestKey)) {
-        S.guestMode = true;
-        S.user = Auth.guestIdentity();
+        var restored = Auth.guestIdentity();
+        if (restored) {
+          S.guestMode = true;
+          S.user = restored;
+          // Back-fill avatarUrl if legacy entry had none
+          if (!S.user.avatarUrl) S.user.avatarUrl = Auth._makeAvatarSvg(S.user.login);
+        }
       }
     },
     isLoggedIn: function () { return !!S.token; },
@@ -348,19 +353,150 @@
     },
 
     // ── Guest mode ────────────────────────────────────────────────────────────
-    guestIdentity: function () {
-      var id = localStorage.getItem(CFG.guestKey);
-      if (!id) {
-        id = 'Guest-' + Math.random().toString(36).slice(2, 7).toUpperCase();
-        localStorage.setItem(CFG.guestKey, id);
+    // ── Guest name generation ─────────────────────────────────────────────────
+    _earthWords: [
+      'Amber','Basalt','Birch','Boulder','Breeze','Brook','Canyon','Cedar',
+      'Cliff','Cloud','Cobalt','Coral','Dune','Ember','Fern','Fjord','Flint',
+      'Gale','Garnet','Glacier','Glen','Granite','Grove','Gust','Hazel',
+      'Heath','Jasper','Juniper','Larch','Lava','Linden','Maple','Marble',
+      'Meadow','Mesa','Mist','Moss','Obsidian','Ochre','Opal','Pebble',
+      'Pine','Quartz','Reed','Ridge','River','Rowan','Sage','Sand','Shale',
+      'Sierra','Slate','Spruce','Stone','Storm','Stream','Taiga','Terra',
+      'Thorn','Tide','Timber','Topaz','Tundra','Vale','Vapor','Willow',
+      'Zephyr',
+    ],
+    _avatarColors: [
+      ['#0052cc','#fff'],['#6f42c1','#fff'],['#1a7f37','#fff'],
+      ['#cf222e','#fff'],['#bf8700','#fff'],['#0969da','#fff'],
+      ['#8250df','#fff'],['#2da44e','#fff'],['#d1242f','#fff'],
+      ['#9a6700','#fff'],
+    ],
+    _pickRandom: function (arr, seed) {
+      // deterministic pick based on a seed string so same name → same color
+      var h = 0;
+      for (var i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+      return arr[Math.abs(h) % arr.length];
+    },
+    _buildGuestName: function (providedName) {
+      var words = Auth._earthWords;
+      var word  = words[Math.floor(Math.random() * words.length)];
+      if (providedName && providedName.trim()) {
+        var clean  = providedName.trim().replace(/[^a-zA-Z0-9]/g, '');
+        var prefix = clean.charAt(0).toUpperCase() + (clean.charAt(1) || '').toUpperCase();
+        return prefix + word;
       }
-      return { login: id, avatarUrl: '', name: 'Guest' };
+      // No name: two earth words
+      var word2 = words[Math.floor(Math.random() * words.length)];
+      return word + word2;
+    },
+    _makeAvatarSvg: function (login) {
+      var pair    = Auth._pickRandom(Auth._avatarColors, login);
+      var bg      = pair[0], fg = pair[1];
+      var initials = login.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || '?';
+      return 'data:image/svg+xml,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
+        '<circle cx="16" cy="16" r="16" fill="' + bg + '"/>' +
+        '<text x="16" y="21" font-size="13" font-weight="600" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" ' +
+        'fill="' + fg + '" text-anchor="middle">' + initials + '</text>' +
+        '</svg>'
+      );
+    },
+    guestIdentity: function () {
+      var stored = localStorage.getItem(CFG.guestKey);
+      if (stored) {
+        try {
+          var obj = JSON.parse(stored);
+          if (obj && obj.login) return obj;
+        } catch (e) {}
+        // Legacy string ID
+        var legacy = { login: stored, avatarUrl: Auth._makeAvatarSvg(stored), name: stored };
+        localStorage.setItem(CFG.guestKey, JSON.stringify(legacy));
+        return legacy;
+      }
+      return null; // caller must call _createGuestIdentity with optional name
+    },
+    _createGuestIdentity: function (providedName) {
+      var login = Auth._buildGuestName(providedName);
+      var user  = { login: login, avatarUrl: Auth._makeAvatarSvg(login), name: login };
+      localStorage.setItem(CFG.guestKey, JSON.stringify(user));
+      return user;
+    },
+    _showNamePromptThenGuest: function () {
+      return new Promise(function (resolve) {
+        // Remove any stale prompt
+        var old = document.getElementById('rhacs-guest-prompt');
+        if (old) old.remove();
+
+        var overlay = el('div', { id: 'rhacs-guest-prompt', className: 'rhacs-auth-dialog-overlay' });
+        var card    = el('div', { className: 'rhacs-auth-dialog' });
+
+        var iconEl  = el('div', { className: 'rhacs-auth-dialog__icon' });
+        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
+
+        var titleEl = el('h3', { className: 'rhacs-auth-dialog__title' });
+        titleEl.appendChild(txt('Choose a display name'));
+
+        var subEl = el('p', { className: 'rhacs-auth-dialog__sub' });
+        subEl.appendChild(txt('Optional — we'll pair your initial with a nature word. Leave blank for a random name.'));
+
+        var input = el('input', { className: 'rhacs-guest-name-input', placeholder: 'e.g. Alex → AlexAmber', maxLength: '20', type: 'text' });
+
+        // Live preview
+        var preview = el('div', { className: 'rhacs-guest-name-preview' });
+        function updatePreview() {
+          var val = input.value.trim();
+          var previewName = val
+            ? (val.charAt(0).toUpperCase() + (val.charAt(1) || '').toUpperCase()) + '…[element]'
+            : '[Element][Element]';
+          preview.innerHTML = '';
+          preview.appendChild(txt('Preview: ' + previewName));
+        }
+        input.addEventListener('input', updatePreview);
+        updatePreview();
+
+        var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary' });
+        continueBtn.innerHTML = '<span>Continue as guest</span>';
+        continueBtn.addEventListener('click', function () {
+          overlay.remove();
+          var user = Auth._createGuestIdentity(input.value);
+          resolve(user);
+        });
+
+        var skipBtn = el('button', { className: 'rhacs-auth-dialog__cancel' });
+        skipBtn.appendChild(txt('Skip — use a random name'));
+        skipBtn.addEventListener('click', function () {
+          overlay.remove();
+          var user = Auth._createGuestIdentity('');
+          resolve(user);
+        });
+
+        // Enter key submits
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') continueBtn.click(); });
+
+        append(card, iconEl, titleEl, subEl, input, preview, continueBtn, skipBtn);
+        overlay.appendChild(card);
+        overlay.addEventListener('click', function (e) {
+          if (e.target === overlay) { overlay.remove(); resolve(Auth._createGuestIdentity('')); }
+        });
+        rhacsMount().appendChild(overlay);
+        setTimeout(function () { input.focus(); }, 50);
+      });
     },
     loginAsGuest: function () {
-      S.guestMode = true;
-      S.user = Auth.guestIdentity();
-      FAB.updateUser();
-      Notify.toast('Commenting as guest — comments are saved locally only.');
+      var existing = Auth.guestIdentity();
+      if (existing) {
+        S.guestMode = true;
+        S.user = existing;
+        FAB.updateUser();
+        Notify.toast('Commenting as guest — comments are saved locally only.');
+        return Promise.resolve();
+      }
+      return Auth._showNamePromptThenGuest().then(function (user) {
+        S.guestMode = true;
+        S.user = user;
+        FAB.updateUser();
+        Notify.toast('Commenting as ' + user.login + ' — comments are saved locally only.');
+      });
     },
     exitGuest: function () {
       S.guestMode = false;
@@ -445,8 +581,7 @@
         guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">Local only</span>';
         guestBtn.addEventListener('click', function () {
           overlay.remove();
-          Auth.loginAsGuest();
-          resolve();
+          Auth.loginAsGuest().then(function () { resolve(); });
         });
 
         // Feature list for guest
@@ -613,10 +748,21 @@
     },
 
     setMode: function (active) {
+      var cursorSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">' +
+        '<defs>' +
+          '<radialGradient id="cg" cx="40%" cy="35%" r="65%">' +
+            '<stop offset="0%" stop-color="#4d9fff"/>' +
+            '<stop offset="60%" stop-color="#0052cc"/>' +
+            '<stop offset="100%" stop-color="#003a91"/>' +
+          '</radialGradient>' +
+        '</defs>' +
+        '<circle cx="15" cy="15" r="13.5" fill="url(#cg)" stroke="rgba(0,0,0,0.35)" stroke-width="1.2"/>' +
+        '<path fill="#fff" d="M6.9 20.4a1.4 1.4 0 0 1 .4 1.1 15 15 0 0 1-.56 2.8c1.95-.45 3.14-.97 3.68-1.25a1.4 1.4 0 0 1 .99-.1A11.2 11.2 0 0 0 15 23.4c5.6 0 9.8-3.93 9.8-8.4s-4.2-8.4-9.8-8.4-9.8 3.93-9.8 8.4c0 1.95.87 3.75 2.35 5.1 0 0 0 0-.65-.1z" opacity="0.95"/>' +
+        '</svg>';
       var commentCursor = [
-        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='8' fill='%230052cc'/%3E%3Cpath fill='%23fff' d='M3.678 10.894a.75.75 0 0 1 .215.601 8.3 8.3 0 0 1-.298 1.5c1.046-.242 1.685-.523 1.976-.67a.75.75 0 0 1 .532-.055A6 6 0 0 0 8 12.5c3 0 5.25-2.105 5.25-4.5S11 3.5 8 3.5 2.75 5.605 2.75 8c0 1.101.463 2.122 1.258 2.92'/%3E%3C/svg%3E\") 14 14",
-        "crosshair"
-      ].join(", ");
+        'url("data:image/svg+xml,' + encodeURIComponent(cursorSvg) + '") 15 15',
+        'crosshair'
+      ].join(', ');
       if (active) {
         this.overlayEl.classList.add('rhacs-overlay--active');
         document.body.style.cursor = commentCursor;

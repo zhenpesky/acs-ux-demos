@@ -1312,6 +1312,22 @@ body.rhacs-comment-mode-active .rhacs-pin {
   height: 18px;
 }
 
+/* Avatar fills the full circle button when collapsed */
+.rhacs-user-menu__trigger .rhacs-avatar,
+.rhacs-user-menu__trigger .rhacs-avatar--sm {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  transition: width 0.2s ease, height 0.2s ease;
+}
+.rhacs-user-menu__trigger:hover .rhacs-avatar,
+.rhacs-user-menu__trigger:hover .rhacs-avatar--sm {
+  width: 28px;
+  height: 28px;
+}
+
 .rhacs-unread-dot {
   width: 7px;
   height: 7px;
@@ -1991,8 +2007,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   align-items: center;
 }
 .rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 /* Expanded on hover — vertical by default */

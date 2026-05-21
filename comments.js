@@ -381,7 +381,7 @@
       this.overlayEl = el('div', { className: 'rhacs-overlay' });
       this.overlayEl.addEventListener('click', Overlay.handleClick);
       this.root.appendChild(this.overlayEl);
-      document.body.appendChild(this.root);
+      rhacsMount().appendChild(this.root);
 
       window.addEventListener('resize', function () { Overlay.refresh(); });
       // Use capturing scroll so we catch scroll on any nested element
@@ -464,7 +464,7 @@
     init: function () {
       this.el = el('div', { className: 'rhacs-popup', id: 'rhacs-popup' });
       this.el.style.display = 'none';
-      document.body.appendChild(this.el);
+      rhacsMount().appendChild(this.el);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') Popup.close(); });
     },
     close: function () {
@@ -827,7 +827,7 @@
     showResolved: false,
     init: function () {
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
-      document.body.appendChild(this.el);
+      rhacsMount().appendChild(this.el);
     },
     open: function () {
       S.lastSeen = Date.now();
@@ -942,7 +942,7 @@
       this.userEl = el('div', { className: 'rhacs-fab__user' });
 
       append(this.el, mainBtn, panelBtn, this.userEl);
-      document.body.appendChild(this.el);
+      rhacsMount().appendChild(this.el);
       this.updateUser();
 
       document.addEventListener('keydown', function (e) {
@@ -1006,7 +1006,7 @@
       this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
       this.toastEl.setAttribute('aria-live', 'polite');
       this.toastEl.style.display = 'none';
-      document.body.appendChild(this.toastEl);
+      rhacsMount().appendChild(this.toastEl);
     },
     toast: function (msg, ms) {
       ms = ms || 4000;
@@ -1072,30 +1072,33 @@
     document.head.appendChild(s);
   }
 
+  // Single mount point for every comment UI element.
+  var _rhacsMount = null;
+  function rhacsMount() {
+    if (!_rhacsMount) {
+      _rhacsMount = document.createElement('div');
+      _rhacsMount.id = 'rhacs-mount';
+      document.body.appendChild(_rhacsMount);
+    }
+    return _rhacsMount;
+  }
+
   // Returns true only when the current URL is a versioned prototype page (not baseline).
-  // Prototype pages carry ?prototype=<version> where version !== 'baseline'.
   function isPrototypePage() {
     var v = new URLSearchParams(window.location.search).get('prototype');
     return v !== null && v !== 'baseline';
   }
 
-  // Show or hide ALL commenting UI depending on whether we're on a prototype page.
+  // Toggle the single mount wrapper — hides everything at once.
   function syncVisibility() {
     var active = isPrototypePage();
-    var hide = 'none';
-    // Root overlay (pins live inside here)
-    if (Overlay.root)   Overlay.root.style.visibility = active ? '' : 'hidden';
-    if (Overlay.root)   Overlay.root.style.pointerEvents = active ? '' : 'none';
-    // FAB
-    if (FAB.el)         FAB.el.style.display = active ? '' : hide;
-    // Popup — keep its internal display state when showing, always hide when not on prototype
-    if (!active && Popup.el)  Popup.el.style.display = hide;
-    // Panel
-    if (!active && Panel.el) { Panel.el.classList.remove('rhacs-panel--open'); Panel.el.style.display = hide; }
-    if (active  && Panel.el)   Panel.el.style.display = '';
-    // Toast
-    if (!active && Notify.toastEl) Notify.toastEl.style.display = hide;
-    if (!active) FAB.setMode(false);
+    var mount = rhacsMount();
+    mount.style.display = active ? '' : 'none';
+    if (!active) {
+      FAB.setMode(false);
+      if (Popup.el) Popup.el.style.display = 'none';
+      if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
+    }
   }
 
   function init() {

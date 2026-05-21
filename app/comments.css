@@ -1151,19 +1151,29 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-fab__btn {
   position: relative;
   height: 40px;
-  padding: 0 12px;
+  width: 40px;
+  padding: 0;
   background: var(--pf-v6-global--palette--purple-400, #6753ac);
   border: none;
   border-radius: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 7px;
-  transition: background 0.15s, transform 0.12s;
+  justify-content: center;
+  gap: 0;
+  transition: background 0.15s, transform 0.12s, width 0.2s ease, padding 0.2s ease, gap 0.2s ease;
   color: #fff;
-  font-size: 13px;
+  font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+}
+.rhacs-fab__btn:hover,
+.rhacs-fab--unauthenticated .rhacs-fab__btn {
+  width: auto;
+  padding: 0 16px 0 12px;
+  gap: 7px;
+  justify-content: flex-start;
 }
 
 .rhacs-fab__icon {

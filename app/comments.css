@@ -5,11 +5,13 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── Root container ──────────────────────────────────────────────────────── */
+/* Fixed so it covers the viewport without adding to any container's layout  */
 #rhacs-comment-root {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
+  height: 100%;
   z-index: 9990;
   pointer-events: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -17,6 +19,7 @@
   line-height: 1.4;
   color: #24292f;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* ── Pin overlay ─────────────────────────────────────────────────────────── */
@@ -25,7 +28,7 @@
   top: 0;
   left: 0;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
@@ -35,8 +38,9 @@
 }
 
 /* ── Pins ────────────────────────────────────────────────────────────────── */
+/* Fixed so JS can set viewport-pixel coords that update on scroll           */
 #rhacs-comment-root .rhacs-pin {
-  position: absolute;
+  position: fixed;
   width: 26px;
   height: 26px;
   background: #0052cc;

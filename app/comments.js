@@ -40,25 +40,63 @@
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
-  // PatternFly SPAs scroll inside .pf-v5-c-page__main, not on window/body.
-  // We find the real scroll container so pin coordinates stay content-relative.
+  // PatternFly SPAs scroll inside .pf-v5-c-page__main rather than window/body.
+  // We detect this read-only (never move the overlay into it) and recompute each
+  // pin's viewport position on every scroll / resize event.
+
   function findScrollContainer() {
-    // If the document itself scrolls, no inner container needed.
-    if (document.documentElement.scrollHeight > window.innerHeight + 4) return null;
-    var best = null;
-    var bestScrollable = 10; // px threshold to ignore tiny overflows
-    var els = document.querySelectorAll('*');
-    for (var i = 0; i < els.length; i++) {
-      var candidate = els[i];
-      var oy = window.getComputedStyle(candidate).overflowY;
-      if (oy !== 'auto' && oy !== 'scroll') continue;
-      var scrollable = candidate.scrollHeight - candidate.clientHeight;
-      if (scrollable > bestScrollable) {
-        bestScrollable = scrollable;
-        best = candidate;
-      }
+    // Try PF-specific selectors first (most reliable, avoids false positives)
+    var pf = ['.pf-v5-c-page__main', '.pf-c-page__main', 'main[role="main"]', 'main'];
+    for (var i = 0; i < pf.length; i++) {
+      var c = document.querySelector(pf[i]);
+      if (c && c.scrollHeight > c.clientHeight + 4) return c;
     }
-    return best; // null → window scrolls; element → inner scroll container
+    // If window itself scrolls there's no inner container
+    if (document.documentElement.scrollHeight > window.innerHeight + 4) return null;
+    // Generic fallback: find the element with the most scrollable content
+    var best = null, bestPx = 10;
+    var els = document.querySelectorAll('*');
+    for (var j = 0; j < els.length; j++) {
+      var oy = window.getComputedStyle(els[j]).overflowY;
+      if (oy !== 'auto' && oy !== 'scroll') continue;
+      var px = els[j].scrollHeight - els[j].clientHeight;
+      if (px > bestPx) { bestPx = px; best = els[j]; }
+    }
+    return best;
+  }
+
+  // Snapshot of the scroll container's current state (position + scroll)
+  function containerInfo() {
+    var c = S.scrollContainer;
+    if (c) {
+      var r = c.getBoundingClientRect();
+      return {
+        scrollTop: c.scrollTop, scrollLeft: c.scrollLeft,
+        clientTop: r.top, clientLeft: r.left,
+        viewH: r.height, viewW: r.width,
+        scrollHeight: c.scrollHeight, scrollWidth: c.scrollWidth,
+      };
+    }
+    return {
+      scrollTop: window.scrollY, scrollLeft: window.scrollX,
+      clientTop: 0, clientLeft: 0,
+      viewH: window.innerHeight, viewW: window.innerWidth,
+      scrollHeight: document.documentElement.scrollHeight,
+      scrollWidth:  document.documentElement.scrollWidth,
+    };
+  }
+
+  // Convert a pin's stored (x%, y%) to current viewport pixel coordinates.
+  function pinToViewport(meta) {
+    var ci = containerInfo();
+    var docX = (meta.x / 100) * ci.scrollWidth;
+    var docY = (meta.y / 100) * ci.scrollHeight;
+    return {
+      left:    docX - ci.scrollLeft + ci.clientLeft,
+      top:     docY - ci.scrollTop  + ci.clientTop,
+      visible: docX >= ci.scrollLeft && docX <= ci.scrollLeft + ci.viewW &&
+               docY >= ci.scrollTop  && docY <= ci.scrollTop  + ci.viewH,
+    };
   }
 
   // ── Utility helpers ───────────────────────────────────────────────────────────
@@ -311,88 +349,77 @@
   }
 
   // ── Overlay ───────────────────────────────────────────────────────────────────
+  // Strategy: root stays on document.body with position:fixed (full viewport,
+  // zero layout impact). Pins use position:fixed with viewport-pixel coords
+  // recomputed on every scroll/resize, so they always sit over the right content
+  // regardless of which element is the scroll container.
   var Overlay = {
     root: null,
     overlayEl: null,
+    _scrollListener: null,
+
     init: function () {
       this.root = el('div', { id: 'rhacs-comment-root' });
       this.overlayEl = el('div', { className: 'rhacs-overlay' });
       this.overlayEl.addEventListener('click', Overlay.handleClick);
       this.root.appendChild(this.overlayEl);
-      document.body.appendChild(this.root); // moved to correct container in updateSize
-      window.addEventListener('resize', Overlay.updateSize);
-      // Re-measure after React finishes rendering (PF hydration takes ~600ms)
-      setTimeout(Overlay.updateSize, 800);
-      setTimeout(Overlay.updateSize, 2000);
-      setTimeout(Overlay.updateSize, 4000);
-      // Reposition popup on scroll so it tracks the pin
-      document.addEventListener('scroll', Overlay.onScroll, true);
-    },
-    onScroll: function () {
-      if (!S.activePinId) return;
-      var pinEl = Overlay.overlayEl && Overlay.overlayEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
-      if (!pinEl) return;
-      var r = pinEl.getBoundingClientRect();
-      // If pin has scrolled off screen, close popup
-      var container = S.scrollContainer;
-      var vTop = 0, vBottom = container ? container.getBoundingClientRect().height : window.innerHeight;
-      if (r.bottom < vTop || r.top > vBottom) { Popup.close(); return; }
-      Popup.positionFixed(r.right + 4, r.top);
-    },
-    updateSize: function () {
-      if (!Overlay.overlayEl) return;
-      var container = findScrollContainer();
-      S.scrollContainer = container;
+      document.body.appendChild(this.root);
 
-      if (container) {
-        // Ensure the container is a positioning context for absolute children
-        var pos = window.getComputedStyle(container).position;
-        if (pos === 'static') container.style.position = 'relative';
-        // Relocate root into the scroll container if not already there
-        if (Overlay.root && Overlay.root.parentElement !== container) {
-          container.appendChild(Overlay.root);
-        }
-        Overlay.overlayEl.style.height = container.scrollHeight + 'px';
-        Overlay.overlayEl.style.width  = container.scrollWidth  + 'px';
-      } else {
-        // Window scrolls — keep root on body
-        if (Overlay.root && Overlay.root.parentElement !== document.body) {
-          document.body.appendChild(Overlay.root);
-        }
-        Overlay.overlayEl.style.height = Math.max(
-          document.body.scrollHeight, document.documentElement.scrollHeight
-        ) + 'px';
-        Overlay.overlayEl.style.width = '';
+      window.addEventListener('resize', function () { Overlay.refresh(); });
+      // Use capturing scroll so we catch scroll on any nested element
+      document.addEventListener('scroll', function () { Overlay.onScroll(); }, true);
+
+      // Re-detect scroll container after React finishes hydrating
+      setTimeout(function () { Overlay.refresh(); }, 800);
+      setTimeout(function () { Overlay.refresh(); }, 2500);
+      setTimeout(function () { Overlay.refresh(); }, 5000);
+    },
+
+    // Re-detect scroll container and re-render pins.
+    refresh: function () {
+      S.scrollContainer = findScrollContainer();
+      Overlay.renderPins();
+    },
+
+    // Called on every scroll event (captured, fires for any element).
+    onScroll: function () {
+      // Always re-render pins so they track content
+      Overlay.renderPins();
+      // Reposition popup next to its pin if open
+      if (S.activePinId) {
+        var pinEl = Overlay.overlayEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
+        if (!pinEl || pinEl.style.visibility === 'hidden') { Popup.close(); return; }
+        var r = pinEl.getBoundingClientRect();
+        Popup.positionFixed(r.right + 4, r.top);
       }
     },
+
     handleClick: function (e) {
       if (!S.commentMode) return;
       if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
-      var x, y;
-      var container = S.scrollContainer;
-      if (container) {
-        var rect  = container.getBoundingClientRect();
-        var xPx   = e.clientX - rect.left + container.scrollLeft;
-        var yPx   = e.clientY - rect.top  + container.scrollTop;
-        x = (xPx / Math.max(container.scrollWidth,  1)) * 100;
-        y = (yPx / Math.max(container.scrollHeight, 1)) * 100;
-      } else {
-        x = (e.pageX / Math.max(document.body.scrollWidth,  1)) * 100;
-        y = (e.pageY / Math.max(document.body.scrollHeight, 1)) * 100;
-      }
+      var ci = containerInfo();
+      var x = ((e.clientX - ci.clientLeft + ci.scrollLeft) / Math.max(ci.scrollWidth,  1)) * 100;
+      var y = ((e.clientY - ci.clientTop  + ci.scrollTop)  / Math.max(ci.scrollHeight, 1)) * 100;
       Popup.showNewForm(x, y, e.clientX, e.clientY);
     },
+
     renderPins: function () {
       this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
-        var isUnread  = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var vp = pinToViewport(pin.meta);
+        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
         var isResolved = pin.meta.resolved;
-        var cls = 'rhacs-pin' + (isResolved ? ' rhacs-pin--resolved' : '') + (isUnread ? ' rhacs-pin--unread' : '');
+        var cls = 'rhacs-pin' +
+          (isResolved ? ' rhacs-pin--resolved' : '') +
+          (isUnread   ? ' rhacs-pin--unread'   : '');
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
         pinEl.appendChild(txt(String(pin.meta.pinNumber)));
-        pinEl.style.left = pin.meta.x + '%';
-        pinEl.style.top  = pin.meta.y + '%';
+        // Fixed-pixel viewport position (pin scrolls with content because we
+        // subtract the container's scrollTop/scrollLeft each render)
+        pinEl.style.left       = vp.left + 'px';
+        pinEl.style.top        = vp.top  + 'px';
+        pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
         pinEl.addEventListener('click', function (e) {
           e.stopPropagation();
           Popup.showThread(pin.id);
@@ -400,6 +427,7 @@
         Overlay.overlayEl.appendChild(pinEl);
       });
     },
+
     setMode: function (active) {
       if (active) {
         this.overlayEl.classList.add('rhacs-overlay--active');
@@ -743,12 +771,11 @@
 
         item.addEventListener('click', (function (p) { return function () {
           Panel.close();
-          var container = S.scrollContainer;
-          if (container) {
-            var scrollY = (p.meta.y / 100) * container.scrollHeight;
-            container.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+          var ci = containerInfo();
+          var scrollY = (p.meta.y / 100) * ci.scrollHeight;
+          if (S.scrollContainer) {
+            S.scrollContainer.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
           } else {
-            var scrollY = (p.meta.y / 100) * document.documentElement.scrollHeight;
             window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
           }
           setTimeout(function () { Popup.showThread(p.id); }, 400);

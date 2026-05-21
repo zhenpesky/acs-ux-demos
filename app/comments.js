@@ -1524,9 +1524,6 @@
       var labelEl = this.el.querySelector('.rhacs-fab__label');
       if (labelEl) labelEl.textContent = active ? 'Exit comment mode' : 'Add comment';
       Overlay.setMode(active);
-      if (active) {
-        Panel.open();
-      }
     },
     updateBadge: function () {
       var count = S.unread;

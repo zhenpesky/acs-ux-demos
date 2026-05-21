@@ -78,6 +78,17 @@
           return;
         }
 
+        // Check if we arrived via a redirect (popup was blocked)
+        const returnUrl = localStorage.getItem('rhacs_return_url');
+        if (returnUrl) {
+          localStorage.removeItem('rhacs_return_url');
+          document.getElementById('status').textContent = 'Logged in! Redirecting…';
+          document.getElementById('spinner').style.display = 'none';
+          const sep = returnUrl.includes('?') ? '&' : '?';
+          window.location.href = returnUrl + sep + 'rhacs_token=' + encodeURIComponent(data.token);
+          return;
+        }
+
         notifyOpener(data.token);
         document.getElementById('status').textContent = 'Logged in! Closing…';
         document.getElementById('spinner').style.display = 'none';

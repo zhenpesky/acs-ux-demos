@@ -2263,8 +2263,18 @@
         append(itemHdr, av, num, au, tm);
         if (pin.meta.viewState) {
           var stateLabels = { view: 'Viewing', edit: 'Editing', create: 'Creating', delete: 'Deleting' };
+          var stateTips = {
+            view:   'Pinned while viewing this page in read-only mode',
+            edit:   'Pinned while a form was open and being edited',
+            create: 'Pinned while creating a new item',
+            delete: 'Pinned during a delete action'
+          };
           var stateLabel = stateLabels[pin.meta.viewState] || 'Viewing';
-          var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
+          var stateTip   = stateTips[pin.meta.viewState]   || 'Pinned in view mode';
+          var stateBadge = el('span', {
+            className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState,
+            'data-tip': stateTip
+          });
           stateBadge.appendChild(txt(stateLabel));
           itemHdr.appendChild(stateBadge);
         }

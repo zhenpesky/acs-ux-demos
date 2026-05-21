@@ -1006,14 +1006,21 @@ body.rhacs-comment-mode-active .rhacs-pin {
   white-space: nowrap;
 }
 
+/* PF6 compact label — matches pf-v6-c-label pf-m-compact */
 .rhacs-panel__state-badge {
-  font-size: var(--pf-v6-global--FontSize--md, 16px);
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
   white-space: nowrap;
   flex-shrink: 0;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: default;
+  user-select: none;
 }
 /* View — neutral gray */
 .rhacs-panel__state-badge--view {

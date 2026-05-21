@@ -488,18 +488,24 @@
       var margin = 12;
       var vw = window.innerWidth, vh = window.innerHeight;
       popupEl.style.display = 'block';
-      // Remove fixed max-height so we can measure natural height first
-      popupEl.style.maxHeight = '';
+      // Temporarily remove max-height to measure true content height
+      var prevMaxH = popupEl.style.maxHeight;
+      popupEl.style.maxHeight = 'none';
 
       function applyPos(top, left) {
         top  = Math.min(Math.max(margin, top),  vh - margin);
         left = Math.min(Math.max(margin, left), vw - margin);
-        // Dynamic max-height: never overflow the bottom edge
         var availH = vh - top - margin;
-        popupEl.style.top      = top  + 'px';
-        popupEl.style.left     = left + 'px';
+        // Pause the ResizeObserver so setting maxHeight doesn't re-trigger positionFixed
+        if (Popup._ro) Popup._ro.disconnect();
+        popupEl.style.top       = top  + 'px';
+        popupEl.style.left      = left + 'px';
         popupEl.style.maxHeight = Math.max(120, availH) + 'px';
         popupEl.style.visibility = '';
+        // Re-attach after paint so future content changes trigger reposition()
+        requestAnimationFrame(function () {
+          if (Popup._ro) Popup._ro.observe(popupEl);
+        });
       }
 
       var fui = window.FloatingUIDOM;
@@ -531,9 +537,27 @@
       }
     },
     reposition: function () {
-      if (this.el && this.el.style.display !== 'none' && this.el.style.visibility !== 'hidden') {
-        this.positionFixed(this._anchorX, this._anchorY);
+      var popupEl = this.el;
+      if (!popupEl || popupEl.style.display === 'none' || popupEl.style.visibility === 'hidden') return;
+      var margin = 12;
+      var vh = window.innerHeight;
+      var vw = window.innerWidth;
+      var rect = popupEl.getBoundingClientRect();
+
+      // Shift up if overflowing bottom
+      var top = rect.top;
+      if (rect.bottom > vh - margin) {
+        top = Math.max(margin, top - (rect.bottom - (vh - margin)));
+        popupEl.style.top = top + 'px';
       }
+      // Shift left if overflowing right
+      if (rect.right > vw - margin) {
+        var left = Math.max(margin, rect.left - (rect.right - (vw - margin)));
+        popupEl.style.left = left + 'px';
+      }
+      // Cap max-height so it never overflows bottom regardless of content
+      var availH = vh - parseFloat(popupEl.style.top || '0') - margin;
+      popupEl.style.maxHeight = Math.max(120, availH) + 'px';
     },
     showNewForm: function (x, y, clientX, clientY) {
       S.activePinId = null;

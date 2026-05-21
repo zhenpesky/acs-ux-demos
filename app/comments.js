@@ -347,13 +347,21 @@
       return new Promise(function (resolve, reject) {
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
+
+        // Always use full-page redirect — avoids all cross-window communication issues.
+        // auth-callback.html will redirect back here with ?rhacs_token=
+        localStorage.setItem('rhacs_return_url', window.location.href);
+        window.location.href = url;
+        return;
+
+        /* ---- popup path kept for reference but not used ----
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
         if (!popup) {
-          // Popup blocked — fall back to full-page redirect; page will reload with ?rhacs_token=
           localStorage.setItem('rhacs_return_url', window.location.href);
           window.location.href = url;
           return;
         }
+        ---- end popup path ---- */
 
         var done = false;
         var pollTimer, closedTimer, storageHandler, msgHandler, bc;
@@ -733,7 +741,7 @@
           ghBtn.disabled = true;
           ghBtn.style.opacity = '0.6';
           var origHTML = ghBtn.innerHTML;
-          ghBtn.innerHTML = '<span>Opening GitHub…</span>';
+          ghBtn.innerHTML = '<span>Redirecting to GitHub…</span>';
           Auth.login()
             .then(function () {
               overlay.remove();

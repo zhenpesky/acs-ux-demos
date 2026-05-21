@@ -2454,13 +2454,68 @@
         append(guestWrap, splitBtn, logoutGuestBtn);
         this.userEl.appendChild(guestWrap);
       } else if (S.token && S.user) {
-        // GitHub-authenticated user: show avatar + logout
-        var av = makeAvatar(S.user, 'rhacs-avatar--sm');
-        av.setAttribute('data-tip', 'Logged in as ' + S.user.login);
-        var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary', 'data-tip': 'Log out', onclick: function () { Auth.logout(); } });
-        logoutBtn.setAttribute('aria-label', 'Log out');
-        logoutBtn.appendChild(txt('Log out'));
-        append(this.userEl, av, logoutBtn);
+        // GitHub-authenticated user: PF6-style avatar dropdown button
+        var userDropWrap = el('div', { className: 'rhacs-user-menu' });
+
+        var userTrigger = el('button', {
+          className: 'rhacs-user-menu__trigger',
+          'aria-label': 'User menu for ' + S.user.login,
+          'aria-haspopup': 'true',
+          'aria-expanded': 'false'
+        });
+
+        var triggerAv = makeAvatar(S.user, 'rhacs-avatar--sm');
+        var triggerName = el('span', { className: 'rhacs-user-menu__name' });
+        triggerName.appendChild(txt(S.user.login));
+        var CHEVRON_DOWN = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 320 512" fill="currentColor"><path d="M137.4 374.6c12.5 12.5 32.8 12.5 45.3 0l128-128c9.2-9.2 11.9-22.9 6.9-34.9s-16.6-19.8-29.6-19.8L32 192c-12.9 0-24.6 7.8-29.6 19.8s-2.2 25.7 6.9 34.9l128 128z"/></svg>';
+        var triggerChevron = el('span', { className: 'rhacs-user-menu__chevron' });
+        triggerChevron.innerHTML = CHEVRON_DOWN;
+        append(userTrigger, triggerAv, triggerName, triggerChevron);
+
+        var userDropdown = el('div', { className: 'rhacs-user-menu__dropdown' });
+
+        var profileItem = el('a', {
+          className: 'rhacs-user-menu__item',
+          href: 'https://github.com/' + S.user.login,
+          target: '_blank',
+          rel: 'noopener'
+        });
+        profileItem.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>';
+        profileItem.appendChild(txt('View GitHub profile'));
+
+        var dividerItem = el('div', { className: 'rhacs-user-menu__divider' });
+
+        var logoutItem = el('button', { className: 'rhacs-user-menu__item rhacs-user-menu__item--danger' });
+        logoutItem.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="currentColor" style="flex-shrink:0"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 192 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128zM160 96c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 32C43 32 0 75 0 128L0 384c0 53 43 96 96 96l64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l64 0z"/></svg>';
+        logoutItem.appendChild(txt('Log out'));
+        logoutItem.addEventListener('click', function (e) {
+          e.stopPropagation();
+          userDropdown.classList.remove('rhacs-user-menu__dropdown--open');
+          userTrigger.setAttribute('aria-expanded', 'false');
+          Auth.logout();
+        });
+
+        append(userDropdown, profileItem, dividerItem, logoutItem);
+        append(userDropWrap, userTrigger, userDropdown);
+
+        userTrigger.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var isOpen = userDropdown.classList.contains('rhacs-user-menu__dropdown--open');
+          // close all other open dropdowns
+          document.querySelectorAll('.rhacs-user-menu__dropdown--open, .rhacs-split-btn__dropdown--open, .rhacs-kebab__dropdown--open').forEach(function (d) {
+            d.classList.remove('rhacs-user-menu__dropdown--open');
+            d.classList.remove('rhacs-split-btn__dropdown--open');
+            d.classList.remove('rhacs-kebab__dropdown--open');
+          });
+          if (!isOpen) {
+            userDropdown.classList.add('rhacs-user-menu__dropdown--open');
+            userTrigger.setAttribute('aria-expanded', 'true');
+          } else {
+            userTrigger.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        this.userEl.appendChild(userDropWrap);
       }
       // Not authenticated: no user area content shown — clicking "Add comment" triggers the dialog
     },

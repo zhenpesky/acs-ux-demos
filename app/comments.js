@@ -1080,7 +1080,7 @@
 
       // Reply form
       var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
-      var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary' });
+      var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
       replyBtn.appendChild(txt('Reply'));
       replyBtn.addEventListener('click', function () {
         replyBtn.disabled = true;
@@ -1160,10 +1160,12 @@
         .catch(function (e) { Notify.toast(e.message); });
     },
     showEdit: function (pin, bodyEl) {
+      var originalContent = bodyEl.innerHTML;
       bodyEl.innerHTML = '';
       var editArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', rows: '3' });
       editArea.value = pinText(pin.body);
-      var saveBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
+      var actions = el('div', { className: 'rhacs-btn-row' });
+      var saveBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
       saveBtn.appendChild(txt('Save'));
       saveBtn.addEventListener('click', function () {
         var newText = editArea.value.trim();
@@ -1177,7 +1179,14 @@
           .then(function () { Popup.showThread(pin.id); })
           .catch(function (e) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; Notify.toast(e.message); });
       });
-      append(bodyEl, editArea, saveBtn);
+      var cancelBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary rhacs-btn--sm' });
+      cancelBtn.appendChild(txt('Cancel'));
+      cancelBtn.addEventListener('click', function () {
+        bodyEl.innerHTML = originalContent;
+      });
+      append(actions, saveBtn, cancelBtn);
+      append(bodyEl, editArea, actions);
+      editArea.focus();
     },
     confirmDelete: function (pinId) {
       if (!confirm('Delete this comment and all its replies?')) return;

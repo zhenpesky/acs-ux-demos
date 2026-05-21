@@ -320,6 +320,14 @@
   font-size: 12px;
 }
 
+/* Compact inline row for Save/Cancel, Reply, etc. */
+.rhacs-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 /* Prevent PF6 buttons from stretching to fill flex-column parents */
 .rhacs-popup .pf-v6-c-button,
 .rhacs-reply-form .pf-v6-c-button {

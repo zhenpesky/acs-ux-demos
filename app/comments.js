@@ -711,28 +711,85 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
       tm.appendChild(txt(timeAgo(reply.createdAt)));
       append(hdr, av, au, tm);
-      var bd   = el('div', { className: 'rhacs-reply__body' });
-      bd.appendChild(txt(reply.body));
-      append(wrap, hdr, bd);
+
       if (S.user && reply.author.login === S.user.login) {
-        var delBtn = el('button', { className: 'pf-v6-c-button pf-m-danger pf-m-small' });
-        delBtn.appendChild(txt('Delete'));
-        delBtn.addEventListener('click', function () {
+        var kebabWrap = el('div', { className: 'rhacs-kebab' });
+        var kebabBtn  = el('button', { className: 'rhacs-kebab__btn', 'aria-label': 'Reply actions' });
+        kebabBtn.appendChild(txt('⋮'));
+        var dropdown  = el('div', { className: 'rhacs-kebab__dropdown' });
+
+        var editItem = el('button', { className: 'rhacs-kebab__item' });
+        editItem.appendChild(txt('Edit'));
+        editItem.addEventListener('click', function (e) {
+          e.stopPropagation();
+          dropdown.classList.remove('rhacs-kebab__dropdown--open');
+          Popup.showReplyEdit(reply, pinId, bd);
+        });
+
+        var delItem = el('button', { className: 'rhacs-kebab__item rhacs-kebab__item--danger' });
+        delItem.appendChild(txt('Delete'));
+        delItem.addEventListener('click', function (e) {
+          e.stopPropagation();
+          dropdown.classList.remove('rhacs-kebab__dropdown--open');
           if (!confirm('Delete this reply?')) return;
           deleteComment(reply.id)
             .then(function () { return loadAndRender(); })
             .then(function () { Popup.showThread(pinId); })
             .catch(function (e) { Notify.toast(e.message); });
         });
-        wrap.appendChild(delBtn);
+
+        append(dropdown, editItem, delItem);
+        append(kebabWrap, kebabBtn, dropdown);
+        hdr.appendChild(kebabWrap);
+
+        kebabBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var isOpen = dropdown.classList.contains('rhacs-kebab__dropdown--open');
+          // close all other open dropdowns first
+          document.querySelectorAll('.rhacs-kebab__dropdown--open').forEach(function (d) {
+            d.classList.remove('rhacs-kebab__dropdown--open');
+          });
+          if (!isOpen) dropdown.classList.add('rhacs-kebab__dropdown--open');
+        });
       }
+
+      var bd   = el('div', { className: 'rhacs-reply__body' });
+      bd.appendChild(txt(reply.body));
+      append(wrap, hdr, bd);
       return wrap;
+    },
+    showReplyEdit: function (reply, pinId, bodyEl) {
+      bodyEl.innerHTML = '';
+      var editArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', rows: '2' });
+      editArea.value = reply.body;
+      var saveBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+      saveBtn.appendChild(txt('Save'));
+      saveBtn.addEventListener('click', function () {
+        var newText = editArea.value.trim();
+        if (!newText) return;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        updateComment(reply.id, newText)
+          .then(function () { return loadAndRender(); })
+          .then(function () { Popup.showThread(pinId); })
+          .catch(function (e) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; Notify.toast(e.message); });
+      });
+      var cancelBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary rhacs-btn--sm' });
+      cancelBtn.appendChild(txt('Cancel'));
+      cancelBtn.addEventListener('click', function () {
+        bodyEl.innerHTML = '';
+        bodyEl.appendChild(txt(reply.body));
+      });
+      var actions = el('div', { className: 'rhacs-reply-form' });
+      append(actions, saveBtn, cancelBtn);
+      append(bodyEl, editArea, actions);
+      editArea.focus();
     },
     submitReply: function (pinId, text, textarea) {
       text = text.trim();
@@ -1022,6 +1079,12 @@
     // Dismiss popup / panel when clicking outside, but ONLY if the user is not
     // actively typing in a textarea or input inside that element.
     document.addEventListener('click', function (e) {
+      // Kebab menus: close any open dropdown when clicking outside it
+      if (!e.target.closest('.rhacs-kebab')) {
+        document.querySelectorAll('.rhacs-kebab__dropdown--open').forEach(function (d) {
+          d.classList.remove('rhacs-kebab__dropdown--open');
+        });
+      }
       // Popup: close on outside click unless a textarea/input inside is focused
       if (Popup.el && Popup.el.style.display !== 'none') {
         if (!Popup.el.contains(e.target)) {

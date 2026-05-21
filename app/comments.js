@@ -1770,9 +1770,240 @@
   var Panel = {
     el: null,
     activeTab: 'unread', // 'unread' | 'all' | 'unresolved' | 'resolved'
+    searchQuery: '',
+    selected: new Set(),
     init: function () {
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
+      this.searchQuery = '';
+      this.selected = new Set();
+
+      this.topEl = el('div', { className: 'rhacs-panel__top' });
+
+      this.searchWrap = el('div', { className: 'rhacs-panel__search' });
+      this.searchIcon = el('span', { className: 'rhacs-panel__search-icon' });
+      this.searchIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>';
+      this.searchInput = el('input', {
+        className: 'rhacs-panel__search-input',
+        type: 'search',
+        placeholder: 'Search comments\u2026',
+        'aria-label': 'Search comments',
+      });
+      this.searchClear = el('button', {
+        className: 'rhacs-panel__search-clear',
+        type: 'button',
+        'aria-label': 'Clear search',
+      });
+      this.searchClear.appendChild(txt('\u00d7'));
+      var self = this;
+      this.searchInput.addEventListener('input', function () {
+        self.searchQuery = self.searchInput.value;
+        self.selected.clear();
+        self._updateSearchClear();
+        self.render();
+      });
+      this.searchClear.addEventListener('click', function (e) {
+        e.stopPropagation();
+        self.searchInput.value = '';
+        self.searchQuery = '';
+        self.selected.clear();
+        self._updateSearchClear();
+        self.render();
+      });
+      append(this.searchWrap, this.searchIcon, this.searchInput, this.searchClear);
+
+      this.selectAllRow = el('div', { className: 'rhacs-panel__select-all-row' });
+      this.selectAllCheckbox = el('input', { type: 'checkbox', className: 'rhacs-panel__item-check rhacs-panel__select-all-check' });
+      this.selectAllCheckbox.setAttribute('aria-label', 'Select all visible comments');
+      var selectAllLabel = el('label', { className: 'rhacs-panel__select-all-label' });
+      selectAllLabel.appendChild(txt('Select all'));
+      selectAllLabel.addEventListener('click', function (e) {
+        e.preventDefault();
+        self.selectAllCheckbox.checked = !self.selectAllCheckbox.checked;
+        self.selectAllCheckbox.dispatchEvent(new Event('change'));
+      });
+      this.selectAllCheckbox.addEventListener('change', function () {
+        var visible = self._getVisiblePins();
+        if (self.selectAllCheckbox.checked) {
+          visible.forEach(function (p) { self.selected.add(p.id); });
+        } else {
+          visible.forEach(function (p) { self.selected.delete(p.id); });
+        }
+        self.render();
+      });
+      append(this.selectAllRow, this.selectAllCheckbox, selectAllLabel);
+      this.selectAllRow.style.display = 'none';
+
+      this.listEl = el('div', { className: 'rhacs-panel__list' });
+
+      this.bulkBar = el('div', { className: 'rhacs-panel__bulk-bar' });
+      this.bulkCount = el('span', { className: 'rhacs-panel__bulk-count' });
+      this.bulkResolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
+      this.bulkResolveBtn.appendChild(txt('Resolve selected'));
+      this.bulkUnresolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
+      this.bulkUnresolveBtn.appendChild(txt('Unresolve selected'));
+      this.bulkDeleteBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--danger', type: 'button' });
+      this.bulkDeleteBtn.appendChild(txt('Delete selected'));
+      this.bulkReadBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
+      this.bulkReadBtn.appendChild(txt('Mark as read'));
+      this.bulkCancelBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--plain', type: 'button' });
+      this.bulkCancelBtn.appendChild(txt('Cancel'));
+      this.bulkResolveBtn.addEventListener('click', function () { self._bulkResolve(true); });
+      this.bulkUnresolveBtn.addEventListener('click', function () { self._bulkResolve(false); });
+      this.bulkDeleteBtn.addEventListener('click', function () { self._bulkDelete(); });
+      this.bulkReadBtn.addEventListener('click', function () { self._bulkMarkRead(); });
+      this.bulkCancelBtn.addEventListener('click', function () {
+        self.selected.clear();
+        self.render();
+      });
+      append(this.bulkBar, this.bulkCount, this.bulkResolveBtn, this.bulkUnresolveBtn, this.bulkDeleteBtn, this.bulkReadBtn, this.bulkCancelBtn);
+
+      append(this.el, this.topEl, this.searchWrap, this.selectAllRow, this.listEl, this.bulkBar);
       rhacsMount().appendChild(this.el);
+    },
+    _updateSearchClear: function () {
+      var hasQuery = !!(this.searchQuery && this.searchQuery.trim());
+      this.searchClear.classList.toggle('rhacs-panel__search-clear--visible', hasQuery);
+    },
+    _matchesSearch: function (pin, q) {
+      var authorDisplay = pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login;
+      if (authorDisplay && authorDisplay.toLowerCase().indexOf(q) !== -1) return true;
+      if (pin.author.login && pin.author.login.toLowerCase().indexOf(q) !== -1) return true;
+      if (pinText(pin.body).toLowerCase().indexOf(q) !== -1) return true;
+      if (pin.replies) {
+        for (var i = 0; i < pin.replies.length; i++) {
+          if (pinText(pin.replies[i].body).toLowerCase().indexOf(q) !== -1) return true;
+        }
+      }
+      return false;
+    },
+    _getTabPins: function () {
+      var allPins        = S.pins.filter(function (p) { return p.meta; });
+      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen; });
+      var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
+      var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
+      return Panel.activeTab === 'unread'     ? unreadPins
+           : Panel.activeTab === 'all'        ? allPins
+           : Panel.activeTab === 'unresolved' ? unresolvedPins
+           : resolvedPins;
+    },
+    _getVisiblePins: function () {
+      var tabPins = this._getTabPins();
+      var q = (this.searchQuery || '').trim().toLowerCase();
+      if (!q) return tabPins;
+      return tabPins.filter(function (p) { return Panel._matchesSearch(p, q); });
+    },
+    _updateSelectionUI: function (visible) {
+      var selectedVisible = visible.filter(function (p) { return Panel.selected.has(p.id); });
+      var inSelectionMode = Panel.selected.size > 0;
+      this.el.classList.toggle('rhacs-panel--selection-mode', inSelectionMode);
+      this.selectAllRow.style.display = inSelectionMode ? 'flex' : 'none';
+      if (inSelectionMode) {
+        this.selectAllCheckbox.checked = visible.length > 0 && selectedVisible.length === visible.length;
+        this.selectAllCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+      } else {
+        this.selectAllCheckbox.indeterminate = false;
+      }
+
+      var hasUnresolved = false;
+      var hasResolved = false;
+      Panel.selected.forEach(function (id) {
+        var pin = S.pins.find(function (p) { return p.id === id; });
+        if (!pin) return;
+        if (pin.meta.resolved) hasResolved = true;
+        else hasUnresolved = true;
+      });
+      var isOwner = Auth.isPrototypeOwner();
+      this.bulkBar.classList.toggle('rhacs-panel__bulk-bar--visible', inSelectionMode);
+      this.bulkCount.textContent = Panel.selected.size + ' selected';
+      this.bulkResolveBtn.style.display = (isOwner && hasUnresolved) ? '' : 'none';
+      this.bulkUnresolveBtn.style.display = (isOwner && hasResolved) ? '' : 'none';
+      this.bulkDeleteBtn.style.display = isOwner ? '' : 'none';
+    },
+    _bulkMarkRead: function () {
+      var maxTs = S.lastSeen;
+      Panel.selected.forEach(function (id) {
+        var pin = S.pins.find(function (p) { return p.id === id; });
+        if (!pin) return;
+        var ts = new Date(pin.createdAt).getTime();
+        if (ts > maxTs) maxTs = ts;
+      });
+      S.lastSeen = maxTs;
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      Panel.selected.clear();
+      Notify.clearUnread();
+      Overlay.renderPins();
+      Panel.render();
+      FAB.updateBadge();
+    },
+    _bulkResolve: function (resolve) {
+      if (!Auth.isPrototypeOwner()) return;
+      var ids = Array.from(Panel.selected);
+      var apiCalls = [];
+      ids.forEach(function (id) {
+        var pin = S.pins.find(function (p) { return p.id === id; });
+        if (!pin) return;
+        if (resolve && pin.meta.resolved) return;
+        if (!resolve && !pin.meta.resolved) return;
+        if (String(pin.id).startsWith('guest-')) {
+          var guestPins = Auth.loadGuestPins();
+          var idx = guestPins.findIndex(function (p) { return p.id === pin.id; });
+          if (idx !== -1) {
+            guestPins[idx].body = setMeta(guestPins[idx].body, { resolved: resolve });
+            if (guestPins[idx].meta) guestPins[idx].meta.resolved = resolve;
+            Auth.saveGuestPins(guestPins);
+          }
+          pin.meta.resolved = resolve;
+          pin.body = setMeta(pin.body, { resolved: resolve });
+        } else {
+          pin.meta.resolved = resolve;
+          pin.body = setMeta(pin.body, { resolved: resolve });
+          apiCalls.push(updateComment(pin.id, pin.body));
+        }
+      });
+      Panel.selected.clear();
+      Overlay.renderPins();
+      Panel.render();
+      FAB.updateBadge();
+      if (apiCalls.length) {
+        Promise.all(apiCalls)
+          .then(function () { return loadAndRender(); })
+          .catch(function (e) { Notify.toast('Failed: ' + e.message); loadAndRender(); });
+      } else {
+        loadAndRender();
+      }
+    },
+    _bulkDelete: function () {
+      if (!Auth.isPrototypeOwner()) return;
+      var n = Panel.selected.size;
+      showConfirm('This cannot be undone.', {
+        title: 'Delete ' + n + ' comment' + (n === 1 ? '' : 's') + '?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        danger: true,
+      }).then(function (confirmed) {
+        if (!confirmed) return;
+        var ids = Array.from(Panel.selected);
+        var removed = [];
+        ids.forEach(function (id) {
+          var pin = S.pins.find(function (p) { return p.id === id; });
+          if (pin) removed.push(pin);
+          if (String(id).startsWith('guest-')) Auth.deleteGuestPin(id);
+        });
+        S.pins = S.pins.filter(function (p) { return ids.indexOf(p.id) === -1; });
+        Panel.selected.clear();
+        Overlay.renderPins();
+        Panel.render();
+        FAB.updateBadge();
+        ids.forEach(function (id) {
+          if (!String(id).startsWith('guest-')) {
+            deleteComment(id).catch(function (e) {
+              Notify.toast('Failed to delete: ' + e.message);
+              loadAndRender();
+            });
+          }
+        });
+        loadAndRender();
+      });
     },
     _pageEl: function () {
       return document.querySelector('.pf-v6-c-page') ||
@@ -1828,7 +2059,10 @@
       return empty;
     },
     render: function () {
-      this.el.innerHTML = '';
+      this.topEl.innerHTML = '';
+      this.listEl.innerHTML = '';
+      if (this.searchInput.value !== this.searchQuery) this.searchInput.value = this.searchQuery;
+      this._updateSearchClear();
 
       // ── Guest notice banner (top) ────────────────────────────────────────────
       if (S.guestMode) {
@@ -1839,7 +2073,7 @@
         guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
           Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
         });
-        this.el.appendChild(guestBanner);
+        this.topEl.appendChild(guestBanner);
       }
 
       // ── Header ──────────────────────────────────────────────────────────────
@@ -1851,7 +2085,7 @@
       closeBtn.appendChild(txt('\u00d7'));
       closeBtn.addEventListener('click', function () { Panel.close(); });
       append(hdr, title, closeBtn);
-      this.el.appendChild(hdr);
+      this.topEl.appendChild(hdr);
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
@@ -1870,7 +2104,6 @@
         { id: 'all',    label: 'All',    count: allPins.length },
       ];
       var tabs = Auth.isPrototypeOwner() ? ownerTabs : nonOwnerTabs;
-      // Guard: if activeTab is a restricted tab for this role, fall back to 'all'
       var allowedTabIds = tabs.map(function (t) { return t.id; });
       if (allowedTabIds.indexOf(Panel.activeTab) === -1) Panel.activeTab = 'all';
 
@@ -1886,30 +2119,51 @@
         btn.addEventListener('click', function (e) {
           e.stopPropagation();
           Panel.activeTab = tab.id;
+          Panel.selected.clear();
           Panel.render();
         });
         tabList.appendChild(btn);
       });
-      this.el.appendChild(tabList);
+      this.topEl.appendChild(tabList);
 
-      // ── Visible pins for active tab ───────────────────────────────────────
-      var visible = Panel.activeTab === 'unread'     ? unreadPins
-                  : Panel.activeTab === 'all'        ? allPins
-                  : Panel.activeTab === 'unresolved' ? unresolvedPins
-                  : resolvedPins;
+      // ── Visible pins for active tab + search ───────────────────────────────
+      var visible = this._getVisiblePins();
 
       if (visible.length === 0) {
-        this.el.appendChild(this.renderEmpty(Panel.activeTab));
+        if ((this.searchQuery || '').trim()) {
+          var noResults = el('div', { className: 'rhacs-panel__empty' });
+          var noResultsTitle = el('div', { className: 'rhacs-panel__empty-title' });
+          noResultsTitle.appendChild(txt('No matching comments'));
+          var noResultsHint = el('div', { className: 'rhacs-panel__empty-hint' });
+          noResultsHint.appendChild(txt('Try a different search term or clear the filter.'));
+          append(noResults, noResultsTitle, noResultsHint);
+          this.listEl.appendChild(noResults);
+        } else {
+          this.listEl.appendChild(this.renderEmpty(Panel.activeTab));
+        }
+        this._updateSelectionUI(visible);
         return;
       }
 
-      var list = el('div', { className: 'rhacs-panel__list' });
       visible.forEach(function (pin) {
         var isUnread = new Date(pin.createdAt).getTime() > S.lastSeen;
         var cls = 'rhacs-panel__item' +
           (isUnread   ? ' rhacs-panel__item--unread'   : '') +
           (pin.meta.resolved ? ' rhacs-panel__item--resolved' : '');
         var item = el('div', { className: cls });
+
+        var itemCheck = el('input', { type: 'checkbox', className: 'rhacs-panel__item-check' });
+        itemCheck.checked = Panel.selected.has(pin.id);
+        itemCheck.setAttribute('aria-label', 'Select comment #' + pin.meta.pinNumber);
+        itemCheck.addEventListener('click', function (e) { e.stopPropagation(); });
+        itemCheck.addEventListener('change', function (e) {
+          e.stopPropagation();
+          if (itemCheck.checked) Panel.selected.add(pin.id);
+          else Panel.selected.delete(pin.id);
+          Panel.render();
+        });
+
+        var itemBody = el('div', { className: 'rhacs-panel__item-body' });
 
         // Per-pin permissions (mirrors showThread logic)
         var pIsProtoOwner = Auth.isPrototypeOwner();
@@ -1925,7 +2179,6 @@
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
-        // Show a state badge if the pin has a viewState recorded
         if (pin.meta.viewState) {
           var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
           stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit mode' : 'Read-only view'));
@@ -1936,7 +2189,6 @@
           itemHdr.appendChild(dot);
         }
 
-        // Panel-row kebab — mirrors thread-level header kebab actions
         (function (p, unread, canDel, canRes) {
           var pinTs = new Date(p.createdAt).getTime();
           var menuItems = [
@@ -1967,9 +2219,9 @@
 
         var preview = el('div', { className: 'rhacs-panel__item-preview' });
         var ptext = pinText(pin.body);
-        preview.appendChild(txt(ptext.length > 80 ? ptext.slice(0, 80) + '…' : ptext));
+        preview.appendChild(txt(ptext.length > 80 ? ptext.slice(0, 80) + '\u2026' : ptext));
 
-        append(item, itemHdr, preview);
+        append(itemBody, itemHdr, preview);
 
         if (pin.replies && pin.replies.length > 0) {
           var replyCount = el('button', { className: 'rhacs-panel__item-replies' });
@@ -1987,8 +2239,10 @@
             }
             Popup.showThread(p.id);
           }; })(pin));
-          item.appendChild(replyCount);
+          itemBody.appendChild(replyCount);
         }
+
+        append(item, itemCheck, itemBody);
 
         item.addEventListener('click', (function (p) { return function () {
           var pinTs = new Date(p.createdAt).getTime();
@@ -2005,11 +2259,9 @@
           var curState = detectViewState();
           var delay    = 400;
 
-          // If the pin was created in a different state, try to switch to it first
           if (pinState && pinState !== curState) {
             var switched = false;
             if (pinState === 'edit') {
-              // Look for an Edit button in the page (not in our UI)
               var editBtns = Array.prototype.slice.call(
                 document.querySelectorAll('button, a[role="button"]')
               ).filter(function (b) {
@@ -2019,7 +2271,6 @@
               });
               if (editBtns.length) { editBtns[0].click(); switched = true; }
             } else {
-              // Look for a Cancel button to return to view mode
               var cancelBtns = Array.prototype.slice.call(
                 document.querySelectorAll('button')
               ).filter(function (b) {
@@ -2029,7 +2280,7 @@
               });
               if (cancelBtns.length) { cancelBtns[0].click(); switched = true; }
             }
-            if (switched) delay = 600; // give the DOM time to transition
+            if (switched) delay = 600;
           }
 
           var ci = containerInfo();
@@ -2042,9 +2293,9 @@
           setTimeout(function () { Popup.showThread(p.id); }, delay);
         }; })(pin));
 
-        list.appendChild(item);
+        Panel.listEl.appendChild(item);
       });
-      this.el.appendChild(list);
+      this._updateSelectionUI(visible);
     },
   };
 

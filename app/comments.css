@@ -520,6 +520,37 @@
   align-items: flex-start;
 }
 
+.rhacs-inline-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #57606a;
+  padding: 6px 8px;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-left: 3px solid var(--pf-v6-global--info-color--100, #0066cc);
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rhacs-inline-notice__icon {
+  color: var(--pf-v6-global--info-color--100, #0066cc);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.rhacs-inline-notice__link {
+  background: none;
+  border: none;
+  color: var(--pf-v6-global--info-color--100, #0066cc);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0;
+  text-decoration: underline;
+}
+.rhacs-inline-notice__link:hover { color: #004d99; }
+
 /* ── Side panel ──────────────────────────────────────────────────────────── */
 .rhacs-panel {
   top: 0;
@@ -885,24 +916,29 @@
   max-width: calc(100vw - 48px);
   pointer-events: all;
   animation: rhacs-toast-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
-  background: rgba(27, 29, 33, 0.8) !important;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: #fff !important;
+  background: #fff !important;
+  border: 1px solid #bee1f4 !important;
+  border-left: 4px solid var(--pf-v6-global--info-color--100, #0066cc) !important;
+  color: #24292f !important;
   padding: 10px 14px !important;
-  border: none !important;
+  white-space: normal;
 }
 
-.rhacs-toast .pf-v6-c-alert__icon,
-.rhacs-toast .pf-v6-c-alert__title,
-.rhacs-toast .pf-v6-c-button {
-  color: #fff !important;
+.rhacs-toast .pf-v6-c-alert__icon {
+  color: var(--pf-v6-global--info-color--100, #0066cc) !important;
+  flex-shrink: 0;
 }
+.rhacs-toast .pf-v6-c-alert__title {
+  color: #24292f !important;
+  font-weight: 500;
+  flex: 1;
+}
+.rhacs-toast .pf-v6-c-button { color: #57606a !important; }
 
 .rhacs-toast__close {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.7);
+  color: #57606a;
   cursor: pointer;
   font-size: 16px;
   padding: 0;
@@ -1074,13 +1110,7 @@
     color: #e6edf3;
   }
 
-  .rhacs-toast {
-    background: #e6edf3;
-    color: #24292f;
-  }
-
-  .rhacs-toast__close { color: rgba(36,41,47,0.6); }
-  .rhacs-toast__close:hover { color: #24292f; }
+  .rhacs-toast__close { color: #57606a; }
 
   .rhacs-btn {
     background: #21262d;

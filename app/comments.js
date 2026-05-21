@@ -1104,22 +1104,39 @@
       (pin.replies || []).forEach(function (r) { repliesEl.appendChild(Popup.renderReply(r, pinId)); });
 
       // Reply form
-      var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
-      var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
-      replyBtn.appendChild(txt('Reply'));
-      replyBtn.addEventListener('click', function () {
-        if (!replyArea.value.trim()) return;
-        replyBtn.disabled = true;
-        replyBtn.textContent = 'Replying…';
-        Popup.submitReply(pinId, replyArea.value, replyArea)
-          .catch(function () {})
-          .finally(function () {
-            replyBtn.disabled = false;
-            replyBtn.textContent = 'Reply';
-          });
-      });
       var replyForm = el('div', { className: 'rhacs-reply-form' });
-      append(replyForm, replyArea, replyBtn);
+      if (S.guestMode) {
+        // Guests can't reply — show an inline info notice instead of a text box
+        var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
+        var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
+        noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
+        var noticeText = el('span');
+        noticeText.appendChild(txt('Log in with GitHub to reply. '));
+        var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
+        noticeLink.appendChild(txt('Log in'));
+        noticeLink.addEventListener('click', function () {
+          Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
+        });
+        noticeText.appendChild(noticeLink);
+        append(guestReplyNotice, noticeIcon, noticeText);
+        replyForm.appendChild(guestReplyNotice);
+      } else {
+        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
+        var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+        replyBtn.appendChild(txt('Reply'));
+        replyBtn.addEventListener('click', function () {
+          if (!replyArea.value.trim()) return;
+          replyBtn.disabled = true;
+          replyBtn.textContent = 'Replying…';
+          Popup.submitReply(pinId, replyArea.value, replyArea)
+            .catch(function () {})
+            .finally(function () {
+              replyBtn.disabled = false;
+              replyBtn.textContent = 'Reply';
+            });
+        });
+        append(replyForm, replyArea, replyBtn);
+      }
 
       append(this.el, header, firstPost, reactionsEl, repliesEl, replyForm);
       this.el.style.display = 'block';
@@ -1344,10 +1361,7 @@
       if (!text) return Promise.resolve();
       return Auth.requireAuth()
         .then(function () {
-          if (S.guestMode) {
-            Notify.toast('Log in with GitHub to reply to threads.');
-            return;
-          }
+          if (S.guestMode) return; // handled by inline notice in the reply form
           return addReply(pinId, text)
             .then(function () {
               if (textarea) textarea.value = '';

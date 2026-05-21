@@ -1151,7 +1151,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-fab__btn {
   position: relative;
   height: 40px;
-  width: 40px;
+  max-width: 40px;
+  min-width: 40px;
   padding: 0;
   background: var(--pf-v6-global--palette--purple-400, #6753ac);
   border: none;
@@ -1161,7 +1162,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   align-items: center;
   justify-content: center;
   gap: 0;
-  transition: background 0.15s, transform 0.12s, width 0.2s ease, padding 0.2s ease, gap 0.2s ease;
+  transition: background 0.15s, transform 0.12s, max-width 0.22s ease, padding 0.22s ease, gap 0.22s ease;
   color: #fff;
   font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
@@ -1170,7 +1171,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 .rhacs-fab__btn:hover,
 .rhacs-fab--unauthenticated .rhacs-fab__btn {
-  width: auto;
+  max-width: 220px;
   padding: 0 16px 0 12px;
   gap: 7px;
   justify-content: flex-start;
@@ -1253,12 +1254,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-fab__panel-btn {
-  width: 40px;
+  max-width: 40px;
+  min-width: 40px;
   height: 40px;
   padding: 0;
   background: #fff;
   border: 1px solid #d0d7de;
-  border-radius: 50%;
+  border-radius: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1268,15 +1270,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
   font-weight: 500;
   color: #24292f;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  transition: background 0.2s, width 0.2s ease, border-radius 0.2s ease, padding 0.2s ease, gap 0.2s ease;
+  transition: background 0.2s, max-width 0.22s ease, padding 0.22s ease, gap 0.22s ease;
   flex-shrink: 0;
   overflow: hidden;
   white-space: nowrap;
 }
 .rhacs-fab__panel-btn:hover {
-  width: auto;
+  max-width: 160px;
   padding: 0 14px 0 12px;
-  border-radius: 20px;
   gap: 7px;
   justify-content: flex-start;
   background: #f6f8fa;
@@ -1849,26 +1850,26 @@ body.rhacs-comment-mode-active .rhacs-pin {
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 40px;
+  max-width: 40px;
+  min-width: 40px;
   height: 40px;
   padding: 0;
   background: #fff;
   border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  border-radius: 50%;
+  border-radius: 20px;
   cursor: pointer;
   font-size: var(--pf-v6-global--FontSize--md, 16px);
   font-weight: 500;
   color: var(--pf-v6-global--Color--100, #151515);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, width 0.2s ease, height 0.2s ease, border-radius 0.2s ease, padding 0.2s ease, gap 0.2s ease;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, max-width 0.22s ease, padding 0.22s ease, gap 0.22s ease;
   white-space: nowrap;
   overflow: hidden;
   flex-shrink: 0;
 }
 .rhacs-user-menu__trigger:hover {
-  width: auto;
+  max-width: 200px;
   height: 40px;
-  border-radius: 20px;
   gap: 7px;
   padding: 4px 10px 4px 5px;
   justify-content: flex-start;

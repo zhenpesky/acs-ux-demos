@@ -538,10 +538,30 @@
 }
 
 .rhacs-panel__empty {
-  padding: 24px 16px;
-  color: #57606a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
   text-align: center;
-  font-size: 13px;
+}
+
+.rhacs-panel__empty-icon {
+  color: #c9d0d7;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.rhacs-panel__empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #57606a;
+}
+
+.rhacs-panel__empty-hint {
+  font-size: 12px;
+  color: #8c959f;
+  line-height: 1.5;
 }
 
 .rhacs-panel__item {

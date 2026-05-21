@@ -1649,7 +1649,6 @@
     userEl: null,
     init: function () {
       this.el = el('div', { className: 'rhacs-fab' });
-      this.el.style.display = 'none'; // hidden until owner identity confirmed
 
       this.badge = el('span', { className: 'rhacs-fab__badge' });
       this.badge.style.display = 'none';
@@ -1681,15 +1680,9 @@
           FAB.setMode(false);
           return;
         }
-        var tag = document.activeElement && document.activeElement.tagName;
-        var inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
-        // Shift+L → hidden owner login trigger (works even when FAB is hidden)
-        if (e.shiftKey && (e.key === 'l' || e.key === 'L') && !inInput && !S.token) {
-          Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
-          return;
-        }
         if (e.key !== 'c' && e.key !== 'C') return;
-        if (inInput) return;
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
         FAB.toggleMode();
       });
     },
@@ -1724,16 +1717,24 @@
     },
     updateUser: function () {
       if (!this.userEl) return;
-      // FAB is only visible to the repo owner (matched by GitHub username).
-      // All other visitors — logged in or not — see nothing.
-      var isOwner = S.token && S.user && S.user.login === CFG.owner;
-      this.el.style.display = isOwner ? '' : 'none';
+      // FAB is always visible — visitors can add guest comments, owner manages everything.
+      this.el.style.display = '';
 
+      // "View all" panel button: only when authenticated (owner or guest)
       if (this.panelBtn) {
-        this.panelBtn.style.display = isOwner ? '' : 'none';
+        this.panelBtn.style.display = Auth.isAuthed() ? '' : 'none';
       }
       this.userEl.innerHTML = '';
-      if (isOwner) {
+      if (S.guestMode && S.user) {
+        // Guest: show their name + exit option
+        var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user.login });
+        guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Guest';
+        var exitGuestBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm rhacs-guest-exit', title: 'Exit guest mode' });
+        exitGuestBtn.appendChild(txt('Exit'));
+        exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
+        append(this.userEl, guestBadge, exitGuestBtn);
+      } else if (S.token && S.user) {
+        // GitHub-authenticated user: show avatar + logout
         var av = makeAvatar(S.user, 'rhacs-avatar--sm');
         av.title = 'Logged in as ' + S.user.login;
         var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log out', onclick: function () { Auth.logout(); } });
@@ -1741,6 +1742,7 @@
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
       }
+      // Not authenticated: no user area content shown — clicking "Add comment" triggers the dialog
     },
   };
 

@@ -1941,38 +1941,41 @@
       append(this.sortWrap, this.sortBtn, this.sortDropdown);
       append(this.filterRow, this.filterChips, this.sortWrap);
 
-      this.selectAllRow = el('div', { className: 'rhacs-panel__select-all-row' });
-      this.selectAllCheckbox = el('input', { type: 'checkbox', className: 'rhacs-panel__item-check rhacs-panel__select-all-check' });
-      this.selectAllCheckbox.setAttribute('aria-label', 'Select all visible comments');
-      var selectAllLabel = el('label', { className: 'rhacs-panel__select-all-label' });
-      selectAllLabel.appendChild(txt('Select all'));
-      selectAllLabel.addEventListener('click', function (e) {
-        e.preventDefault();
-        self.selectAllCheckbox.checked = !self.selectAllCheckbox.checked;
-        self.selectAllCheckbox.dispatchEvent(new Event('change'));
+      this.bulkToolbar = el('div', { className: 'rhacs-panel__bulk-toolbar' });
+      this.bulkToolbar.style.display = 'none';
+
+      this.bulkToolbarLeft = el('div', { className: 'rhacs-panel__bulk-toolbar__left' });
+      this.bulkCheckbox = el('input', {
+        type: 'checkbox',
+        className: 'rhacs-panel__bulk-checkbox',
       });
-      this.selectAllCheckbox.addEventListener('change', function () {
+      this.bulkCheckbox.setAttribute('aria-label', 'Select all visible comments');
+      this.bulkLabel = el('span', { className: 'rhacs-panel__bulk-label' });
+      this.bulkCheckbox.addEventListener('click', function (e) {
+        e.preventDefault();
         var visible = self._getVisiblePins();
-        if (self.selectAllCheckbox.checked) {
-          visible.forEach(function (p) { self.selected.add(p.id); });
+        var selectedVisible = visible.filter(function (p) { return self.selected.has(p.id); });
+        var allSelected = visible.length > 0 && selectedVisible.length === visible.length;
+        var someSelected = selectedVisible.length > 0;
+        if (allSelected || someSelected) {
+          self.selected.clear();
         } else {
-          visible.forEach(function (p) { self.selected.delete(p.id); });
+          visible.forEach(function (p) { self.selected.add(p.id); });
         }
         self.render();
       });
-      append(this.selectAllRow, this.selectAllCheckbox, selectAllLabel);
-      this.selectAllRow.style.display = 'none';
+      append(this.bulkToolbarLeft, this.bulkCheckbox, this.bulkLabel);
 
-      this.listEl = el('div', { className: 'rhacs-panel__list' });
+      this.bulkDivider = el('span', { className: 'rhacs-panel__bulk-divider' });
+      this.bulkDivider.appendChild(txt('|'));
 
-      this.bulkBar = el('div', { className: 'rhacs-panel__bulk-bar' });
-      this.bulkCount = el('span', { className: 'rhacs-panel__bulk-count' });
+      this.bulkToolbarRight = el('div', { className: 'rhacs-panel__bulk-toolbar__right' });
       this.bulkResolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
-      this.bulkResolveBtn.appendChild(txt('Resolve selected'));
+      this.bulkResolveBtn.appendChild(txt('Resolve'));
       this.bulkUnresolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
-      this.bulkUnresolveBtn.appendChild(txt('Unresolve selected'));
+      this.bulkUnresolveBtn.appendChild(txt('Unresolve'));
       this.bulkDeleteBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--danger', type: 'button' });
-      this.bulkDeleteBtn.appendChild(txt('Delete selected'));
+      this.bulkDeleteBtn.appendChild(txt('Delete'));
       this.bulkReadBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
       this.bulkReadBtn.appendChild(txt('Mark as read'));
       this.bulkCancelBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--plain', type: 'button' });
@@ -1985,9 +1988,12 @@
         self.selected.clear();
         self.render();
       });
-      append(this.bulkBar, this.bulkCount, this.bulkResolveBtn, this.bulkUnresolveBtn, this.bulkDeleteBtn, this.bulkReadBtn, this.bulkCancelBtn);
+      append(this.bulkToolbarRight, this.bulkResolveBtn, this.bulkUnresolveBtn, this.bulkDeleteBtn, this.bulkReadBtn, this.bulkCancelBtn);
+      append(this.bulkToolbar, this.bulkToolbarLeft, this.bulkDivider, this.bulkToolbarRight);
 
-      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.selectAllRow, this.listEl, this.bulkBar);
+      this.listEl = el('div', { className: 'rhacs-panel__list' });
+
+      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.bulkToolbar, this.listEl);
       rhacsMount().appendChild(this.el);
     },
     _makeFilterChip: function (state, label) {
@@ -2108,12 +2114,15 @@
       var selectedVisible = visible.filter(function (p) { return Panel.selected.has(p.id); });
       var inSelectionMode = Panel.selected.size > 0;
       this.el.classList.toggle('rhacs-panel--selection-mode', inSelectionMode);
-      this.selectAllRow.style.display = inSelectionMode ? 'flex' : 'none';
+      this.filterRow.style.display = inSelectionMode ? 'none' : '';
+      this.bulkToolbar.style.display = inSelectionMode ? 'flex' : 'none';
       if (inSelectionMode) {
-        this.selectAllCheckbox.checked = visible.length > 0 && selectedVisible.length === visible.length;
-        this.selectAllCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+        this.bulkCheckbox.checked = visible.length > 0 && selectedVisible.length === visible.length;
+        this.bulkCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+        this.bulkLabel.textContent = Panel.selected.size + ' selected';
       } else {
-        this.selectAllCheckbox.indeterminate = false;
+        this.bulkCheckbox.checked = false;
+        this.bulkCheckbox.indeterminate = false;
       }
 
       var hasUnresolved = false;
@@ -2125,8 +2134,6 @@
         else hasUnresolved = true;
       });
       var isOwner = Auth.isPrototypeOwner();
-      this.bulkBar.classList.toggle('rhacs-panel__bulk-bar--visible', inSelectionMode);
-      this.bulkCount.textContent = Panel.selected.size + ' selected';
       this.bulkResolveBtn.style.display = (isOwner && hasUnresolved) ? '' : 'none';
       this.bulkUnresolveBtn.style.display = (isOwner && hasResolved) ? '' : 'none';
       this.bulkDeleteBtn.style.display = isOwner ? '' : 'none';

@@ -351,20 +351,28 @@
         if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
 
         var done = false;
+        var pollTimer, closedTimer, storageHandler, msgHandler;
+
+        function cleanup() {
+          clearInterval(pollTimer);
+          clearInterval(closedTimer);
+          window.removeEventListener('message', msgHandler);
+          window.removeEventListener('storage', storageHandler);
+          localStorage.removeItem('rhacs_oauth_result');
+        }
+
         function handleToken(token) {
           if (done) return;
           done = true;
-          clearInterval(pollTimer);
-          window.removeEventListener('message', msgHandler);
-          localStorage.removeItem('rhacs_oauth_result');
+          cleanup();
           if (token) {
             S.token = token;
             S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
-            // Resolve immediately — don't block on fetchUser so login always completes
+            // Resolve immediately so the dialog closes — don't block on fetchUser
             resolve(S.user);
-            // Fetch profile in background; failure just means no avatar this session
+            // Fetch profile in background; a failure just means no avatar
             Auth.fetchUser()
               .then(function () { try { FAB.updateUser(); } catch (e) {} })
               .catch(function (e) { console.warn('[rhacs] fetchUser after login:', e && e.message); });
@@ -373,28 +381,57 @@
           }
         }
 
-        // Primary: poll localStorage (works even when postMessage is blocked)
+        // Channel 1: storage event — fires INSTANTLY in the main window when
+        // auth-callback.html writes to localStorage in the popup tab
+        storageHandler = function (e) {
+          if (e.key !== 'rhacs_oauth_result' || !e.newValue) return;
+          try {
+            var d = JSON.parse(e.newValue);
+            if (d && d.token && Date.now() - d.ts < 60000) handleToken(d.token);
+          } catch (ex) {}
+        };
+        window.addEventListener('storage', storageHandler);
+
+        // Channel 2: localStorage polling (backup for browsers that delay storage events)
         localStorage.removeItem('rhacs_oauth_result');
-        var pollTimer = setInterval(function () {
+        pollTimer = setInterval(function () {
           try {
             var raw = localStorage.getItem('rhacs_oauth_result');
             if (!raw) return;
             var data = JSON.parse(raw);
-            if (data && Date.now() - data.ts < 60000) handleToken(data.token);
+            if (data && data.token && Date.now() - data.ts < 60000) handleToken(data.token);
           } catch (e) {}
         }, 300);
 
-        // Secondary: postMessage (instant when it works)
-        var msgHandler = function (e) {
+        // Channel 3: postMessage (instant when same-origin popup works)
+        msgHandler = function (e) {
           if (e.origin !== 'https://zhenpesky.github.io') return;
           if (!e.data || e.data.type !== 'rhacs_auth_done') return;
           handleToken(e.data.token);
         };
         window.addEventListener('message', msgHandler);
 
+        // Channel 4: popup-closed watcher — once the popup closes we do one final
+        // localStorage read; if nothing arrives within 2s after close, reject
+        closedTimer = setInterval(function () {
+          if (!popup || !popup.closed) return;
+          clearInterval(closedTimer);
+          if (done) return;
+          // Give auth-callback up to 1s after close to flush localStorage
+          setTimeout(function () {
+            if (done) return;
+            try {
+              var raw = localStorage.getItem('rhacs_oauth_result');
+              if (raw) { var d = JSON.parse(raw); if (d && d.token) { handleToken(d.token); return; } }
+            } catch (ex) {}
+            // Popup closed with no token — treat as cancelled
+            done = true; cleanup(); reject(new Error('Login cancelled'));
+          }, 1000);
+        }, 500);
+
         // Timeout after 5 minutes
         setTimeout(function () {
-          if (!done) { done = true; clearInterval(pollTimer); window.removeEventListener('message', msgHandler); reject(new Error('Login timed out')); }
+          if (!done) { done = true; cleanup(); reject(new Error('Login timed out')); }
         }, 300000);
       });
     },

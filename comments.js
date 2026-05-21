@@ -753,10 +753,19 @@
         logoutBtn.appendChild(txt('↩'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--sm' });
+        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--sm', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
         loginBtn.appendChild(txt('Login'));
-        loginBtn.addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); }).catch(function (e) { Notify.toast(e.message); });
+        loginBtn.addEventListener('click', function (e) {
+          if (e.shiftKey) {
+            // PAT bypass for testing — Shift+click prompts for a GitHub token
+            var pat = window.prompt('Paste a GitHub Personal Access Token (needs public_repo scope):\n\nCreate one at: github.com/settings/tokens/new\nSelect scope: public_repo');
+            if (!pat || !pat.trim()) return;
+            S.token = pat.trim();
+            localStorage.setItem(CFG.tokenKey, S.token);
+            Auth.fetchUser().then(function () { FAB.updateUser(); Notify.toast('Logged in via PAT as ' + (S.user ? S.user.login : 'unknown')); }).catch(function () {});
+          } else {
+            Auth.login().then(function () { FAB.updateUser(); }).catch(function (e) { Notify.toast(e.message); });
+          }
         });
         this.userEl.appendChild(loginBtn);
       }

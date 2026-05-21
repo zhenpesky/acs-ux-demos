@@ -1262,14 +1262,35 @@
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
       rhacsMount().appendChild(this.el);
     },
+    _pageEl: function () {
+      return document.querySelector('.pf-v6-c-page') ||
+             document.querySelector('.pf-v5-c-page') ||
+             document.querySelector('[class*="pf-"][class*="-c-page"]') ||
+             document.body;
+    },
+    _pushPage: function (open) {
+      var page = Panel._pageEl();
+      if (!page) return;
+      if (!page._rhacsTransitionSet) {
+        var cur = window.getComputedStyle(page).transition;
+        page.style.transition = (cur && cur !== 'all 0s ease 0s' ? cur + ', ' : '') +
+          'margin-right 0.26s cubic-bezier(0.16,1,0.3,1)';
+        page._rhacsTransitionSet = true;
+      }
+      page.style.marginRight = open ? '300px' : '';
+    },
     open: function () {
       S.lastSeen = Date.now();
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       this.render();
       this.el.classList.add('rhacs-panel--open');
+      Panel._pushPage(true);
       Notify.clearUnread();
     },
-    close: function () { this.el.classList.remove('rhacs-panel--open'); },
+    close: function () {
+      this.el.classList.remove('rhacs-panel--open');
+      Panel._pushPage(false);
+    },
     toggle: function () {
       if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();
     },
@@ -1606,6 +1627,7 @@
       FAB.setMode(false);
       if (Popup.el) Popup.el.style.display = 'none';
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
+      Panel._pushPage(false);
     }
   }
 

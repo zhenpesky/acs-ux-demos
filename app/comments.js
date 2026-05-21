@@ -2127,6 +2127,10 @@
       // FAB is always visible — visitors can add guest comments, owner manages everything.
       this.el.style.display = '';
 
+      // Show "Add comments" label expanded when unauthenticated (no login yet)
+      var isAuthed = S.token || S.guestMode;
+      this.el.classList.toggle('rhacs-fab--unauthenticated', !isAuthed);
+
       // "View all" panel button: only for GitHub-authenticated users, not guests
       if (this.panelBtn) {
         this.panelBtn.style.display = S.token ? '' : 'none';

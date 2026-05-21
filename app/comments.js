@@ -2264,10 +2264,10 @@
         if (pin.meta.viewState) {
           var stateLabels = { view: 'Viewing', edit: 'Editing', create: 'Creating', delete: 'Deleting' };
           var stateTips = {
-            view:   'Pinned while viewing this page in read-only mode',
-            edit:   'Pinned while a form was open and being edited',
-            create: 'Pinned while creating a new item',
-            delete: 'Pinned during a delete action'
+            view:   'Commented while viewing this page in read-only mode',
+            edit:   'Commented while a form was open and being edited',
+            create: 'Commented while creating a new item',
+            delete: 'Commented during a delete action'
           };
           var stateLabel = stateLabels[pin.meta.viewState] || 'Viewing';
           var stateTip   = stateTips[pin.meta.viewState]   || 'Pinned in view mode';

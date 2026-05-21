@@ -175,16 +175,17 @@
   to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 @keyframes rhacs-shake {
-  0%,100% { transform: translateX(0); }
-  15%     { transform: translateX(-6px); }
-  30%     { transform: translateX(6px); }
-  45%     { transform: translateX(-5px); }
-  60%     { transform: translateX(5px); }
-  75%     { transform: translateX(-3px); }
-  90%     { transform: translateX(3px); }
+  0%      { transform: translateZ(0) translateX(0); }
+  15%     { transform: translateZ(0) translateX(-6px); }
+  30%     { transform: translateZ(0) translateX(6px); }
+  45%     { transform: translateZ(0) translateX(-5px); }
+  60%     { transform: translateZ(0) translateX(5px); }
+  75%     { transform: translateZ(0) translateX(-3px); }
+  90%     { transform: translateZ(0) translateX(3px); }
+  100%    { transform: translateZ(0) translateX(0); }
 }
 .rhacs-popup.rhacs-popup--shake {
-  animation: rhacs-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  animation: rhacs-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards !important;
 }
 .rhacs-popup {
   width: 320px;
@@ -193,6 +194,9 @@
   /* height is fully content-driven — JS clamps top & applies max-height only if needed */
   padding: 0;
   pointer-events: all;
+  /* keep popup on its own GPU compositing layer to prevent flicker when shake animation ends */
+  transform: translateZ(0);
+  backface-visibility: hidden;
   animation: rhacs-popup-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: top left;
   transition: top 0.15s cubic-bezier(0.16, 1, 0.3, 1),

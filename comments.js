@@ -1496,6 +1496,7 @@
       panelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg><span style="font-size:12px;font-weight:500">View all</span>';
       panelBtn.style.cssText = 'display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
       panelBtn.addEventListener('click', function () { Panel.toggle(); });
+      this.panelBtn = panelBtn;
 
       this.userEl = el('div', { className: 'rhacs-fab__user' });
 
@@ -1545,6 +1546,10 @@
     },
     updateUser: function () {
       if (!this.userEl) return;
+      // Show "View all" only when authenticated (GitHub or guest)
+      if (this.panelBtn) {
+        this.panelBtn.style.display = Auth.isAuthed() ? '' : 'none';
+      }
       this.userEl.innerHTML = '';
       if (S.guestMode) {
         // Guest mode: show guest badge + login and exit options
@@ -1567,7 +1572,7 @@
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
       } else {
-        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
+        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--dark', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
         loginBtn.appendChild(txt('Log in'));
         loginBtn.addEventListener('click', function (e) {
           if (e.shiftKey) {

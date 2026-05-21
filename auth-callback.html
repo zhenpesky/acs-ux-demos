@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logging in…</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f6f8fa;
+      color: #24292f;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 32px 40px;
+      text-align: center;
+      max-width: 360px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #d0d7de;
+      border-top-color: #0052cc;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status { font-size: 14px; color: #57606a; }
+    .error { color: #cf222e; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <p class="status" id="status">Completing GitHub login…</p>
+  </div>
+
+  <script>
+    const WORKER_URL = 'https://rhacs-comments-auth.zhenpche.workers.dev';
+
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const error = params.get('error');
+
+      if (error) {
+        showError('GitHub login was denied or cancelled.');
+        notifyOpener(null);
+        return;
+      }
+
+      if (!code) {
+        showError('No authorization code received.');
+        notifyOpener(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError('Token exchange failed: ' + (data.error || res.statusText));
+          notifyOpener(null);
+          return;
+        }
+
+        notifyOpener(data.token);
+        document.getElementById('status').textContent = 'Logged in! Closing…';
+        document.getElementById('spinner').style.display = 'none';
+        setTimeout(() => window.close(), 800);
+      } catch (e) {
+        showError('Network error: ' + e.message);
+        notifyOpener(null);
+      }
+    }
+
+    function notifyOpener(token) {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(
+          { type: 'rhacs_auth_done', token },
+          'https://zhenpesky.github.io'
+        );
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('spinner').style.display = 'none';
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.classList.add('error');
+    }
+
+    handleCallback();
+  </script>
+</body>
+</html>

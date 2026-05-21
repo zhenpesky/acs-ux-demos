@@ -26,8 +26,17 @@ rm -rf "$REPO_DIR/saved-filters"
 echo "→ Copying build output"
 cp -r "$BUILD_DIR"/. "$DEPLOY_DIR/"
 
+echo "→ Injecting commenting system into prototype app"
+# comments.js and comments.css live at repo root (survive app/ wipes).
+# We copy them into app/ so they are served under the same base path.
+cp "$REPO_DIR/comments.js"  "$DEPLOY_DIR/comments.js"
+cp "$REPO_DIR/comments.css" "$DEPLOY_DIR/comments.css"
+# Inject <link> and <script> tags just before </body> in app/index.html
+sed -i '' 's|</body>|<link rel="stylesheet" href="/rhacs-ux-prototypes/app/comments.css"><script src="/rhacs-ux-prototypes/app/comments.js"></script></body>|' "$DEPLOY_DIR/index.html"
+echo "  comments.js + comments.css injected."
+
 echo "→ Syncing 404.html from app/index.html"
-# 404.html = exact copy of app/index.html.
+# 404.html = exact copy of app/index.html (after injection).
 # GitHub Pages serves 404.html for any missing path (e.g. /app/main/systemconfig).
 # The React app loads with the original URL intact, so React Router matches correctly.
 cp "$DEPLOY_DIR/index.html" "$REPO_DIR/404.html"
@@ -36,7 +45,7 @@ echo "  404.html updated."
 echo "→ Committing and pushing"
 cd "$REPO_DIR"
 git add -A
-git commit -m "Deploy: consolidate to app/ base path, remove saved-filters/"
+git commit -m "Deploy: $(date '+%Y-%m-%d %H:%M')"
 git push origin main
 
 echo "✓ Done"

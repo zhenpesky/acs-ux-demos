@@ -1,0 +1,844 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   RHACS Prototype Comments — Figma-style click-to-pin overlay
+   Injected into every prototype page via deploy.sh
+   Stores data in GitHub Discussions on zhenpesky/rhacs-ux-prototypes
+───────────────────────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  // ── Config ──────────────────────────────────────────────────────────────────
+  var CFG = {
+    owner:       'zhenpesky',
+    repo:        'rhacs-ux-prototypes',
+    categoryName:'General',
+    clientId:    'Ov23liDWQDQiOy5Yd1Kc',
+    workerUrl:   'https://rhacs-comments-auth.zhenpche.workers.dev',
+    callbackUrl: 'https://zhenpesky.github.io/rhacs-ux-prototypes/auth-callback.html',
+    tokenKey:    'rhacs_gh_token',
+    userKey:     'rhacs_gh_user',
+    seenPrefix:  'rhacs_seen_',
+    pollMs:      30000,
+  };
+
+  var PAGE_KEY  = 'page:' + window.location.pathname;
+  var GH_GQL    = 'https://api.github.com/graphql';
+
+  // ── State ────────────────────────────────────────────────────────────────────
+  var S = {
+    token:        null,
+    user:         null,
+    commentMode:  false,
+    repoId:       null,
+    categoryId:   null,
+    discussionId: null,
+    pins:         [],
+    activePinId:  null,
+    lastSeen:     0,
+    unread:       0,
+    origTitle:    document.title,
+    pollTimer:    null,
+  };
+
+  // ── Utility helpers ───────────────────────────────────────────────────────────
+  function timeAgo(iso) {
+    var s = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (s < 60)    return 'just now';
+    if (s < 3600)  return Math.floor(s / 60) + 'm ago';
+    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+    return Math.floor(s / 86400) + 'd ago';
+  }
+
+  function parseMeta(body) {
+    var m = body && body.match(/<!--\s*RHACS_PIN\s*(\{[\s\S]*?\})\s*-->/);
+    if (!m) return null;
+    try { return JSON.parse(m[1]); } catch (e) { return null; }
+  }
+
+  function pinText(body) {
+    return (body || '').replace(/<!--\s*RHACS_PIN\s*\{[\s\S]*?\}\s*-->\s*/, '').trim();
+  }
+
+  function buildBody(x, y, num, text) {
+    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num }) + ' -->\n' + text;
+  }
+
+  function setMeta(body, updates) {
+    return body.replace(/<!--\s*RHACS_PIN\s*(\{[\s\S]*?\})\s*-->/, function (m, json) {
+      try { return '<!-- RHACS_PIN ' + JSON.stringify(Object.assign(JSON.parse(json), updates)) + ' -->'; }
+      catch (e) { return m; }
+    });
+  }
+
+  function el(tag, attrs) {
+    var e = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (k === 'className') { e.className = v; }
+        else if (k.startsWith('on')) { e.addEventListener(k.slice(2), v); }
+        else { e.setAttribute(k, v); }
+      });
+    }
+    return e;
+  }
+
+  function txt(s) { return document.createTextNode(s); }
+
+  function append(parent) {
+    var children = Array.prototype.slice.call(arguments, 1);
+    children.forEach(function (c) { if (c) parent.appendChild(typeof c === 'string' ? txt(c) : c); });
+    return parent;
+  }
+
+  // ── GitHub GraphQL ────────────────────────────────────────────────────────────
+  function ghReq(query, vars, requireAuth) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (S.token) headers['Authorization'] = 'bearer ' + S.token;
+    else if (requireAuth) return Promise.reject(new Error('Not logged in'));
+
+    return fetch(GH_GQL, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ query: query, variables: vars || {} }),
+    }).then(function (r) {
+      if (r.status === 401) { Auth.logout(); throw new Error('Session expired — please log in again'); }
+      if (r.status === 429) throw new Error('GitHub rate limit reached — please wait a minute');
+      return r.json();
+    }).then(function (d) {
+      if (d.errors && d.errors.length) throw new Error(d.errors[0].message);
+      return d.data;
+    });
+  }
+
+  function getRepoMeta() {
+    if (S.repoId && S.categoryId) return Promise.resolve();
+    return ghReq(
+      'query { repository(owner:"' + CFG.owner + '",name:"' + CFG.repo + '") { id discussionCategories(first:25){ nodes { id name } } } }'
+    ).then(function (d) {
+      if (!d || !d.repository) return;
+      S.repoId = d.repository.id;
+      var cats = d.repository.discussionCategories.nodes;
+      var cat  = cats.find(function (c) { return c.name === CFG.categoryName; });
+      if (cat) S.categoryId = cat.id;
+    }).catch(function () {});
+  }
+
+  function findDiscussion() {
+    if (!S.categoryId) return Promise.resolve(null);
+    return ghReq(
+      'query($o:String!,$r:String!,$c:ID!){ repository(owner:$o,name:$r){ discussions(first:100,categoryId:$c){ nodes{ id title } } } }',
+      { o: CFG.owner, r: CFG.repo, c: S.categoryId }
+    ).then(function (d) {
+      if (!d || !d.repository) return null;
+      var match = d.repository.discussions.nodes.find(function (n) { return n.title === PAGE_KEY; });
+      return match ? match.id : null;
+    }).catch(function () { return null; });
+  }
+
+  function createDiscussion() {
+    return getRepoMeta().then(function () {
+      if (!S.repoId || !S.categoryId) throw new Error('Could not load repo metadata');
+      return ghReq(
+        'mutation($r:ID!,$c:ID!,$t:String!,$b:String!){ createDiscussion(input:{repositoryId:$r,categoryId:$c,title:$t,body:$b}){ discussion{ id } } }',
+        { r: S.repoId, c: S.categoryId, t: PAGE_KEY, b: 'Auto-created for ' + window.location.href },
+        true
+      ).then(function (d) { return d.createDiscussion.discussion.id; });
+    });
+  }
+
+  function loadComments(discId) {
+    return ghReq(
+      'query($id:ID!){ node(id:$id){ ... on Discussion{ comments(first:100){ nodes{ id body createdAt author{ login avatarUrl } reactionGroups{ content users{ totalCount } viewerHasReacted } replies(first:20){ nodes{ id body createdAt author{ login avatarUrl } } } } } } } }',
+      { id: discId }
+    ).then(function (d) {
+      if (!d || !d.node) return [];
+      return d.node.comments.nodes;
+    }).catch(function () { return []; });
+  }
+
+  function ensureDiscussion() {
+    if (S.discussionId) return Promise.resolve(S.discussionId);
+    return findDiscussion().then(function (id) {
+      if (id) { S.discussionId = id; return id; }
+      return createDiscussion().then(function (newId) { S.discussionId = newId; return newId; });
+    });
+  }
+
+  function addPinComment(text, x, y, num) {
+    return ensureDiscussion().then(function (discId) {
+      return ghReq(
+        'mutation($d:ID!,$b:String!){ addDiscussionComment(input:{discussionId:$d,body:$b}){ comment{ id createdAt } } }',
+        { d: discId, b: buildBody(x, y, num, text) },
+        true
+      ).then(function (d) { return d.addDiscussionComment.comment; });
+    });
+  }
+
+  function addReply(commentId, text) {
+    return ghReq(
+      'mutation($d:ID!,$r:ID!,$b:String!){ addDiscussionComment(input:{discussionId:$d,replyToId:$r,body:$b}){ comment{ id } } }',
+      { d: S.discussionId, r: commentId, b: text },
+      true
+    );
+  }
+
+  function updateComment(id, body) {
+    return ghReq(
+      'mutation($i:ID!,$b:String!){ updateDiscussionComment(input:{commentId:$i,body:$b}){ comment{ id } } }',
+      { i: id, b: body },
+      true
+    );
+  }
+
+  function deleteComment(id) {
+    return ghReq(
+      'mutation($i:ID!){ deleteDiscussionComment(input:{id:$i}){ clientMutationId } }',
+      { i: id },
+      true
+    );
+  }
+
+  function toggleReaction(subjectId, content, hasReacted) {
+    var mutation = hasReacted
+      ? 'mutation($s:ID!,$c:ReactionContent!){ removeReaction(input:{subjectId:$s,content:$c}){ reaction{ content } } }'
+      : 'mutation($s:ID!,$c:ReactionContent!){ addReaction(input:{subjectId:$s,content:$c}){ reaction{ content } } }';
+    return ghReq(mutation, { s: subjectId, c: content }, true);
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────────
+  var Auth = {
+    init: function () {
+      S.token = localStorage.getItem(CFG.tokenKey);
+      try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
+    },
+    isLoggedIn: function () { return !!S.token; },
+    login: function () {
+      return new Promise(function (resolve, reject) {
+        var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
+          '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
+        var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
+        if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
+        var handler = function (e) {
+          if (e.origin !== 'https://zhenpesky.github.io') return;
+          if (!e.data || e.data.type !== 'rhacs_auth_done') return;
+          window.removeEventListener('message', handler);
+          if (e.data.token) {
+            S.token = e.data.token;
+            localStorage.setItem(CFG.tokenKey, S.token);
+            Auth.fetchUser().then(function () { FAB.updateUser(); resolve(S.user); });
+          } else {
+            reject(new Error('GitHub login failed'));
+          }
+        };
+        window.addEventListener('message', handler);
+        setTimeout(function () {
+          window.removeEventListener('message', handler);
+          if (!S.token) reject(new Error('Login timed out'));
+        }, 300000);
+      });
+    },
+    fetchUser: function () {
+      if (!S.token) return Promise.resolve();
+      return fetch('https://api.github.com/user', { headers: { Authorization: 'token ' + S.token } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (u) {
+          if (!u) return;
+          S.user = { login: u.login, avatarUrl: u.avatar_url, name: u.name };
+          localStorage.setItem(CFG.userKey, JSON.stringify(S.user));
+        }).catch(function () {});
+    },
+    logout: function () {
+      S.token = null; S.user = null;
+      localStorage.removeItem(CFG.tokenKey);
+      localStorage.removeItem(CFG.userKey);
+      FAB.updateUser();
+      Notify.toast('Logged out');
+    },
+    requireLogin: function () {
+      if (Auth.isLoggedIn()) return Promise.resolve();
+      return Auth.login();
+    },
+  };
+
+  // ── Data helpers ─────────────────────────────────────────────────────────────
+  function parseComments(comments) {
+    return comments
+      .map(function (c) {
+        return Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+      })
+      .filter(function (c) { return c.meta !== null; })
+      .sort(function (a, b) { return a.meta.pinNumber - b.meta.pinNumber; });
+  }
+
+  function loadAndRender() {
+    return getRepoMeta()
+      .then(findDiscussion)
+      .then(function (id) {
+        if (!id) { S.pins = []; Overlay.renderPins(); return; }
+        S.discussionId = id;
+        return loadComments(id).then(function (comments) {
+          S.pins = parseComments(comments);
+          Overlay.renderPins();
+          FAB.updateBadge();
+        });
+      }).catch(function (e) {
+        console.warn('[RHACS Comments] load failed:', e.message);
+        S.pins = [];
+        Overlay.renderPins();
+      });
+  }
+
+  // ── Overlay ───────────────────────────────────────────────────────────────────
+  var Overlay = {
+    root: null,
+    overlayEl: null,
+    init: function () {
+      this.root = el('div', { id: 'rhacs-comment-root' });
+      this.overlayEl = el('div', { className: 'rhacs-overlay' });
+      this.overlayEl.addEventListener('click', Overlay.handleClick);
+      this.root.appendChild(this.overlayEl);
+      document.body.appendChild(this.root);
+      Overlay.updateSize();
+      window.addEventListener('resize', Overlay.updateSize);
+      // Re-measure after React finishes rendering
+      setTimeout(Overlay.updateSize, 1000);
+      setTimeout(Overlay.updateSize, 3000);
+    },
+    updateSize: function () {
+      if (Overlay.overlayEl) {
+        Overlay.overlayEl.style.height = Math.max(
+          document.body.scrollHeight,
+          document.documentElement.scrollHeight
+        ) + 'px';
+      }
+    },
+    handleClick: function (e) {
+      if (!S.commentMode) return;
+      if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
+      var x = (e.pageX / Math.max(document.body.scrollWidth, 1)) * 100;
+      var y = (e.pageY / Math.max(document.body.scrollHeight, 1)) * 100;
+      Popup.showNewForm(x, y, e.clientX, e.clientY);
+    },
+    renderPins: function () {
+      this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
+      S.pins.forEach(function (pin) {
+        if (!pin.meta) return;
+        var isUnread  = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var isResolved = pin.meta.resolved;
+        var cls = 'rhacs-pin' + (isResolved ? ' rhacs-pin--resolved' : '') + (isUnread ? ' rhacs-pin--unread' : '');
+        var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
+        pinEl.appendChild(txt(String(pin.meta.pinNumber)));
+        pinEl.style.left = pin.meta.x + '%';
+        pinEl.style.top  = pin.meta.y + '%';
+        pinEl.addEventListener('click', function (e) {
+          e.stopPropagation();
+          Popup.showThread(pin.id);
+        });
+        Overlay.overlayEl.appendChild(pinEl);
+      });
+    },
+    setMode: function (active) {
+      if (active) {
+        this.overlayEl.classList.add('rhacs-overlay--active');
+        document.body.style.cursor = 'crosshair';
+      } else {
+        this.overlayEl.classList.remove('rhacs-overlay--active');
+        document.body.style.cursor = '';
+      }
+    },
+  };
+
+  // ── Popup ─────────────────────────────────────────────────────────────────────
+  var Popup = {
+    el: null,
+    init: function () {
+      this.el = el('div', { className: 'rhacs-popup', id: 'rhacs-popup' });
+      this.el.style.display = 'none';
+      document.body.appendChild(this.el);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') Popup.close(); });
+    },
+    close: function () {
+      this.el.style.display = 'none';
+      S.activePinId = null;
+    },
+    positionFixed: function (clientX, clientY) {
+      this.el.style.display = 'block';
+      var margin = 16;
+      var pw = this.el.offsetWidth  || 320;
+      var ph = this.el.offsetHeight || 220;
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var left = clientX + margin;
+      var top  = clientY;
+      if (left + pw > vw - margin) left = clientX - pw - margin;
+      if (top  + ph > vh - margin) top  = vh - ph - margin;
+      this.el.style.left = Math.max(margin, left) + 'px';
+      this.el.style.top  = Math.max(margin, top)  + 'px';
+    },
+    showNewForm: function (x, y, clientX, clientY) {
+      S.activePinId = null;
+      this.el.innerHTML = '';
+
+      var header = el('div', { className: 'rhacs-popup__header' });
+      append(header,
+        el('span', {}),
+        (function () {
+          var b = el('button', { className: 'rhacs-popup__close', onclick: function () { Popup.close(); } });
+          b.appendChild(txt('×')); return b;
+        })()
+      );
+      header.firstChild.appendChild(txt('Add comment'));
+
+      var textarea = el('textarea', { className: 'rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
+
+      var actions = el('div', { className: 'rhacs-popup__actions' });
+      var postBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary' });
+      postBtn.appendChild(txt('Post'));
+      postBtn.addEventListener('click', function () { Popup.submitNew(textarea.value, x, y); });
+
+      var cancelBtn = el('button', { className: 'rhacs-btn' });
+      cancelBtn.appendChild(txt('Cancel'));
+      cancelBtn.addEventListener('click', function () { Popup.close(); });
+
+      append(actions, postBtn, cancelBtn);
+      append(this.el, header, textarea, actions);
+      this.el.style.display = 'block';
+      this.positionFixed(clientX, clientY);
+      textarea.focus();
+    },
+    submitNew: function (text, x, y) {
+      text = text.trim();
+      if (!text) return;
+      var num = S.pins.length + 1;
+      Auth.requireLogin()
+        .then(function () { return addPinComment(text, x, y, num); })
+        .then(function () {
+          Popup.close();
+          FAB.setMode(false);
+          return loadAndRender();
+        })
+        .then(function () { Notify.toast('Comment pinned!'); })
+        .catch(function (e) { Notify.toast('Failed: ' + e.message); });
+    },
+    showThread: function (pinId) {
+      S.activePinId = pinId;
+      var pin = S.pins.find(function (p) { return p.id === pinId; });
+      if (!pin) return;
+      this.el.innerHTML = '';
+
+      // Header
+      var header = el('div', { className: 'rhacs-popup__header' });
+      var headerLeft = el('div', { className: 'rhacs-popup__header-left' });
+      var avatar = el('img', { className: 'rhacs-avatar', src: pin.author.avatarUrl, alt: pin.author.login });
+      var author = el('span', { className: 'rhacs-popup__author' });
+      author.appendChild(txt(pin.author.login));
+      var time = el('span', { className: 'rhacs-popup__time' });
+      time.appendChild(txt(timeAgo(pin.createdAt)));
+      append(headerLeft, avatar, author, time);
+      var closeBtn = el('button', { className: 'rhacs-popup__close', onclick: function () { Popup.close(); } });
+      closeBtn.appendChild(txt('×'));
+      append(header, headerLeft, closeBtn);
+
+      // Body text
+      var body = el('div', { className: 'rhacs-popup__body' });
+      body.appendChild(txt(pinText(pin.body)));
+
+      // Reactions
+      var reactionsEl = Popup.buildReactions(pin);
+
+      // Pin actions
+      var actionsEl = el('div', { className: 'rhacs-popup__pin-actions' });
+      var isOwner = S.user && pin.author.login === S.user.login;
+      if (isOwner) {
+        var editBtn = el('button', { className: 'rhacs-link-btn', onclick: function () { Popup.showEdit(pin, body); } });
+        editBtn.appendChild(txt('Edit'));
+        var delBtn = el('button', { className: 'rhacs-link-btn rhacs-link-btn--danger', onclick: function () { Popup.confirmDelete(pin.id); } });
+        delBtn.appendChild(txt('Delete'));
+        append(actionsEl, editBtn, delBtn);
+      }
+      var resolveBtn = el('button', { className: 'rhacs-link-btn', onclick: function () { Popup.toggleResolve(pin); } });
+      resolveBtn.appendChild(txt(pin.meta.resolved ? 'Unresolve' : 'Resolve'));
+      actionsEl.appendChild(resolveBtn);
+
+      // Replies
+      var repliesEl = el('div', { className: 'rhacs-replies' });
+      (pin.replies || []).forEach(function (r) { repliesEl.appendChild(Popup.renderReply(r, pinId)); });
+
+      // Reply form
+      var replyArea = el('textarea', { className: 'rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
+      var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+      replyBtn.appendChild(txt('Reply'));
+      replyBtn.addEventListener('click', function () { Popup.submitReply(pinId, replyArea.value, replyArea); });
+      var replyForm = el('div', { className: 'rhacs-reply-form' });
+      append(replyForm, replyArea, replyBtn);
+
+      append(this.el, header, body, reactionsEl, actionsEl, repliesEl, replyForm);
+      this.el.style.display = 'block';
+
+      // Position near pin element
+      var pinEl = Overlay.overlayEl.querySelector('[data-pin-id="' + pinId + '"]');
+      if (pinEl) {
+        var r = pinEl.getBoundingClientRect();
+        this.positionFixed(r.right + 4, r.top);
+      } else {
+        this.el.style.left = '50%';
+        this.el.style.top  = '80px';
+        this.el.style.transform = 'translateX(-50%)';
+      }
+    },
+    buildReactions: function (pin) {
+      var EMOJI = { THUMBS_UP:'👍', THUMBS_DOWN:'👎', LAUGH:'😄', HOORAY:'🎉', CONFUSED:'😕', HEART:'❤️', ROCKET:'🚀', EYES:'👀' };
+      var wrap = el('div', { className: 'rhacs-reactions' });
+      (pin.reactionGroups || []).forEach(function (g) {
+        if (g.users.totalCount === 0 && !g.viewerHasReacted) return;
+        var btn = el('button', { className: 'rhacs-reaction-btn' + (g.viewerHasReacted ? ' active' : '') });
+        btn.appendChild(txt((EMOJI[g.content] || '') + ' ' + g.users.totalCount));
+        btn.addEventListener('click', function () { Popup.handleReaction(pin.id, g.content, g.viewerHasReacted); });
+        wrap.appendChild(btn);
+      });
+      // Add reaction picker
+      var addBtn = el('button', { className: 'rhacs-reaction-btn rhacs-reaction-add' });
+      addBtn.appendChild(txt('+ 😀'));
+      addBtn.addEventListener('click', function (e) { e.stopPropagation(); Popup.showPicker(pin.id, wrap); });
+      wrap.appendChild(addBtn);
+      return wrap;
+    },
+    showPicker: function (pinId, container) {
+      var existing = container.querySelector('.rhacs-reaction-picker');
+      if (existing) { existing.remove(); return; }
+      var CHOICES = [
+        { c:'THUMBS_UP',   e:'👍' }, { c:'THUMBS_DOWN', e:'👎' },
+        { c:'LAUGH',       e:'😄' }, { c:'HOORAY',      e:'🎉' },
+        { c:'CONFUSED',    e:'😕' }, { c:'HEART',       e:'❤️' },
+        { c:'ROCKET',      e:'🚀' }, { c:'EYES',        e:'👀' },
+      ];
+      var picker = el('div', { className: 'rhacs-reaction-picker' });
+      CHOICES.forEach(function (item) {
+        var btn = el('button', { className: 'rhacs-reaction-picker__btn' });
+        btn.appendChild(txt(item.e));
+        btn.addEventListener('click', function () { picker.remove(); Popup.handleReaction(pinId, item.c, false); });
+        picker.appendChild(btn);
+      });
+      container.appendChild(picker);
+      setTimeout(function () {
+        document.addEventListener('click', function dismiss() {
+          picker.remove();
+          document.removeEventListener('click', dismiss);
+        });
+      }, 0);
+    },
+    handleReaction: function (pinId, content, hasReacted) {
+      Auth.requireLogin()
+        .then(function () { return toggleReaction(pinId, content, hasReacted); })
+        .then(function () { return loadAndRender(); })
+        .then(function () { if (S.activePinId === pinId) Popup.showThread(pinId); })
+        .catch(function (e) { Notify.toast(e.message); });
+    },
+    toggleResolve: function (pin) {
+      Auth.requireLogin()
+        .then(function () { return updateComment(pin.id, setMeta(pin.body, { resolved: !pin.meta.resolved })); })
+        .then(function () { return loadAndRender(); })
+        .then(function () { Popup.close(); Panel.render(); })
+        .catch(function (e) { Notify.toast(e.message); });
+    },
+    showEdit: function (pin, bodyEl) {
+      bodyEl.innerHTML = '';
+      var editArea = el('textarea', { className: 'rhacs-popup__textarea', rows: '3' });
+      editArea.value = pinText(pin.body);
+      var saveBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+      saveBtn.appendChild(txt('Save'));
+      saveBtn.addEventListener('click', function () {
+        var newText = editArea.value.trim();
+        if (!newText) return;
+        var metaMatch = pin.body.match(/<!--\s*RHACS_PIN[\s\S]*?-->/);
+        var metaPart  = metaMatch ? metaMatch[0] : '';
+        updateComment(pin.id, metaPart + '\n' + newText)
+          .then(function () { return loadAndRender(); })
+          .then(function () { Popup.showThread(pin.id); })
+          .catch(function (e) { Notify.toast(e.message); });
+      });
+      append(bodyEl, editArea, saveBtn);
+    },
+    confirmDelete: function (pinId) {
+      if (!confirm('Delete this comment and all its replies?')) return;
+      deleteComment(pinId)
+        .then(function () { Popup.close(); return loadAndRender(); })
+        .catch(function (e) { Notify.toast(e.message); });
+    },
+    renderReply: function (reply, pinId) {
+      var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
+      var hdr  = el('div', { className: 'rhacs-reply__header' });
+      var av   = el('img', { className: 'rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var au   = el('span', { className: 'rhacs-popup__author' });
+      au.appendChild(txt(reply.author.login));
+      var tm   = el('span', { className: 'rhacs-popup__time' });
+      tm.appendChild(txt(timeAgo(reply.createdAt)));
+      append(hdr, av, au, tm);
+      var bd   = el('div', { className: 'rhacs-reply__body' });
+      bd.appendChild(txt(reply.body));
+      append(wrap, hdr, bd);
+      if (S.user && reply.author.login === S.user.login) {
+        var delBtn = el('button', { className: 'rhacs-link-btn rhacs-link-btn--danger' });
+        delBtn.appendChild(txt('Delete'));
+        delBtn.addEventListener('click', function () {
+          if (!confirm('Delete this reply?')) return;
+          deleteComment(reply.id)
+            .then(function () { return loadAndRender(); })
+            .then(function () { Popup.showThread(pinId); })
+            .catch(function (e) { Notify.toast(e.message); });
+        });
+        wrap.appendChild(delBtn);
+      }
+      return wrap;
+    },
+    submitReply: function (pinId, text, textarea) {
+      text = text.trim();
+      if (!text) return;
+      Auth.requireLogin()
+        .then(function () { return addReply(pinId, text); })
+        .then(function () {
+          if (textarea) textarea.value = '';
+          return loadAndRender();
+        })
+        .then(function () { Popup.showThread(pinId); })
+        .catch(function (e) { Notify.toast(e.message); });
+    },
+  };
+
+  // ── Side Panel ────────────────────────────────────────────────────────────────
+  var Panel = {
+    el: null,
+    showResolved: false,
+    init: function () {
+      this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
+      document.body.appendChild(this.el);
+    },
+    open: function () {
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      this.render();
+      this.el.classList.add('rhacs-panel--open');
+      Notify.clearUnread();
+    },
+    close: function () { this.el.classList.remove('rhacs-panel--open'); },
+    toggle: function () {
+      if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();
+    },
+    render: function () {
+      this.el.innerHTML = '';
+
+      var hdr  = el('div', { className: 'rhacs-panel__header' });
+      var title = el('span', {}); title.appendChild(txt('Comments'));
+      var hdrActions = el('div', { className: 'rhacs-panel__header-actions' });
+      var showResBtn = el('button', { className: 'rhacs-link-btn' });
+      showResBtn.appendChild(txt(Panel.showResolved ? 'Hide resolved' : 'Show resolved'));
+      showResBtn.addEventListener('click', function () { Panel.showResolved = !Panel.showResolved; Panel.render(); });
+      var closeBtn = el('button', { className: 'rhacs-panel__close', onclick: function () { Panel.close(); } });
+      closeBtn.appendChild(txt('×'));
+      append(hdrActions, showResBtn, closeBtn);
+      append(hdr, title, hdrActions);
+      this.el.appendChild(hdr);
+
+      var visible = S.pins.filter(function (p) { return p.meta && (Panel.showResolved || !p.meta.resolved); });
+      if (visible.length === 0) {
+        var empty = el('div', { className: 'rhacs-panel__empty' });
+        empty.appendChild(txt('No comments yet. Click the comment button to add one.'));
+        this.el.appendChild(empty);
+        return;
+      }
+
+      var list = el('div', { className: 'rhacs-panel__list' });
+      visible.forEach(function (pin) {
+        var isUnread = new Date(pin.createdAt).getTime() > S.lastSeen;
+        var cls = 'rhacs-panel__item' +
+          (isUnread   ? ' rhacs-panel__item--unread'   : '') +
+          (pin.meta.resolved ? ' rhacs-panel__item--resolved' : '');
+        var item = el('div', { className: cls });
+
+        var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
+        var av  = el('img', { className: 'rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var num = el('span', { className: 'rhacs-panel__item-num' }); num.appendChild(txt('#' + pin.meta.pinNumber));
+        var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
+        var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
+        append(itemHdr, av, num, au, tm);
+        if (isUnread) {
+          var dot = el('span', { className: 'rhacs-unread-dot' });
+          itemHdr.appendChild(dot);
+        }
+
+        var preview = el('div', { className: 'rhacs-panel__item-preview' });
+        var ptext = pinText(pin.body);
+        preview.appendChild(txt(ptext.length > 80 ? ptext.slice(0, 80) + '…' : ptext));
+
+        append(item, itemHdr, preview);
+
+        if (pin.replies && pin.replies.length > 0) {
+          var replyCount = el('div', { className: 'rhacs-panel__item-replies' });
+          replyCount.appendChild(txt(pin.replies.length + (pin.replies.length === 1 ? ' reply' : ' replies')));
+          item.appendChild(replyCount);
+        }
+
+        item.addEventListener('click', function () {
+          Panel.close();
+          var scrollY = (pin.meta.y / 100) * document.documentElement.scrollHeight;
+          window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+          setTimeout(function () { Popup.showThread(pin.id); }, 400);
+        });
+
+        list.appendChild(item);
+      });
+      this.el.appendChild(list);
+    },
+  };
+
+  // ── FAB ───────────────────────────────────────────────────────────────────────
+  var FAB = {
+    el: null,
+    badge: null,
+    userEl: null,
+    init: function () {
+      this.el = el('div', { className: 'rhacs-fab' });
+
+      this.badge = el('span', { className: 'rhacs-fab__badge' });
+      this.badge.style.display = 'none';
+      this.badge.appendChild(txt('0'));
+
+      var icon = el('span', { className: 'rhacs-fab__icon' });
+      icon.appendChild(txt('💬'));
+
+      var mainBtn = el('button', { className: 'rhacs-fab__btn', title: 'Toggle comment mode (C)' });
+      append(mainBtn, icon, this.badge);
+      mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
+
+      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments' });
+      panelBtn.appendChild(txt('☰'));
+      panelBtn.addEventListener('click', function () { Panel.toggle(); });
+
+      this.userEl = el('div', { className: 'rhacs-fab__user' });
+
+      append(this.el, mainBtn, panelBtn, this.userEl);
+      document.body.appendChild(this.el);
+      this.updateUser();
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'c' && e.key !== 'C') return;
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        FAB.toggleMode();
+      });
+    },
+    toggleMode: function () { FAB.setMode(!S.commentMode); },
+    setMode: function (active) {
+      S.commentMode = active;
+      if (active) this.el.classList.add('rhacs-fab--active');
+      else         this.el.classList.remove('rhacs-fab--active');
+      Overlay.setMode(active);
+      if (active) Notify.toast('Comment mode on — click anywhere to pin a comment. Press C or click again to exit.');
+    },
+    updateBadge: function () {
+      var count = S.unread;
+      if (count > 0) {
+        this.badge.textContent = count;
+        this.badge.style.display = '';
+      } else {
+        this.badge.style.display = 'none';
+      }
+    },
+    updateUser: function () {
+      if (!this.userEl) return;
+      this.userEl.innerHTML = '';
+      if (S.user) {
+        var av = el('img', { className: 'rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var logoutBtn = el('button', { className: 'rhacs-link-btn', title: 'Log out', onclick: function () { Auth.logout(); } });
+        logoutBtn.appendChild(txt('↩'));
+        append(this.userEl, av, logoutBtn);
+      } else {
+        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--sm' });
+        loginBtn.appendChild(txt('Login'));
+        loginBtn.addEventListener('click', function () {
+          Auth.login().then(function () { FAB.updateUser(); }).catch(function (e) { Notify.toast(e.message); });
+        });
+        this.userEl.appendChild(loginBtn);
+      }
+    },
+  };
+
+  // ── Notifications ─────────────────────────────────────────────────────────────
+  var Notify = {
+    toastEl: null,
+    timer: null,
+    init: function () {
+      this.toastEl = el('div', { className: 'rhacs-toast', id: 'rhacs-toast' });
+      this.toastEl.style.display = 'none';
+      document.body.appendChild(this.toastEl);
+    },
+    toast: function (msg, ms) {
+      ms = ms || 4000;
+      clearTimeout(this.timer);
+      this.toastEl.innerHTML = '';
+      this.toastEl.appendChild(txt(msg));
+      var closeBtn = el('button', { className: 'rhacs-toast__close' });
+      closeBtn.appendChild(txt('×'));
+      closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });
+      this.toastEl.appendChild(closeBtn);
+      this.toastEl.style.display = 'flex';
+      this.timer = setTimeout(function () { Notify.toastEl.style.display = 'none'; }, ms);
+    },
+    startPolling: function () {
+      var poll = function () {
+        if (document.visibilityState !== 'visible') return;
+        if (!S.discussionId) return;
+        loadComments(S.discussionId).then(function (comments) {
+          var freshPins = parseComments(comments);
+          var newOnes = freshPins.filter(function (fp) {
+            return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen &&
+              !S.pins.some(function (ep) { return ep.id === fp.id; });
+          });
+          if (newOnes.length > 0) {
+            S.pins = freshPins;
+            Overlay.renderPins();
+            Panel.render();
+            Notify.showUnread(newOnes.length);
+          }
+        }).catch(function () {});
+      };
+      S.pollTimer = setInterval(poll, CFG.pollMs);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') poll();
+      });
+    },
+    showUnread: function (count) {
+      S.unread += count;
+      document.title = '(' + S.unread + ') ' + S.origTitle;
+      FAB.updateBadge();
+      Notify.toast(count + ' new comment' + (count > 1 ? 's' : '') + ' added');
+    },
+    clearUnread: function () {
+      S.unread = 0;
+      document.title = S.origTitle;
+      FAB.updateBadge();
+      Overlay.renderPins();
+    },
+  };
+
+  // ── Init ──────────────────────────────────────────────────────────────────────
+  function init() {
+    Auth.init();
+    S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
+
+    Overlay.init();
+    Popup.init();
+    Panel.init();
+    FAB.init();
+    Notify.init();
+
+    loadAndRender().then(function () { Notify.startPolling(); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    // Give React a moment to hydrate before we measure scrollHeight
+    setTimeout(init, 600);
+  }
+})();

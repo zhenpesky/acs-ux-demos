@@ -1571,7 +1571,7 @@
         // Show a state badge if the pin has a viewState recorded
         if (pin.meta.viewState) {
           var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
-          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit' : 'View'));
+          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit mode' : 'Read-only view'));
           itemHdr.appendChild(stateBadge);
         }
         if (isUnread) {

@@ -22,6 +22,37 @@
   overflow: hidden;
 }
 
+/* ── Comment mode cursor: restore normal cursor inside all comment UI ──────
+   When body has the custom chat cursor, everything inside the comment
+   containers (popup, panel, FAB, pins, toasts) should feel normal.        */
+#rhacs-mount.rhacs-comment-mode .rhacs-popup,
+#rhacs-mount.rhacs-comment-mode .rhacs-panel,
+#rhacs-mount.rhacs-comment-mode .rhacs-fab,
+#rhacs-mount.rhacs-comment-mode .rhacs-pin,
+#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack {
+  cursor: auto;
+}
+
+#rhacs-mount.rhacs-comment-mode .rhacs-popup *,
+#rhacs-mount.rhacs-comment-mode .rhacs-panel *,
+#rhacs-mount.rhacs-comment-mode .rhacs-fab *,
+#rhacs-mount.rhacs-comment-mode .rhacs-pin *,
+#rhacs-mount.rhacs-comment-mode .rhacs-toast-stack * {
+  cursor: auto;
+}
+
+#rhacs-mount.rhacs-comment-mode .rhacs-popup button,
+#rhacs-mount.rhacs-comment-mode .rhacs-popup a,
+#rhacs-mount.rhacs-comment-mode .rhacs-popup textarea,
+#rhacs-mount.rhacs-comment-mode .rhacs-popup input,
+#rhacs-mount.rhacs-comment-mode .rhacs-panel button,
+#rhacs-mount.rhacs-comment-mode .rhacs-panel a,
+#rhacs-mount.rhacs-comment-mode .rhacs-panel textarea,
+#rhacs-mount.rhacs-comment-mode .rhacs-fab button,
+#rhacs-mount.rhacs-comment-mode .rhacs-pin {
+  cursor: pointer;
+}
+
 /* ── Pin overlay ─────────────────────────────────────────────────────────── */
 #rhacs-comment-root .rhacs-overlay {
   position: absolute;
@@ -34,7 +65,6 @@
 
 #rhacs-comment-root .rhacs-overlay--active {
   pointer-events: all;
-  cursor: crosshair;
 }
 
 /* ── Pins ────────────────────────────────────────────────────────────────── */

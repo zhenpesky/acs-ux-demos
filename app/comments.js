@@ -336,7 +336,7 @@
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = []; Overlay.renderPins(); return; }
+        if (!id) { S.pins = []; Overlay._pinEls = {}; Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
           S.pins = parseComments(comments);
@@ -359,6 +359,7 @@
     root: null,
     overlayEl: null,
     _scrollListener: null,
+    _pinEls: {},   // cache of pinId -> DOM element for smooth scroll updates
 
     init: function () {
       this.root = el('div', { id: 'rhacs-comment-root' });
@@ -407,30 +408,58 @@
 
     renderPins: function () {
       S.pageViewState = detectViewState();
-      this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
+
+      // Which pins are visible in the current state
+      var visibleMap = {};
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
-        // Only show pins that match the current view state.
-        // Pins with no viewState (created before this feature) are shown in both states.
         if (pin.meta.viewState && pin.meta.viewState !== S.pageViewState) return;
-        var vp = pinToViewport(pin.meta);
-        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
+        visibleMap[pin.id] = pin;
+      });
+
+      // Remove cached pins no longer visible (animate out)
+      Object.keys(Overlay._pinEls).forEach(function (id) {
+        if (!visibleMap[id]) {
+          var dying = Overlay._pinEls[id];
+          dying.classList.add('rhacs-pin--exit');
+          setTimeout(function () { if (dying.parentNode) dying.parentNode.removeChild(dying); }, 200);
+          delete Overlay._pinEls[id];
+        }
+      });
+
+      // Update or create each visible pin
+      S.pins.forEach(function (pin) {
+        if (!visibleMap[pin.id]) return;
+        var vp        = pinToViewport(pin.meta);
+        var isUnread  = new Date(pin.createdAt).getTime() > S.lastSeen;
         var isResolved = pin.meta.resolved;
-        var cls = 'rhacs-pin' +
+        var baseCls   = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '');
-        var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
-        pinEl.appendChild(txt(String(pin.meta.pinNumber)));
-        // Fixed-pixel viewport position (pin scrolls with content because we
-        // subtract the container's scrollTop/scrollLeft each render)
-        pinEl.style.left       = vp.left + 'px';
-        pinEl.style.top        = vp.top  + 'px';
-        pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
-        pinEl.addEventListener('click', function (e) {
-          e.stopPropagation();
-          Popup.showThread(pin.id);
-        });
-        Overlay.overlayEl.appendChild(pinEl);
+
+        if (Overlay._pinEls[pin.id]) {
+          // Existing pin — just update position and classes (no animation replay)
+          var pinEl = Overlay._pinEls[pin.id];
+          pinEl.className = baseCls;
+          pinEl.style.left       = vp.left + 'px';
+          pinEl.style.top        = vp.top  + 'px';
+          pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
+        } else {
+          // New pin — create with entrance animation
+          var pinEl = el('div', { className: baseCls + ' rhacs-pin--enter', 'data-pin-id': pin.id });
+          pinEl.appendChild(txt(String(pin.meta.pinNumber)));
+          pinEl.style.left       = vp.left + 'px';
+          pinEl.style.top        = vp.top  + 'px';
+          pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
+          pinEl.addEventListener('click', function (e) {
+            e.stopPropagation();
+            Popup.showThread(pin.id);
+          });
+          Overlay.overlayEl.appendChild(pinEl);
+          Overlay._pinEls[pin.id] = pinEl;
+          // Remove enter class after animation completes
+          setTimeout(function () { pinEl.classList.remove('rhacs-pin--enter'); }, 300);
+        }
       });
     },
 
@@ -460,6 +489,10 @@
     },
     positionFixed: function (clientX, clientY) {
       this.el.style.display = 'block';
+      // Force entrance animation to replay each time popup opens
+      this.el.style.animation = 'none';
+      void this.el.offsetHeight; // trigger reflow
+      this.el.style.animation = '';
       var margin = 16;
       var pw = this.el.offsetWidth  || 320;
       var ph = this.el.offsetHeight || 220;

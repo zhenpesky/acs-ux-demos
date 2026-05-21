@@ -76,6 +76,26 @@
   opacity: 1;
 }
 
+/* Pin entrance — spring scale-in */
+@keyframes rhacs-pin-enter {
+  0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  70%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+#rhacs-comment-root .rhacs-pin--enter {
+  animation: rhacs-pin-enter 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Pin exit — fade + shrink */
+@keyframes rhacs-pin-exit {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+}
+#rhacs-comment-root .rhacs-pin--exit {
+  animation: rhacs-pin-exit 0.18s ease forwards;
+  pointer-events: none;
+}
+
 /* Pulsing unread indicator */
 #rhacs-comment-root .rhacs-pin--unread::after {
   content: '';
@@ -111,12 +131,18 @@
 }
 
 /* ── Comment popup ───────────────────────────────────────────────────────── */
+@keyframes rhacs-popup-enter {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
 .rhacs-popup {
   width: 320px;
   max-height: 80vh;
   overflow-y: auto;
   padding: 0;
   pointer-events: all;
+  animation: rhacs-popup-enter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top left;
 }
 
 .rhacs-popup__header {
@@ -312,14 +338,21 @@
   flex-direction: column;
   pointer-events: none;
   transform: translateX(105%);
-  transition: transform 0.22s ease;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity  0.22s ease,
+              visibility 0s linear 0.26s;
+  opacity: 0;
   visibility: hidden;
 }
 
 .rhacs-panel--open {
   transform: translateX(0);
+  opacity: 1;
   pointer-events: all;
   visibility: visible;
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity  0.22s ease,
+              visibility 0s linear 0s;
 }
 
 .rhacs-panel__header {
@@ -524,30 +557,26 @@
 }
 
 /* ── Toast notification ───────────────────────────────────────────────────── */
+@keyframes rhacs-toast-enter {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
 .rhacs-toast {
   position: fixed;
   bottom: 88px;
   left: 50%;
   transform: translateX(-50%);
-  background: #24292f;
-  color: #fff;
   border-radius: 6px;
-  padding: 10px 14px 10px 16px;
   font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   z-index: 9998;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.22);
   max-width: calc(100vw - 48px);
   pointer-events: all;
-  animation: rhacs-fadein 0.2s ease;
-}
-
-@keyframes rhacs-fadein {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  animation: rhacs-toast-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .rhacs-toast__close {

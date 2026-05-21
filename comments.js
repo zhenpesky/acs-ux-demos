@@ -1941,15 +1941,7 @@
           var pinTs = new Date(p.createdAt).getTime();
           var menuItems = [
             canDel ? { label: 'Delete thread', danger: true, action: function () {
-              showConfirm('Delete this comment and all its replies?', {
-                title: 'Delete comment', confirmLabel: 'Delete', cancelLabel: 'Cancel', danger: true
-              }).then(function (ok) {
-                if (!ok) return;
-                if (String(p.id).startsWith('guest-')) {
-                  Auth.deleteGuestPin(p.id); return loadAndRender();
-                }
-                deleteComment(p.id).then(loadAndRender).catch(function (e) { Notify.toast(e.message); });
-              });
+              Popup.confirmDelete(p.id);
             }} : null,
             canRes ? { label: p.meta.resolved ? 'Unresolve' : 'Resolve', action: function () {
               Popup.toggleResolve(p);
@@ -1984,12 +1976,31 @@
           replyCount.appendChild(txt(pin.replies.length + ' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
           replyCount.addEventListener('click', (function (p) { return function (e) {
             e.stopPropagation();
+            var pinTs = new Date(p.createdAt).getTime();
+            if (pinTs > S.lastSeen) {
+              S.lastSeen = Math.max(S.lastSeen, pinTs);
+              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+              Notify.clearUnread();
+              FAB.updateBadge();
+              Overlay.renderPins();
+              Panel.render();
+            }
             Popup.showThread(p.id);
           }; })(pin));
           item.appendChild(replyCount);
         }
 
         item.addEventListener('click', (function (p) { return function () {
+          var pinTs = new Date(p.createdAt).getTime();
+          if (pinTs > S.lastSeen) {
+            S.lastSeen = Math.max(S.lastSeen, pinTs);
+            localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+            Notify.clearUnread();
+            FAB.updateBadge();
+            Overlay.renderPins();
+            Panel.render();
+          }
+
           var pinState = p.meta.viewState;
           var curState = detectViewState();
           var delay    = 400;

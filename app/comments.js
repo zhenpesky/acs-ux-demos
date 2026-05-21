@@ -1478,7 +1478,18 @@
         FAB.toggleMode();
       });
     },
-    toggleMode: function () { FAB.setMode(!S.commentMode); },
+    toggleMode: function () {
+      // If currently in comment mode, just exit — no auth needed to turn off
+      if (S.commentMode) { FAB.setMode(false); return; }
+      // Not yet authed — show login/guest dialog first, then activate
+      if (!Auth.isAuthed()) {
+        Auth.showAuthDialog().then(function () {
+          FAB.setMode(true);
+        }).catch(function () {}); // user cancelled
+        return;
+      }
+      FAB.setMode(true);
+    },
     setMode: function (active) {
       S.commentMode = active;
       if (active) this.el.classList.add('rhacs-fab--active');

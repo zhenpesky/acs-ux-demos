@@ -359,7 +359,10 @@
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
             Auth.fetchUser()
-              .then(function () { FAB.updateUser(); resolve(S.user); })
+              .then(function () {
+                resolve(S.user); // resolve FIRST — always continues the chain
+                try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
+              })
               .catch(function (err) { reject(err || new Error('Failed to fetch GitHub user')); });
           } else {
             reject(new Error('GitHub login failed'));
@@ -658,14 +661,16 @@
           var origHTML = ghBtn.innerHTML;
           ghBtn.innerHTML = '<span>Opening GitHub…</span>';
           Auth.login()
-            .then(function () { overlay.remove(); FAB.updateUser(); resolve(); })
+            .then(function () {
+              overlay.remove();
+              resolve(); // resolve FIRST so the outer chain always continues
+              try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
+            })
             .catch(function (e) {
-              // Restore button so user can try again
+              // Login failed — restore button so user can retry
               ghBtn.disabled = false;
               ghBtn.style.opacity = '';
               ghBtn.innerHTML = origHTML;
-              Notify.toast(e.message || 'Login failed. Check if popups are allowed for this site.');
-              // Don't reject outer promise — leave dialog open so user can retry or pick guest
             });
         });
 
@@ -1502,7 +1507,7 @@
           '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
           '<span>You\u2019re commenting as a guest \u2014 no login needed. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to get notifications when someone replies.</span>';
         guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); Panel.open(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
+          Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
         });
         this.el.appendChild(guestBanner);
       }

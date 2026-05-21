@@ -1396,7 +1396,13 @@
         noticeLink.addEventListener('click', function () {
           Auth.login()
             .then(function () { return Auth.fetchUser(); })
-            .then(function () { FAB.updateUser(); return loadAndRender(); })
+            .then(function () {
+              FAB.updateUser();
+              return loadAndRender().then(function () {
+                // Re-render the open thread so the reply notice is replaced by the reply textarea
+                Popup.showThread(pinId);
+              });
+            })
             .catch(function () {});
         });
         noticeText.appendChild(noticeLink);

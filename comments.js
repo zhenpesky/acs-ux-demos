@@ -158,8 +158,10 @@
     return (author.login || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
   }
 
-  function buildBody(x, y, num, text) {
-    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() }) + ' -->\n' + text;
+  function buildBody(x, y, num, text, guestAuthor) {
+    var meta = { x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState() };
+    if (guestAuthor) meta.guestAuthor = guestAuthor;
+    return '<!-- RHACS_PIN ' + JSON.stringify(meta) + ' -->\n' + text;
   }
 
   function setMeta(body, updates) {
@@ -345,38 +347,135 @@
       return new Promise(function (resolve, reject) {
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
+
+        // Always use full-page redirect — avoids all cross-window communication issues.
+        // auth-callback.html will redirect back here with ?rhacs_token=
+        localStorage.setItem('rhacs_return_url', window.location.href);
+        window.location.href = url;
+        return;
+
+        /* ---- popup path kept for reference but not used ----
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
-        if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
-        var handler = function (e) {
-          if (e.origin !== 'https://zhenpesky.github.io') return;
-          if (!e.data || e.data.type !== 'rhacs_auth_done') return;
-          window.removeEventListener('message', handler);
-          if (e.data.token) {
-            S.token = e.data.token;
+        if (!popup) {
+          localStorage.setItem('rhacs_return_url', window.location.href);
+          window.location.href = url;
+          return;
+        }
+        ---- end popup path ---- */
+
+        var done = false;
+        var pollTimer, closedTimer, storageHandler, msgHandler, bc;
+
+        function cleanup() {
+          clearInterval(pollTimer);
+          clearInterval(closedTimer);
+          window.removeEventListener('message', msgHandler);
+          window.removeEventListener('storage', storageHandler);
+          try { if (bc) { bc.close(); bc = null; } } catch (e) {}
+          localStorage.removeItem('rhacs_oauth_result');
+        }
+
+        function handleToken(token) {
+          if (done) return;
+          done = true;
+          cleanup();
+          if (token) {
+            S.token = token;
             S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
-            Auth.fetchUser().then(function () { FAB.updateUser(); resolve(S.user); });
+            // Resolve immediately so the dialog closes — don't block on fetchUser
+            resolve(S.user);
+            // Fetch profile in background; a failure just means no avatar
+            Auth.fetchUser()
+              .then(function () { try { FAB.updateUser(); } catch (e) {} })
+              .catch(function (e) { console.warn('[rhacs] fetchUser after login:', e && e.message); });
           } else {
             reject(new Error('GitHub login failed'));
           }
+        }
+
+        // Channel 0: BroadcastChannel — purpose-built same-origin cross-tab messaging
+        try {
+          bc = new BroadcastChannel('rhacs_auth');
+          bc.onmessage = function (e) {
+            if (e.data && e.data.type === 'rhacs_token' && !done) handleToken(e.data.token);
+          };
+        } catch (e) { bc = null; }
+
+        // Channel 1: storage event — fires INSTANTLY in the main window when
+        // auth-callback.html writes to localStorage in the popup tab
+        storageHandler = function (e) {
+          if (e.key !== 'rhacs_oauth_result' || !e.newValue) return;
+          try {
+            var d = JSON.parse(e.newValue);
+            if (d && d.token && Date.now() - d.ts < 60000) handleToken(d.token);
+          } catch (ex) {}
         };
-        window.addEventListener('message', handler);
+        window.addEventListener('storage', storageHandler);
+
+        // Channel 2: localStorage polling (backup for browsers that delay storage events)
+        localStorage.removeItem('rhacs_oauth_result');
+        pollTimer = setInterval(function () {
+          try {
+            var raw = localStorage.getItem('rhacs_oauth_result');
+            if (!raw) return;
+            var data = JSON.parse(raw);
+            if (data && data.token && Date.now() - data.ts < 60000) handleToken(data.token);
+          } catch (e) {}
+        }, 300);
+
+        // Channel 3: postMessage (instant when same-origin popup works)
+        msgHandler = function (e) {
+          if (e.origin !== 'https://zhenpesky.github.io') return;
+          if (!e.data || e.data.type !== 'rhacs_auth_done') return;
+          handleToken(e.data.token);
+        };
+        window.addEventListener('message', msgHandler);
+
+        // Channel 4: popup-closed watcher — once the popup closes we do one final
+        // localStorage read; if nothing arrives within 2s after close, reject
+        closedTimer = setInterval(function () {
+          if (!popup || !popup.closed) return;
+          clearInterval(closedTimer);
+          if (done) return;
+          // Give auth-callback up to 1s after close to flush localStorage
+          setTimeout(function () {
+            if (done) return;
+            try {
+              var raw = localStorage.getItem('rhacs_oauth_result');
+              if (raw) { var d = JSON.parse(raw); if (d && d.token) { handleToken(d.token); return; } }
+            } catch (ex) {}
+            // Popup closed with no token — treat as cancelled
+            done = true; cleanup(); reject(new Error('Login cancelled'));
+          }, 1000);
+        }, 500);
+
+        // Timeout after 5 minutes
         setTimeout(function () {
-          window.removeEventListener('message', handler);
-          if (!S.token) reject(new Error('Login timed out'));
+          if (!done) { done = true; cleanup(); reject(new Error('Login timed out')); }
         }, 300000);
       });
     },
     fetchUser: function () {
       if (!S.token) return Promise.resolve();
       return fetch('https://api.github.com/user', { headers: { Authorization: 'token ' + S.token } })
-        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (r) {
+          if (r.status === 401) {
+            // Token is invalid — clear it so we don't loop
+            console.warn('[rhacs] GitHub token rejected (401), clearing.');
+            S.token = null;
+            localStorage.removeItem(CFG.tokenKey);
+            return Promise.reject(new Error('GitHub token invalid or expired. Please log in again.'));
+          }
+          if (!r.ok) return Promise.reject(new Error('GitHub API error: ' + r.status));
+          return r.json();
+        })
         .then(function (u) {
           if (!u) return;
           S.user = { login: u.login, avatarUrl: u.avatar_url, name: u.name };
           localStorage.setItem(CFG.userKey, JSON.stringify(S.user));
-        }).catch(function () {});
+        });
     },
     logout: function () {
       S.token = null; S.user = null; S.guestMode = false;
@@ -441,7 +540,7 @@
       return user;
     },
     _showNamePromptThenGuest: function () {
-      return new Promise(function (resolve) {
+      return new Promise(function (resolve, reject) {
         var old = document.getElementById('rhacs-guest-prompt');
         if (old) old.remove();
 
@@ -452,7 +551,7 @@
         iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
 
         var titleEl = el('h3', { className: 'rhacs-auth-dialog__title' });
-        titleEl.appendChild(txt('How would you like to be identified?'));
+        titleEl.appendChild(txt('Your info'));
 
         function makeField(labelText, placeholder, required) {
           var wrap  = el('div', { className: 'rhacs-guest-field' });
@@ -471,23 +570,11 @@
         // Name row: first + last side by side
         var nameRow   = el('div', { className: 'rhacs-guest-name-row' });
         var firstF    = makeField('First name', 'e.g. Alex', true);
-        var lastF     = makeField('Last name',  'e.g. Chen');
+        var lastF     = makeField('Last name',  'e.g. Smith');
         append(nameRow, firstF.wrap, lastF.wrap);
 
         var titleF   = makeField('Title or role',  'e.g. UX Designer, PM', false);
         var companyF = makeField('Company',         'e.g. Red Hat, IBM',    false);
-
-        var preview = el('div', { className: 'rhacs-guest-name-preview' });
-        function updatePreview() {
-          var fn = firstF.input.value.trim(), ln = lastF.input.value.trim();
-          var t  = titleF.input.value.trim(),  c  = companyF.input.value.trim();
-          var label = Auth._buildGuestLogin(fn, ln, t, c);
-          preview.innerHTML = '';
-          preview.appendChild(txt('Will appear as: '));
-          var strong = el('strong');
-          strong.appendChild(txt(label));
-          preview.appendChild(strong);
-        }
 
         // Button starts disabled; lights up once first name has content
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary', disabled: true });
@@ -503,9 +590,8 @@
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {
-          f.input.addEventListener('input', function () { updatePreview(); syncBtn(); });
+          f.input.addEventListener('input', function () { syncBtn(); });
         });
-        updatePreview();
 
         continueBtn.addEventListener('click', function () {
           if (continueBtn.disabled) return;
@@ -517,7 +603,7 @@
           f.input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !continueBtn.disabled) continueBtn.click(); });
         });
 
-        append(card, iconEl, titleEl, subEl, nameRow, titleF.wrap, companyF.wrap, preview, continueBtn);
+        append(card, iconEl, titleEl, nameRow, titleF.wrap, companyF.wrap, continueBtn);
         overlay.appendChild(card);
         overlay.addEventListener('click', function (e) {
           if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); }
@@ -566,18 +652,58 @@
       localStorage.setItem(Auth.guestPinsKey(), JSON.stringify(pins));
     },
     addGuestPin: function (text, x, y, num) {
-      var pins = Auth.loadGuestPins();
+      // Build the comment body with embedded guest author identity
+      var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : null;
+      var body = buildBody(x, y, num, text, guestAuthor);
+      var tempId = 'guest-' + Date.now();
       var pin = {
-        id: 'guest-' + Date.now(),
-        body: buildBody(x, y, num, text),
+        id: tempId,
+        body: body,
         createdAt: new Date().toISOString(),
-        author: S.user,
+        author: guestAuthor || { login: 'Guest', name: 'Guest' },
         replies: [],
-        meta: Object.assign(parseMeta(buildBody(x, y, num, text)), { pinNumber: num, resolved: false }),
+        meta: Object.assign(parseMeta(body), { pinNumber: num, resolved: false }),
         _guest: true,
+        _pendingUpload: true,
       };
+
+      // Store immediately in localStorage so the guest sees it right away (optimistic)
+      var pins = Auth.loadGuestPins();
       pins.push(pin);
       Auth.saveGuestPins(pins);
+
+      // Fire-and-forget: POST to worker → GitHub Discussions so the prototype owner can see it
+      fetch(CFG.workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'guest_post',
+          pageKey: getPageKey(),
+          pageUrl: window.location.href,
+          commentBody: body,
+          owner: CFG.owner,
+          repo: CFG.repo,
+          categoryName: CFG.categoryName,
+        }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data && data.id) {
+          // Replace the temp ID with the real GitHub comment ID
+          var stored = Auth.loadGuestPins();
+          for (var i = 0; i < stored.length; i++) {
+            if (stored[i].id === tempId) {
+              stored[i].id = data.id;
+              stored[i]._pendingUpload = false;
+              break;
+            }
+          }
+          Auth.saveGuestPins(stored);
+          if (data.discussionId) S.discussionId = data.discussionId;
+        }
+      }).catch(function (e) {
+        console.warn('[rhacs] Guest comment upload to GitHub failed:', e && e.message);
+        // Pin stays in localStorage as a local-only draft
+      });
+
       return pin;
     },
     deleteGuestPin: function (id) {
@@ -612,8 +738,22 @@
         var ghBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary' });
         ghBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg><span>Log in with GitHub</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--full">Full features</span>';
         ghBtn.addEventListener('click', function () {
-          overlay.remove();
-          Auth.login().then(function () { FAB.updateUser(); resolve(); }).catch(function (e) { Notify.toast(e.message); reject(e); });
+          ghBtn.disabled = true;
+          ghBtn.style.opacity = '0.6';
+          var origHTML = ghBtn.innerHTML;
+          ghBtn.innerHTML = '<span>Redirecting to GitHub…</span>';
+          Auth.login()
+            .then(function () {
+              overlay.remove();
+              resolve(); // resolve FIRST so the outer chain always continues
+              try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
+            })
+            .catch(function (e) {
+              // Login failed — restore button so user can retry
+              ghBtn.disabled = false;
+              ghBtn.style.opacity = '';
+              ghBtn.innerHTML = origHTML;
+            });
         });
 
         // Feature list for GitHub
@@ -627,15 +767,20 @@
 
         // Guest option
         var guestBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--secondary' });
-        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No login required</span>';
+        guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Comment without login</span><span class="rhacs-auth-dialog__badge rhacs-auth-dialog__badge--local">No account needed</span>';
         guestBtn.addEventListener('click', function () {
           overlay.remove();
-          Auth.loginAsGuest().then(function () { resolve(); });
+          Auth.loginAsGuest()
+            .then(function () { resolve(); })
+            .catch(function (e) {
+              // User cancelled the name prompt — that's fine, just reject silently
+              reject(e);
+            });
         });
 
         // Feature list for guest
         var guestFeatures = el('ul', { className: 'rhacs-auth-dialog__features rhacs-auth-dialog__features--muted' });
-        ['Only visible to you on this device', 'No notifications or sharing', 'Others cannot see your comments'].forEach(function (f) {
+        ['No GitHub account needed', 'Comments are visible to the prototype owner', 'No notifications — log in with GitHub for those'].forEach(function (f) {
           var li = el('li'); li.appendChild(txt(f)); guestFeatures.appendChild(li);
         });
 
@@ -658,7 +803,13 @@
   function parseComments(comments) {
     return comments
       .map(function (c) {
-        return Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+        var pin = Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+        // Guest comments are posted via the owner token; restore the real guest identity from meta
+        if (pin.meta && pin.meta.guestAuthor) {
+          pin.author = pin.meta.guestAuthor;
+          pin._guest = true;
+        }
+        return pin;
       })
       .filter(function (c) { return c.meta !== null; })
       .sort(function (a, b) { return a.meta.pinNumber - b.meta.pinNumber; });
@@ -694,17 +845,11 @@
         if (!id) { S.pins = Auth.loadGuestPins(); Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
+          // Guest comments are now posted to GitHub Discussions via the worker,
+          // so they appear in `comments` already. No localStorage merge needed
+          // (that would create duplicates). localStorage is a local-only cache
+          // for the guest's own session only.
           S.pins = parseComments(comments);
-          // Merge in any guest pins on top of GitHub pins
-          var guestPins = Auth.loadGuestPins().map(function (p) {
-            if (!p.meta) p.meta = parseMeta(p.body);
-            return p;
-          });
-          if (guestPins.length) {
-            S.pins = S.pins.concat(guestPins).sort(function (a, b) {
-              return new Date(a.createdAt) - new Date(b.createdAt);
-            });
-          }
           Overlay.renderPins();
           FAB.updateBadge();
         });
@@ -813,8 +958,8 @@
 
     setMode: function (active) {
       var cursorSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">' +
-        '<circle cx="15" cy="15" r="14" fill="#dbeafe"/>' +
-        '<path fill="#3b82f6" d="M6.9 20.4a1.4 1.4 0 0 1 .4 1.1 15 15 0 0 1-.56 2.8c1.95-.45 3.14-.97 3.68-1.25a1.4 1.4 0 0 1 .99-.1A11.2 11.2 0 0 0 15 23.4c5.6 0 9.8-3.93 9.8-8.4s-4.2-8.4-9.8-8.4-9.8 3.93-9.8 8.4c0 1.95.87 3.75 2.35 5.1 0 0 0 0-.65-.1z"/>' +
+        '<circle cx="15" cy="15" r="14" fill="#ede9f8"/>' +
+        '<path fill="#6753ac" d="M6.9 20.4a1.4 1.4 0 0 1 .4 1.1 15 15 0 0 1-.56 2.8c1.95-.45 3.14-.97 3.68-1.25a1.4 1.4 0 0 1 .99-.1A11.2 11.2 0 0 0 15 23.4c5.6 0 9.8-3.93 9.8-8.4s-4.2-8.4-9.8-8.4-9.8 3.93-9.8 8.4c0 1.95.87 3.75 2.35 5.1 0 0 0 0-.65-.1z"/>' +
         '</svg>';
       var commentCursor = [
         'url("data:image/svg+xml,' + encodeURIComponent(cursorSvg) + '") 15 15',
@@ -1194,7 +1339,7 @@
       }, 0);
     },
     handleReaction: function (pinId, content, hasReacted) {
-      Auth.requireLogin()
+      Auth.requireAuth()
         .then(function () { return toggleReaction(pinId, content, hasReacted); })
         .then(function () { return loadAndRender(); })
         .then(function () { if (S.activePinId === pinId) Popup.showThread(pinId); })
@@ -1212,7 +1357,7 @@
         loadAndRender().then(function () { Popup.close(); Panel.render(); });
         return;
       }
-      Auth.requireLogin()
+      Auth.requireAuth()
         .then(function () { return updateComment(pin.id, setMeta(pin.body, { resolved: !pin.meta.resolved })); })
         .then(function () { return loadAndRender(); })
         .then(function () { Popup.close(); Panel.render(); })
@@ -1376,7 +1521,7 @@
   // ── Side Panel ────────────────────────────────────────────────────────────────
   var Panel = {
     el: null,
-    activeTab: 'all', // 'all' | 'unresolved' | 'resolved'
+    activeTab: 'unread', // 'unread' | 'all' | 'unresolved' | 'resolved'
     init: function () {
       this.el = el('div', { className: 'rhacs-panel', id: 'rhacs-panel' });
       rhacsMount().appendChild(this.el);
@@ -1399,27 +1544,29 @@
       page.style.marginRight = open ? '300px' : '';
     },
     open: function () {
-      S.lastSeen = Date.now();
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      this.render();
+      this.render(); // render BEFORE updating lastSeen so unread yellows show
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
       Panel._pushPage(true);
-      Notify.clearUnread();
     },
     close: function () {
+      // Mark everything as seen when the user closes the panel
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       this.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
+      Notify.clearUnread();
     },
     toggle: function () {
       if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();
     },
     renderEmpty: function (tab) {
       var msgs = {
-        all:        { title: 'No comments yet',       hint: 'Click anywhere on the page to pin a comment.' },
-        unresolved: { title: 'No open comments',      hint: 'All comments have been resolved.' },
-        resolved:   { title: 'No resolved comments',  hint: 'Resolved comments will appear here.' },
+        unread:     { title: 'All caught up',          hint: 'No new comments since your last visit.' },
+        all:        { title: 'No comments yet',        hint: 'Click anywhere on the page to pin a comment.' },
+        unresolved: { title: 'No open comments',       hint: 'All comments have been resolved.' },
+        resolved:   { title: 'No resolved comments',   hint: 'Resolved comments will appear here.' },
       };
       var m = msgs[tab] || msgs.all;
       var empty = el('div', { className: 'rhacs-panel__empty' });
@@ -1442,7 +1589,7 @@
           '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
           '<span>You\u2019re commenting as a guest \u2014 no login needed. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to get notifications when someone replies.</span>';
         guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); Panel.open(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
+          Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
         });
         this.el.appendChild(guestBanner);
       }
@@ -1460,13 +1607,15 @@
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
+      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen; });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
 
       var tabs = [
-        { id: 'all',        label: 'All',        count: allPins.length },
-        { id: 'unresolved', label: 'Unresolved', count: unresolvedPins.length },
-        { id: 'resolved',   label: 'Resolved',   count: resolvedPins.length },
+        { id: 'unread',     label: 'Unread',     count: unreadPins.length },
+        { id: 'all',        label: 'All',         count: allPins.length },
+        { id: 'unresolved', label: 'Unresolved',  count: unresolvedPins.length },
+        { id: 'resolved',   label: 'Resolved',    count: resolvedPins.length },
       ];
 
       var tabList = el('div', { className: 'rhacs-panel__tabs', role: 'tablist' });
@@ -1478,7 +1627,8 @@
           badge.appendChild(txt(String(tab.count)));
           btn.appendChild(badge);
         }
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
           Panel.activeTab = tab.id;
           Panel.render();
         });
@@ -1487,7 +1637,8 @@
       this.el.appendChild(tabList);
 
       // ── Visible pins for active tab ───────────────────────────────────────
-      var visible = Panel.activeTab === 'all'        ? allPins
+      var visible = Panel.activeTab === 'unread'     ? unreadPins
+                  : Panel.activeTab === 'all'        ? allPins
                   : Panel.activeTab === 'unresolved' ? unresolvedPins
                   : resolvedPins;
 
@@ -1513,7 +1664,7 @@
         // Show a state badge if the pin has a viewState recorded
         if (pin.meta.viewState) {
           var stateBadge = el('span', { className: 'rhacs-panel__state-badge rhacs-panel__state-badge--' + pin.meta.viewState });
-          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit' : 'View'));
+          stateBadge.appendChild(txt(pin.meta.viewState === 'edit' ? 'Edit mode' : 'Read-only view'));
           itemHdr.appendChild(stateBadge);
         }
         if (isUnread) {
@@ -1602,12 +1753,14 @@
       label.appendChild(txt('Add comment'));
 
       var mainBtn = el('button', { className: 'rhacs-fab__btn', title: 'Toggle comment mode (C)' });
-      append(mainBtn, icon, label, this.badge);
+      append(mainBtn, icon, label);
       mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
 
-      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments' });
+      // Badge lives on the "View all" button so it doesn't conflict with the main button label
+      var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments', style: 'position:relative' });
       panelBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg><span style="font-size:12px;font-weight:500">View all</span>';
-      panelBtn.style.cssText = 'display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
+      panelBtn.style.cssText = 'position:relative;display:flex;align-items:center;gap:5px;width:auto;padding:0 10px;border-radius:16px;';
+      panelBtn.appendChild(this.badge);
       panelBtn.addEventListener('click', function () { Panel.toggle(); });
       this.panelBtn = panelBtn;
 
@@ -1624,7 +1777,7 @@
         }
         if (e.key !== 'c' && e.key !== 'C') return;
         var tag = document.activeElement && document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
         FAB.toggleMode();
       });
     },
@@ -1649,88 +1802,60 @@
       Overlay.setMode(active);
     },
     updateBadge: function () {
-      var count = S.unread;
+      // Only count unread pins from OTHER users — not your own comments.
+      var myLogin = S.user && S.user.login;
+      var count = S.pins.filter(function (p) {
+        if (!p.meta || p.meta.resolved) return false;
+        if (!(new Date(p.createdAt).getTime() > S.lastSeen)) return false;
+        // Exclude the current user's own pins
+        if (myLogin && p.author && p.author.login === myLogin) return false;
+        return true;
+      }).length;
+      S.unread = count;
       if (count > 0) {
         this.badge.textContent = count;
         this.badge.style.display = '';
+        document.title = '(' + count + ') ' + S.origTitle;
       } else {
         this.badge.style.display = 'none';
+        document.title = S.origTitle;
       }
     },
     updateUser: function () {
       if (!this.userEl) return;
-      // Show "View all" only when authenticated (GitHub or guest)
+      // FAB is always visible — visitors can add guest comments, owner manages everything.
+      this.el.style.display = '';
+
+      // "View all" panel button: only for GitHub-authenticated users, not guests
       if (this.panelBtn) {
-        this.panelBtn.style.display = Auth.isAuthed() ? '' : 'none';
+        this.panelBtn.style.display = (S.token && S.user) ? '' : 'none';
       }
       this.userEl.innerHTML = '';
-      if (S.guestMode) {
-        // Guest mode: show guest badge + login and exit options
-        var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user ? S.user.login : 'Guest' });
+      if (S.guestMode && S.user) {
+        // Guest: show their name + exit option
+        var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user.login });
         guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Guest';
-        var ghLoginBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log in with GitHub for full features' });
-        ghLoginBtn.appendChild(txt('Log in'));
-        ghLoginBtn.addEventListener('click', function () {
-          Auth.login().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function (e) { Notify.toast(e.message); });
-        });
         var exitGuestBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm rhacs-guest-exit', title: 'Exit guest mode' });
         exitGuestBtn.appendChild(txt('Exit'));
         exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
-        append(this.userEl, guestBadge, ghLoginBtn, exitGuestBtn);
-      } else if (S.user) {
+        append(this.userEl, guestBadge, exitGuestBtn);
+      } else if (S.token && S.user) {
+        // GitHub-authenticated user: show avatar + logout
         var av = makeAvatar(S.user, 'rhacs-avatar--sm');
         av.title = 'Logged in as ' + S.user.login;
         var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);
-      } else {
-        var loginBtn = el('button', { className: 'rhacs-btn rhacs-btn--dark', title: 'Login with GitHub (Shift+click to use a Personal Access Token)' });
-        loginBtn.appendChild(txt('Log in'));
-        loginBtn.addEventListener('click', function (e) {
-          if (e.shiftKey) {
-            var pat = window.prompt('Paste a GitHub Personal Access Token (needs public_repo scope):\n\nCreate one at: github.com/settings/tokens/new\nSelect scope: public_repo');
-            if (!pat || !pat.trim()) return;
-            S.token = pat.trim();
-            localStorage.setItem(CFG.tokenKey, S.token);
-            Auth.fetchUser().then(function () { FAB.updateUser(); Notify.toast('Logged in via PAT as ' + (S.user ? S.user.login : 'unknown')); }).catch(function () {});
-          } else {
-            Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
-          }
-        });
-        this.userEl.appendChild(loginBtn);
       }
+      // Not authenticated: no user area content shown — clicking "Add comment" triggers the dialog
     },
   };
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   var Notify = {
-    toastEl: null,
-    timer: null,
-    init: function () {
-      this.toastEl = el('div', { className: 'pf-v6-c-alert pf-m-info rhacs-toast', id: 'rhacs-toast', role: 'alert' });
-      this.toastEl.setAttribute('aria-live', 'polite');
-      this.toastEl.style.display = 'none';
-      rhacsMount().appendChild(this.toastEl);
-    },
-    toast: function (msg, ms) {
-      ms = ms || 4000;
-      clearTimeout(this.timer);
-      this.toastEl.innerHTML = '';
-      var iconEl = el('div', { className: 'pf-v6-c-alert__icon' });
-      iconEl.appendChild(txt('ℹ'));
-      var titleEl = el('p', { className: 'pf-v6-c-alert__title' });
-      titleEl.appendChild(txt(msg));
-      var actionEl = el('div', { className: 'pf-v6-c-alert__action' });
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain' });
-      closeBtn.setAttribute('aria-label', 'Close alert');
-      closeBtn.appendChild(txt('×'));
-      closeBtn.addEventListener('click', function () { Notify.toastEl.style.display = 'none'; });
-      actionEl.appendChild(closeBtn);
-      append(this.toastEl, iconEl, titleEl, actionEl);
-      this.toastEl.style.display = 'flex';
-      this.timer = setTimeout(function () { Notify.toastEl.style.display = 'none'; }, ms);
-    },
+    init: function () { /* toast removed */ },
+    toast: function () { /* toasts disabled */ },
     startPolling: function () {
       var poll = function () {
         if (document.visibilityState !== 'visible') return;
@@ -1754,15 +1879,12 @@
         if (document.visibilityState === 'visible') poll();
       });
     },
-    showUnread: function (count) {
-      S.unread += count;
-      document.title = '(' + S.unread + ') ' + S.origTitle;
+    showUnread: function () {
       FAB.updateBadge();
-      Notify.toast(count + ' new comment' + (count > 1 ? 's' : '') + ' added');
     },
     clearUnread: function () {
-      S.unread = 0;
-      document.title = S.origTitle;
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       FAB.updateBadge();
       Overlay.renderPins();
     },
@@ -1799,6 +1921,9 @@
     var active = isPrototypePage();
     var mount = rhacsMount();
     mount.style.display = active ? '' : 'none';
+    // Close the panel and popup on every route/tab navigation
+    Panel.close();
+    Popup.close();
     if (!active) {
       FAB.setMode(false);
       if (Popup.el) Popup.el.style.display = 'none';
@@ -1829,6 +1954,11 @@
 
     // Hide immediately if starting on baseline; show only on prototype pages.
     syncVisibility();
+
+    // Auto-activate comment mode when returning from GitHub OAuth redirect
+    if (devToken && isPrototypePage()) {
+      setTimeout(function () { FAB.setMode(true); }, 300);
+    }
 
     // React Router changes URLs via history.pushState / replaceState — intercept both.
     (function patchHistory(type) {
@@ -1883,7 +2013,12 @@
 
     // If token exists but user profile is missing, fetch it now (e.g. after page reload)
     var userPromise = (S.token && !S.user)
-      ? Auth.fetchUser().then(function () { FAB.updateUser(); })
+      ? Auth.fetchUser()
+          .then(function () { FAB.updateUser(); })
+          .catch(function (e) {
+            console.warn('[rhacs] fetchUser on init failed:', e && e.message);
+            FAB.updateUser(); // still update so the UI reflects logged-out state
+          })
       : Promise.resolve();
 
     userPromise.then(function () {

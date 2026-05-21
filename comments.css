@@ -623,25 +623,39 @@
 
 .rhacs-fab__btn {
   position: relative;
-  width: 48px;
-  height: 48px;
+  height: 40px;
+  padding: 0 16px 0 12px;
   background: #0052cc;
   border: none;
-  border-radius: 50%;
+  border-radius: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 82, 204, 0.45);
-  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  gap: 7px;
+  box-shadow: 0 4px 14px rgba(0, 82, 204, 0.40);
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s, padding 0.2s;
   color: #fff;
-  font-size: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.rhacs-fab__icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rhacs-fab__label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .rhacs-fab__btn:hover {
   background: #0041a3;
-  transform: scale(1.08);
-  box-shadow: 0 6px 18px rgba(0, 82, 204, 0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 82, 204, 0.50);
 }
 
 .rhacs-fab--active .rhacs-fab__btn {

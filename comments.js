@@ -448,9 +448,13 @@
     },
 
     setMode: function (active) {
+      var commentCursor = [
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 16 16'%3E%3Cpath fill='%230052cc' d='M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105'/%3E%3C/svg%3E\") 4 4",
+        "crosshair"
+      ].join(", ");
       if (active) {
         this.overlayEl.classList.add('rhacs-overlay--active');
-        document.body.style.cursor = 'crosshair';
+        document.body.style.cursor = commentCursor;
       } else {
         this.overlayEl.classList.remove('rhacs-overlay--active');
         document.body.style.cursor = '';
@@ -1013,10 +1017,12 @@
       this.badge.appendChild(txt('0'));
 
       var icon = el('span', { className: 'rhacs-fab__icon' });
-      icon.appendChild(txt('💬'));
+      icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
+      var label = el('span', { className: 'rhacs-fab__label' });
+      label.appendChild(txt('Add comment'));
 
       var mainBtn = el('button', { className: 'rhacs-fab__btn', title: 'Toggle comment mode (C)' });
-      append(mainBtn, icon, this.badge);
+      append(mainBtn, icon, label, this.badge);
       mainBtn.addEventListener('click', function () { FAB.toggleMode(); });
 
       var panelBtn = el('button', { className: 'rhacs-fab__panel-btn', title: 'View all comments' });
@@ -1041,6 +1047,8 @@
       S.commentMode = active;
       if (active) this.el.classList.add('rhacs-fab--active');
       else         this.el.classList.remove('rhacs-fab--active');
+      var labelEl = this.el.querySelector('.rhacs-fab__label');
+      if (labelEl) labelEl.textContent = active ? 'Exit comment mode' : 'Add comment';
       Overlay.setMode(active);
       if (active) Notify.toast('Comment mode on — click anywhere to pin a comment. Press C or click again to exit.');
     },

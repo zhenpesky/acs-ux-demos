@@ -349,29 +349,52 @@
           '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
         if (!popup) { reject(new Error('Popup blocked — please allow popups for this site')); return; }
-        var handler = function (e) {
-          if (e.origin !== 'https://zhenpesky.github.io') return;
-          if (!e.data || e.data.type !== 'rhacs_auth_done') return;
-          window.removeEventListener('message', handler);
-          if (e.data.token) {
-            S.token = e.data.token;
+
+        var done = false;
+        function handleToken(token) {
+          if (done) return;
+          done = true;
+          clearInterval(pollTimer);
+          window.removeEventListener('message', msgHandler);
+          localStorage.removeItem('rhacs_oauth_result');
+          if (token) {
+            S.token = token;
             S.guestMode = false;
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.guestKey);
             Auth.fetchUser()
               .then(function () {
-                resolve(S.user); // resolve FIRST — always continues the chain
+                resolve(S.user);
                 try { FAB.updateUser(); } catch (e) { console.error('[rhacs] FAB.updateUser:', e); }
               })
               .catch(function (err) { reject(err || new Error('Failed to fetch GitHub user')); });
           } else {
             reject(new Error('GitHub login failed'));
           }
+        }
+
+        // Primary: poll localStorage (works even when postMessage is blocked)
+        localStorage.removeItem('rhacs_oauth_result');
+        var pollTimer = setInterval(function () {
+          try {
+            var raw = localStorage.getItem('rhacs_oauth_result');
+            if (!raw) return;
+            var data = JSON.parse(raw);
+            if (data && Date.now() - data.ts < 60000) handleToken(data.token);
+          } catch (e) {}
+        }, 300);
+
+        // Secondary: postMessage (instant when it works)
+        var msgHandler = function (e) {
+          if (e.origin !== 'https://zhenpesky.github.io') return;
+          if (!e.data || e.data.type !== 'rhacs_auth_done') return;
+          handleToken(e.data.token);
         };
-        window.addEventListener('message', handler);
+        window.addEventListener('message', msgHandler);
+
+        // Timeout after 5 minutes
         setTimeout(function () {
-          window.removeEventListener('message', handler);
-          if (!S.token) reject(new Error('Login timed out'));
+          if (!done) { done = true; clearInterval(pollTimer); window.removeEventListener('message', msgHandler); reject(new Error('Login timed out')); }
         }, 300000);
       });
     },

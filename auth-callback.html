@@ -89,11 +89,18 @@
     }
 
     function notifyOpener(token) {
+      // Primary: localStorage signal (reliable across all browsers/configs)
+      try {
+        localStorage.setItem('rhacs_oauth_result', JSON.stringify({ token, ts: Date.now() }));
+      } catch (e) {}
+      // Secondary: postMessage (may be blocked in some browser configs)
       if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(
-          { type: 'rhacs_auth_done', token },
-          'https://zhenpesky.github.io'
-        );
+        try {
+          window.opener.postMessage(
+            { type: 'rhacs_auth_done', token },
+            'https://zhenpesky.github.io'
+          );
+        } catch (e) {}
       }
     }
 

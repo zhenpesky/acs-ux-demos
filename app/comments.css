@@ -678,8 +678,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 0;
   overflow-x: auto;
   scrollbar-width: none;
-  /* Extra right padding so last tab's badge isn't clipped at panel edge */
-  padding-right: 12px;
+}
+/* padding-right on the container doesn't work in overflow-x scroll contexts;
+   put the trailing gap on the last item instead */
+.rhacs-panel__tab:last-child {
+  padding-right: 16px;
 }
 .rhacs-panel__tabs::-webkit-scrollbar { display: none; }
 

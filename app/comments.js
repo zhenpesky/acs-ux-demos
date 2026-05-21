@@ -1312,11 +1312,10 @@
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
       fpTm.appendChild(txt(timeAgo(pin.createdAt)));
       append(fpHdr, fpAv, fpAu, fpTm);
-      if (canDelete) {
+      if (isProtoOwner) {
         var msgKebab = Popup.makeKebab([
-          isProtoOwner ? { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } } : null,
-          { label: 'Delete', danger: true, action: function () { Popup.confirmDelete(pin.id); } }
-        ].filter(Boolean));
+          { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } }
+        ]);
         fpHdr.appendChild(msgKebab);
       }
       var fpBody = el('div', { className: 'rhacs-reply__body' });

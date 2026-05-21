@@ -471,28 +471,45 @@
       S.activePinId = null;
     },
     positionFixed: function (clientX, clientY) {
-      var margin = 12;
-      var vw = window.innerWidth;
-      var vh = window.innerHeight;
-      // Render off-screen first so we can measure the real dimensions
-      this.el.style.visibility = 'hidden';
-      this.el.style.left = '0px';
-      this.el.style.top  = '0px';
-      this.el.style.display = 'block';
-      var pw = this.el.offsetWidth  || 320;
-      var ph = this.el.offsetHeight || 220;
-      // Try right of the pin first, fall back to left
-      var left = clientX + margin;
-      if (left + pw > vw - margin) left = clientX - pw - margin;
-      // Try below the pin first, fall back to above
-      var top = clientY;
-      if (top + ph > vh - margin) top = vh - ph - margin;
-      // Hard-clamp so it never exits the viewport
-      left = Math.min(Math.max(margin, left), vw - pw - margin);
-      top  = Math.min(Math.max(margin, top),  vh - ph - margin);
-      this.el.style.left = left + 'px';
-      this.el.style.top  = top  + 'px';
-      this.el.style.visibility = '';
+      var popupEl = this.el;
+      popupEl.style.visibility = 'hidden';
+      popupEl.style.left = '0px';
+      popupEl.style.top  = '0px';
+      popupEl.style.display = 'block';
+      // Virtual anchor at the click point so Floating UI can compute placement
+      var anchor = {
+        getBoundingClientRect: function () {
+          return { width: 0, height: 0, x: clientX, y: clientY,
+                   top: clientY, left: clientX, right: clientX, bottom: clientY };
+        }
+      };
+      var fui = window.FloatingUIDOM;
+      if (fui) {
+        fui.computePosition(anchor, popupEl, {
+          placement: 'right-start',
+          strategy:  'fixed',
+          middleware: [
+            fui.offset(8),
+            fui.flip({ padding: 12 }),
+            fui.shift({ padding: 12 })
+          ]
+        }).then(function (pos) {
+          popupEl.style.left = pos.x + 'px';
+          popupEl.style.top  = pos.y + 'px';
+          popupEl.style.visibility = '';
+        });
+      } else {
+        // Fallback if CDN hasn't loaded yet
+        var margin = 12, vw = window.innerWidth, vh = window.innerHeight;
+        var pw = popupEl.offsetWidth || 320, ph = popupEl.offsetHeight || 220;
+        var left = clientX + margin;
+        if (left + pw > vw - margin) left = clientX - pw - margin;
+        var top = clientY;
+        if (top + ph > vh - margin) top = vh - ph - margin;
+        popupEl.style.left = Math.min(Math.max(margin, left), vw - pw - margin) + 'px';
+        popupEl.style.top  = Math.min(Math.max(margin, top),  vh - ph - margin) + 'px';
+        popupEl.style.visibility = '';
+      }
     },
     showNewForm: function (x, y, clientX, clientY) {
       S.activePinId = null;
@@ -696,7 +713,7 @@
     renderReply: function (reply, pinId) {
       var wrap = el('div', { className: 'rhacs-reply', 'data-reply-id': reply.id });
       var hdr  = el('div', { className: 'rhacs-reply__header' });
-      var av   = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
+      var av   = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: reply.author.avatarUrl, alt: reply.author.login });
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
@@ -785,7 +802,7 @@
         var item = el('div', { className: cls });
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
-        var av  = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
+        var av  = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: pin.author.avatarUrl, alt: pin.author.login });
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.login));
         var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
@@ -885,7 +902,7 @@
       if (!this.userEl) return;
       this.userEl.innerHTML = '';
       if (S.user) {
-        var av = el('img', { className: 'pf-v6-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
+        var av = el('img', { className: 'pf-v5-c-avatar rhacs-avatar rhacs-avatar--sm', src: S.user.avatarUrl, alt: S.user.login, title: 'Logged in as ' + S.user.login });
         var logoutBtn = el('button', { className: 'pf-v6-c-button pf-m-link pf-m-small', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
@@ -976,7 +993,16 @@
   };
 
   // ── Init ──────────────────────────────────────────────────────────────────────
+  function loadFloatingUI(cb) {
+    if (window.FloatingUIDOM) { cb(); return; }
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@floating-ui/dom@1/dist/floating-ui.dom.umd.min.js';
+    s.onload = cb;
+    document.head.appendChild(s);
+  }
+
   function init() {
+    loadFloatingUI(function () {}); // load eagerly so it's ready before first click
     // Dev convenience: ?rhacs_token=xxx auto-injects token and removes param from URL
     var devToken = new URLSearchParams(window.location.search).get('rhacs_token');
     if (devToken) {

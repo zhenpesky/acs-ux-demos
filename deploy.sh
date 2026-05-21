@@ -33,10 +33,11 @@ cp -r "$BUILD_DIR"/. "$DEPLOY_DIR/"
 
 if [ "$ENABLE_COMMENTS" = "true" ]; then
   echo "→ Injecting commenting system into prototype app"
+  CB="$(date +%s)"
   cp "$REPO_DIR/comments.js"  "$DEPLOY_DIR/comments.js"
   cp "$REPO_DIR/comments.css" "$DEPLOY_DIR/comments.css"
-  sed -i '' 's|</body>|<link rel="stylesheet" href="/rhacs-ux-prototypes/app/comments.css"><script src="/rhacs-ux-prototypes/app/comments.js"></script></body>|' "$DEPLOY_DIR/index.html"
-  echo "  comments.js + comments.css injected."
+  sed -i '' "s|</body>|<link rel=\"stylesheet\" href=\"/rhacs-ux-prototypes/app/comments.css?v=${CB}\"><script src=\"/rhacs-ux-prototypes/app/comments.js?v=${CB}\"></script></body>|" "$DEPLOY_DIR/index.html"
+  echo "  comments.js + comments.css injected (cache-buster: ${CB})."
 else
   echo "→ Commenting system parked (ENABLE_COMMENTS=false) — skipping injection"
 fi

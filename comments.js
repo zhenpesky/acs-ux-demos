@@ -1941,59 +1941,9 @@
       append(this.sortWrap, this.sortBtn, this.sortDropdown);
       append(this.filterRow, this.filterChips, this.sortWrap);
 
-      this.bulkToolbar = el('div', { className: 'rhacs-panel__bulk-toolbar' });
-      this.bulkToolbar.style.display = 'none';
-
-      this.bulkToolbarLeft = el('div', { className: 'rhacs-panel__bulk-toolbar__left' });
-      this.bulkCheckbox = el('input', {
-        type: 'checkbox',
-        className: 'rhacs-panel__bulk-checkbox',
-      });
-      this.bulkCheckbox.setAttribute('aria-label', 'Select all visible comments');
-      this.bulkLabel = el('span', { className: 'rhacs-panel__bulk-label' });
-      this.bulkCheckbox.addEventListener('click', function (e) {
-        e.preventDefault();
-        var visible = self._getVisiblePins();
-        var selectedVisible = visible.filter(function (p) { return self.selected.has(p.id); });
-        var allSelected = visible.length > 0 && selectedVisible.length === visible.length;
-        var someSelected = selectedVisible.length > 0;
-        if (allSelected || someSelected) {
-          self.selected.clear();
-        } else {
-          visible.forEach(function (p) { self.selected.add(p.id); });
-        }
-        self.render();
-      });
-      append(this.bulkToolbarLeft, this.bulkCheckbox, this.bulkLabel);
-
-      this.bulkDivider = el('span', { className: 'rhacs-panel__bulk-divider' });
-      this.bulkDivider.appendChild(txt('|'));
-
-      this.bulkToolbarRight = el('div', { className: 'rhacs-panel__bulk-toolbar__right' });
-      this.bulkResolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
-      this.bulkResolveBtn.appendChild(txt('Resolve'));
-      this.bulkUnresolveBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
-      this.bulkUnresolveBtn.appendChild(txt('Unresolve'));
-      this.bulkDeleteBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--danger', type: 'button' });
-      this.bulkDeleteBtn.appendChild(txt('Delete'));
-      this.bulkReadBtn = el('button', { className: 'rhacs-panel__bulk-btn', type: 'button' });
-      this.bulkReadBtn.appendChild(txt('Mark as read'));
-      this.bulkCancelBtn = el('button', { className: 'rhacs-panel__bulk-btn rhacs-panel__bulk-btn--plain', type: 'button' });
-      this.bulkCancelBtn.appendChild(txt('Cancel'));
-      this.bulkResolveBtn.addEventListener('click', function () { self._bulkResolve(true); });
-      this.bulkUnresolveBtn.addEventListener('click', function () { self._bulkResolve(false); });
-      this.bulkDeleteBtn.addEventListener('click', function () { self._bulkDelete(); });
-      this.bulkReadBtn.addEventListener('click', function () { self._bulkMarkRead(); });
-      this.bulkCancelBtn.addEventListener('click', function () {
-        self.selected.clear();
-        self.render();
-      });
-      append(this.bulkToolbarRight, this.bulkResolveBtn, this.bulkUnresolveBtn, this.bulkDeleteBtn, this.bulkReadBtn, this.bulkCancelBtn);
-      append(this.bulkToolbar, this.bulkToolbarLeft, this.bulkDivider, this.bulkToolbarRight);
-
       this.listEl = el('div', { className: 'rhacs-panel__list' });
 
-      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.bulkToolbar, this.listEl);
+      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.listEl);
       rhacsMount().appendChild(this.el);
     },
     _makeFilterChip: function (state, label) {
@@ -2110,33 +2060,79 @@
       }
       return this._applySort(pins);
     },
-    _updateSelectionUI: function (visible) {
+    _updateSelectionUI: function () {
+      this.el.classList.toggle('rhacs-panel--selection-mode', Panel.selected.size > 0);
+    },
+    _buildListHeader: function (visible) {
+      var self = this;
+      var header = el('div', { className: 'rhacs-panel__list-header' });
+
+      var checkbox = el('input', {
+        type: 'checkbox',
+        className: 'rhacs-panel__list-header__checkbox',
+      });
+      checkbox.setAttribute('aria-label', 'Select all visible comments');
+
       var selectedVisible = visible.filter(function (p) { return Panel.selected.has(p.id); });
-      var inSelectionMode = Panel.selected.size > 0;
-      this.el.classList.toggle('rhacs-panel--selection-mode', inSelectionMode);
-      this.filterRow.style.display = inSelectionMode ? 'none' : '';
-      this.bulkToolbar.style.display = inSelectionMode ? 'flex' : 'none';
-      if (inSelectionMode) {
-        this.bulkCheckbox.checked = visible.length > 0 && selectedVisible.length === visible.length;
-        this.bulkCheckbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
-        this.bulkLabel.textContent = Panel.selected.size + ' selected';
-      } else {
-        this.bulkCheckbox.checked = false;
-        this.bulkCheckbox.indeterminate = false;
+      checkbox.checked = visible.length > 0 && selectedVisible.length === visible.length;
+      checkbox.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+      checkbox.addEventListener('click', function (e) {
+        e.preventDefault();
+        var vis = self._getVisiblePins();
+        var selVis = vis.filter(function (p) { return self.selected.has(p.id); });
+        var allSel = vis.length > 0 && selVis.length === vis.length;
+        if (allSel) {
+          self.selected.clear();
+        } else {
+          vis.forEach(function (p) { self.selected.add(p.id); });
+        }
+        self.render();
+      });
+
+      var count = el('span', { className: 'rhacs-panel__list-header__count' });
+      if (Panel.selected.size > 0) {
+        count.textContent = Panel.selected.size + ' selected';
       }
 
-      var hasUnresolved = false;
-      var hasResolved = false;
-      Panel.selected.forEach(function (id) {
-        var pin = S.pins.find(function (p) { return p.id === id; });
-        if (!pin) return;
-        if (pin.meta.resolved) hasResolved = true;
-        else hasUnresolved = true;
-      });
-      var isOwner = Auth.isPrototypeOwner();
-      this.bulkResolveBtn.style.display = (isOwner && hasUnresolved) ? '' : 'none';
-      this.bulkUnresolveBtn.style.display = (isOwner && hasResolved) ? '' : 'none';
-      this.bulkDeleteBtn.style.display = isOwner ? '' : 'none';
+      append(header, checkbox, count);
+
+      if (Panel.selected.size > 0) {
+        var hasUnresolved = false;
+        var hasResolved = false;
+        var hasUnread = false;
+        Panel.selected.forEach(function (id) {
+          var pin = S.pins.find(function (p) { return p.id === id; });
+          if (!pin) return;
+          if (pin.meta.resolved) hasResolved = true;
+          else hasUnresolved = true;
+          if (new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id)) {
+            hasUnread = true;
+          }
+        });
+
+        var menuItems = [];
+        var isOwner = Auth.isPrototypeOwner();
+        if (isOwner && hasUnresolved) {
+          menuItems.push({ label: 'Resolve selected', action: function () { self._bulkResolve(true); } });
+        }
+        if (isOwner && hasResolved) {
+          menuItems.push({ label: 'Unresolve selected', action: function () { self._bulkResolve(false); } });
+        }
+        if (isOwner) {
+          menuItems.push({ label: 'Delete selected', danger: true, action: function () { self._bulkDelete(); } });
+        }
+        if (hasUnread) {
+          menuItems.push({ label: 'Mark as read', action: function () { self._bulkMarkRead(); } });
+        } else {
+          menuItems.push({ label: 'Mark as unread', action: function () { self._bulkMarkUnread(); } });
+        }
+
+        var kebab = Popup.makeKebab(menuItems);
+        kebab.className = 'rhacs-panel__list-header__kebab rhacs-kebab';
+        header.appendChild(kebab);
+      }
+
+      return header;
     },
     _bulkMarkRead: function () {
       var maxTs = S.lastSeen;
@@ -2155,6 +2151,26 @@
       Overlay.renderPins();
       Panel.render();
       FAB.updateBadge();
+    },
+    _bulkMarkUnread: function () {
+      var oldestTs = Infinity;
+      Panel.selected.forEach(function (id) {
+        S.seenIds.delete(id);
+        var pin = S.pins.find(function (p) { return p.id === id; });
+        if (!pin) return;
+        var ts = new Date(pin.createdAt).getTime();
+        if (ts < oldestTs) oldestTs = ts;
+      });
+      if (oldestTs !== Infinity) {
+        S.lastSeen = Math.min(S.lastSeen, oldestTs - 1);
+      }
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      Panel.selected.clear();
+      Notify.clearUnread();
+      FAB.updateBadge();
+      Overlay.renderPins();
+      Panel.render();
     },
     _bulkResolve: function (resolve) {
       if (!Auth.isPrototypeOwner()) return;
@@ -2359,6 +2375,8 @@
       // ── Visible pins for active tab + search + state filter + sort ─────────
       var visible = this._getVisiblePins();
 
+      this.listEl.appendChild(this._buildListHeader(visible));
+
       if (visible.length === 0) {
         if ((this.searchQuery || '').trim() || this.stateFilter) {
           var noResults = el('div', { className: 'rhacs-panel__empty' });
@@ -2371,7 +2389,7 @@
         } else {
           this.listEl.appendChild(this.renderEmpty(Panel.activeTab));
         }
-        this._updateSelectionUI(visible);
+        this._updateSelectionUI();
         return;
       }
 
@@ -2567,7 +2585,7 @@
 
         Panel.listEl.appendChild(item);
       });
-      this._updateSelectionUI(visible);
+      this._updateSelectionUI();
     },
   };
 

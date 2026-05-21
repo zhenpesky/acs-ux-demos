@@ -2026,18 +2026,15 @@
       }
       this.userEl.innerHTML = '';
       if (S.guestMode && S.user) {
-        // Guest: show their name + exit option
+        // Guest: show label only — no exit button needed
         var guestBadge = el('span', { className: 'rhacs-guest-badge', title: S.user.login });
-        guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Guest';
-        var exitGuestBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm rhacs-guest-exit', title: 'Exit guest mode' });
-        exitGuestBtn.appendChild(txt('Exit'));
-        exitGuestBtn.addEventListener('click', function () { Auth.exitGuest(); loadAndRender(); });
-        append(this.userEl, guestBadge, exitGuestBtn);
+        guestBadge.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg> Commenting as guest';
+        this.userEl.appendChild(guestBadge);
       } else if (S.token && S.user) {
         // GitHub-authenticated user: show avatar + logout
         var av = makeAvatar(S.user, 'rhacs-avatar--sm');
         av.title = 'Logged in as ' + S.user.login;
-        var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--light rhacs-btn--sm', title: 'Log out', onclick: function () { Auth.logout(); } });
+        var logoutBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary', title: 'Log out', onclick: function () { Auth.logout(); } });
         logoutBtn.setAttribute('aria-label', 'Log out');
         logoutBtn.appendChild(txt('Log out'));
         append(this.userEl, av, logoutBtn);

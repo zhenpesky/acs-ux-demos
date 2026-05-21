@@ -1412,6 +1412,7 @@
             replyError.style.display = 'none';
           }
         });
+        var replyActions = el('div', { className: 'rhacs-btn-row' });
         var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
         replyBtn.appendChild(txt('Reply'));
         replyBtn.addEventListener('click', function () {
@@ -1430,7 +1431,15 @@
               replyBtn.textContent = 'Reply';
             });
         });
-        append(replyForm, replyArea, replyError, replyBtn);
+        var replyCancelBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary rhacs-btn--sm' });
+        replyCancelBtn.appendChild(txt('Cancel'));
+        replyCancelBtn.addEventListener('click', function () {
+          replyArea.value = '';
+          replyArea.classList.remove('rhacs-popup__textarea--error');
+          replyError.style.display = 'none';
+        });
+        append(replyActions, replyBtn, replyCancelBtn);
+        append(replyForm, replyArea, replyError, replyActions);
       }
 
       append(this.el, header, firstPost, reactionsEl, repliesEl, replyForm);

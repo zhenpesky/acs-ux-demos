@@ -488,8 +488,8 @@
       localStorage.removeItem(CFG.tokenKey);
       localStorage.removeItem(CFG.userKey);
       localStorage.removeItem(CFG.guestKey);
+      if (S.commentMode) FAB.setMode(false);
       FAB.updateUser();
-      Notify.toast('Logged out');
     },
 
     // ── Guest mode ────────────────────────────────────────────────────────────
@@ -638,8 +638,8 @@
       S.guestMode = false;
       S.user = null;
       localStorage.removeItem(CFG.guestKey);
+      if (S.commentMode) FAB.setMode(false);
       FAB.updateUser();
-      Notify.toast('Guest session ended');
     },
 
     // ── Guest localStorage CRUD ───────────────────────────────────────────────

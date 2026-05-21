@@ -1536,7 +1536,8 @@
           badge.appendChild(txt(String(tab.count)));
           btn.appendChild(badge);
         }
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
           Panel.activeTab = tab.id;
           Panel.render();
         });

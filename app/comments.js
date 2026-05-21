@@ -1457,18 +1457,19 @@
       page.style.marginRight = open ? '300px' : '';
     },
     open: function () {
-      S.lastSeen = Date.now();
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      this.render();
+      this.render(); // render BEFORE updating lastSeen so unread yellows show
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
       Panel._pushPage(true);
-      Notify.clearUnread();
     },
     close: function () {
+      // Mark everything as seen when the user closes the panel
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       this.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
+      Notify.clearUnread();
     },
     toggle: function () {
       if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();

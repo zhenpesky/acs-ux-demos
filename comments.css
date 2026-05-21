@@ -754,8 +754,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  box-shadow: 0 4px 14px rgba(0, 82, 204, 0.40);
-  transition: background 0.15s, transform 0.12s, box-shadow 0.15s, padding 0.2s;
+  transition: background 0.15s, transform 0.12s, padding 0.2s;
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -777,12 +776,10 @@
 .rhacs-fab__btn:hover {
   background: #0041a3;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 82, 204, 0.50);
 }
 
 .rhacs-fab--active .rhacs-fab__btn {
   background: #cf222e;
-  box-shadow: 0 4px 14px rgba(207, 34, 46, 0.45);
 }
 
 .rhacs-fab--active .rhacs-fab__btn:hover {

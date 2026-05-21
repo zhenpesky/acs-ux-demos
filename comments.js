@@ -1079,15 +1079,23 @@
     return v !== null && v !== 'baseline';
   }
 
-  // Show or hide the entire commenting system depending on the current route.
+  // Show or hide ALL commenting UI depending on whether we're on a prototype page.
   function syncVisibility() {
     var active = isPrototypePage();
-    if (FAB.el) FAB.el.style.display = active ? '' : 'none';
-    if (!active) {
-      Popup.close();
-      Panel.close();
-      FAB.setMode(false);
-    }
+    var hide = 'none';
+    // Root overlay (pins live inside here)
+    if (Overlay.root)   Overlay.root.style.visibility = active ? '' : 'hidden';
+    if (Overlay.root)   Overlay.root.style.pointerEvents = active ? '' : 'none';
+    // FAB
+    if (FAB.el)         FAB.el.style.display = active ? '' : hide;
+    // Popup — keep its internal display state when showing, always hide when not on prototype
+    if (!active && Popup.el)  Popup.el.style.display = hide;
+    // Panel
+    if (!active && Panel.el) { Panel.el.classList.remove('rhacs-panel--open'); Panel.el.style.display = hide; }
+    if (active  && Panel.el)   Panel.el.style.display = '';
+    // Toast
+    if (!active && Notify.toastEl) Notify.toastEl.style.display = hide;
+    if (!active) FAB.setMode(false);
   }
 
   function init() {

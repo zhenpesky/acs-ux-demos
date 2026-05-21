@@ -524,7 +524,7 @@
           FAB.setMode(false);
           return loadAndRender();
         })
-        .then(function () { Notify.toast('Comment pinned!'); })
+        .then(function () {})
         .catch(function (e) { Notify.toast('Failed: ' + e.message); });
     },
     showThread: function (pinId) {

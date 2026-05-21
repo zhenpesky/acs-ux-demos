@@ -1034,16 +1034,27 @@
       time.appendChild(txt(timeAgo(pin.createdAt)));
       append(headerLeft, avatar, author, time);
 
-      // Conversation kebab: Delete (owner), Resolve/Unresolve, Mark as read
+      // Conversation kebab: Delete (owner), Resolve/Unresolve, Mark as read/unread
+      var pinTs   = new Date(pin.createdAt).getTime();
+      var isUnread = pinTs > S.lastSeen;
       var convKebab = Popup.makeKebab([
         isOwner ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
         { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } },
-        { label: 'Mark as read', action: function () {
-          S.lastSeen = Math.max(S.lastSeen, new Date(pin.createdAt).getTime());
-          localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-          Overlay.renderPins();
-          Notify.clearUnread();
-        }}
+        isUnread
+          ? { label: 'Mark as read', action: function () {
+              S.lastSeen = Math.max(S.lastSeen, pinTs);
+              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+              Overlay.renderPins();
+              Notify.clearUnread();
+            }}
+          : { label: 'Mark as unread', action: function () {
+              // Set lastSeen to just before this pin so it becomes unread again
+              S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
+              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+              S.unread = Math.max(1, S.unread);
+              FAB.updateBadge();
+              Overlay.renderPins();
+            }}
       ].filter(Boolean));
 
       var closeBtn = el('button', { className: 'rhacs-btn rhacs-btn--plain rhacs-popup__close', onclick: function () { Popup.close(); } });

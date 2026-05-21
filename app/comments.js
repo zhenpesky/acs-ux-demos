@@ -22,7 +22,11 @@
     pollMs:      30000,
   };
 
-  var PAGE_KEY  = 'page:' + window.location.pathname;
+  // PAGE_KEY must be evaluated at call time (SPA route changes after load)
+  function getPageKey() {
+    return 'page:' + window.location.pathname;
+  }
+  var PAGE_KEY  = getPageKey(); // legacy alias — still used for GitHub Discussion title lookup
   var GH_GQL    = 'https://api.github.com/graphql';
 
   // ── State ────────────────────────────────────────────────────────────────────
@@ -227,7 +231,7 @@
       { o: CFG.owner, r: CFG.repo, c: S.categoryId }
     ).then(function (d) {
       if (!d || !d.repository) return null;
-      var match = d.repository.discussions.nodes.find(function (n) { return n.title === PAGE_KEY; });
+      var match = d.repository.discussions.nodes.find(function (n) { return n.title === getPageKey(); });
       return match ? match.id : null;
     }).catch(function () { return null; });
   }
@@ -237,7 +241,7 @@
       if (!S.repoId || !S.categoryId) throw new Error('Could not load repo metadata');
       return ghReq(
         'mutation($r:ID!,$c:ID!,$t:String!,$b:String!){ createDiscussion(input:{repositoryId:$r,categoryId:$c,title:$t,body:$b}){ discussion{ id } } }',
-        { r: S.repoId, c: S.categoryId, t: PAGE_KEY, b: 'Auto-created for ' + window.location.href },
+        { r: S.repoId, c: S.categoryId, t: getPageKey(), b: 'Auto-created for ' + window.location.href },
         true
       ).then(function (d) { return d.createDiscussion.discussion.id; });
     });
@@ -524,7 +528,12 @@
 
     // ── Guest localStorage CRUD ───────────────────────────────────────────────
     guestPinsKey: function () {
-      return CFG.guestPinsPrefix + window.location.pathname;
+      // Scope guest pins to the specific SPA route (pathname) so comments
+      // on System Config don't leak into Saved Filters or other prototype routes.
+      var path = window.location.pathname;
+      // Also include the prototype version param so v1/v2 are separate if needed
+      var version = new URLSearchParams(window.location.search).get('prototype') || '';
+      return CFG.guestPinsPrefix + path + (version ? '?prototype=' + version : '');
     },
     loadGuestPins: function () {
       try { return JSON.parse(localStorage.getItem(Auth.guestPinsKey()) || '[]'); } catch (e) { return []; }

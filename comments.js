@@ -1094,9 +1094,15 @@
       var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
       replyBtn.appendChild(txt('Reply'));
       replyBtn.addEventListener('click', function () {
+        if (!replyArea.value.trim()) return;
         replyBtn.disabled = true;
         replyBtn.textContent = 'Replying…';
-        Popup.submitReply(pinId, replyArea.value, replyArea);
+        Popup.submitReply(pinId, replyArea.value, replyArea)
+          .catch(function () {})
+          .finally(function () {
+            replyBtn.disabled = false;
+            replyBtn.textContent = 'Reply';
+          });
       });
       var replyForm = el('div', { className: 'rhacs-reply-form' });
       append(replyForm, replyArea, replyBtn);
@@ -1295,14 +1301,20 @@
     },
     submitReply: function (pinId, text, textarea) {
       text = text.trim();
-      if (!text) return;
-      Auth.requireLogin()
-        .then(function () { return addReply(pinId, text); })
+      if (!text) return Promise.resolve();
+      return Auth.requireAuth()
         .then(function () {
-          if (textarea) textarea.value = '';
-          return loadAndRender();
+          if (S.guestMode) {
+            Notify.toast('Log in with GitHub to reply to threads.');
+            return;
+          }
+          return addReply(pinId, text)
+            .then(function () {
+              if (textarea) textarea.value = '';
+              return loadAndRender();
+            })
+            .then(function () { Popup.showThread(pinId); });
         })
-        .then(function () { Popup.showThread(pinId); })
         .catch(function (e) { Notify.toast(e.message); });
     },
   };
@@ -1593,7 +1605,7 @@
             localStorage.setItem(CFG.tokenKey, S.token);
             Auth.fetchUser().then(function () { FAB.updateUser(); Notify.toast('Logged in via PAT as ' + (S.user ? S.user.login : 'unknown')); }).catch(function () {});
           } else {
-            Auth.login().then(function () { FAB.updateUser(); }).catch(function (e) { Notify.toast(e.message); });
+            Auth.showAuthDialog().then(function () { FAB.updateUser(); loadAndRender(); }).catch(function () {});
           }
         });
         this.userEl.appendChild(loginBtn);

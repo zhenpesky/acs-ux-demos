@@ -1707,12 +1707,19 @@
       Overlay.setMode(active);
     },
     updateBadge: function () {
-      var count = S.unread;
+      // Compute live from pins so the badge is always accurate on page load
+      // and after any refresh — not just from polling increments.
+      var count = S.pins.filter(function (p) {
+        return p.meta && !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen;
+      }).length;
+      S.unread = count;
       if (count > 0) {
         this.badge.textContent = count;
         this.badge.style.display = '';
+        document.title = '(' + count + ') ' + S.origTitle;
       } else {
         this.badge.style.display = 'none';
+        document.title = S.origTitle;
       }
     },
     updateUser: function () {
@@ -1773,14 +1780,12 @@
         if (document.visibilityState === 'visible') poll();
       });
     },
-    showUnread: function (count) {
-      S.unread += count;
-      document.title = '(' + S.unread + ') ' + S.origTitle;
+    showUnread: function () {
       FAB.updateBadge();
     },
     clearUnread: function () {
-      S.unread = 0;
-      document.title = S.origTitle;
+      S.lastSeen = Date.now();
+      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
       FAB.updateBadge();
       Overlay.renderPins();
     },

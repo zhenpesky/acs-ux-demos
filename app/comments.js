@@ -1733,9 +1733,9 @@
       // FAB is always visible — visitors can add guest comments, owner manages everything.
       this.el.style.display = '';
 
-      // "View all" panel button: only when authenticated (owner or guest)
+      // "View all" panel button: only for GitHub-authenticated users, not guests
       if (this.panelBtn) {
-        this.panelBtn.style.display = Auth.isAuthed() ? '' : 'none';
+        this.panelBtn.style.display = (S.token && S.user) ? '' : 'none';
       }
       this.userEl.innerHTML = '';
       if (S.guestMode && S.user) {

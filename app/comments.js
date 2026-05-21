@@ -836,33 +836,27 @@
   }
 
   function loadAndRender() {
-    // Guest-only: skip GitHub API entirely
-    if (S.guestMode && !S.token) {
-      S.pins = Auth.loadGuestPins().map(function (p) {
-        if (!p.meta) p.meta = parseMeta(p.body);
-        return p;
-      });
-      Overlay.renderPins();
-      FAB.updateBadge();
+    // Comments are only visible to GitHub-authenticated users.
+    // Guests and unauthenticated visitors can add comments but cannot see pins.
+    if (!S.token) {
+      S.pins = [];
+      if (Overlay.pinLayerEl) Overlay.renderPins();
+      if (FAB.badge) FAB.updateBadge();
       return Promise.resolve();
     }
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = Auth.loadGuestPins(); Overlay.renderPins(); return; }
+        if (!id) { S.pins = []; Overlay.renderPins(); return; }
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
-          // Guest comments are now posted to GitHub Discussions via the worker,
-          // so they appear in `comments` already. No localStorage merge needed
-          // (that would create duplicates). localStorage is a local-only cache
-          // for the guest's own session only.
           S.pins = parseComments(comments);
           Overlay.renderPins();
           FAB.updateBadge();
         });
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
-        S.pins = Auth.loadGuestPins();
+        S.pins = [];
         Overlay.renderPins();
       });
   }
@@ -1271,13 +1265,11 @@
       Auth.requireAuth()
         .then(function () {
           if (S.guestMode) {
+            // Guests can submit feedback but cannot see pins — post silently and close.
             Auth.addGuestPin(text, x, y, num);
             Popup.close();
             FAB.setMode(false);
-            S.pins = loadAllPins();
-            Overlay.renderPins();
-            Panel.render();
-            FAB.updateBadge();
+            // S.pins stays empty; guests never see the overlay.
           } else {
             // Optimistic: show pin immediately, sync in background
             var body = buildBody(x, y, num, text);

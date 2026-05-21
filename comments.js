@@ -37,6 +37,7 @@
     unread:       0,
     origTitle:    document.title,
     pollTimer:    null,
+    pageViewState: 'view', // 'view' | 'edit' — detected from DOM
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
@@ -119,7 +120,8 @@
   }
 
   function buildBody(x, y, num, text) {
-    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num }) + ' -->\n' + text;
+    var vs = detectViewState();
+    return '<!-- RHACS_PIN ' + JSON.stringify({ x: x, y: y, resolved: false, pinNumber: num, viewState: vs }) + '-->\n' + text;
   }
 
   function setMeta(body, updates) {
@@ -404,9 +406,13 @@
     },
 
     renderPins: function () {
+      S.pageViewState = detectViewState();
       this.overlayEl.querySelectorAll('.rhacs-pin').forEach(function (p) { p.remove(); });
       S.pins.forEach(function (pin) {
         if (!pin.meta) return;
+        // Only show pins that match the current view state.
+        // Pins with no viewState (created before this feature) are shown in both states.
+        if (pin.meta.viewState && pin.meta.viewState !== S.pageViewState) return;
         var vp = pinToViewport(pin.meta);
         var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen;
         var isResolved = pin.meta.resolved;
@@ -730,7 +736,12 @@
       append(hdr, title, hdrActions);
       this.el.appendChild(hdr);
 
-      var visible = S.pins.filter(function (p) { return p.meta && (Panel.showResolved || !p.meta.resolved); });
+      var vs = detectViewState();
+      var visible = S.pins.filter(function (p) {
+        if (!p.meta) return false;
+        if (p.meta.viewState && p.meta.viewState !== vs) return false;
+        return Panel.showResolved || !p.meta.resolved;
+      });
       if (visible.length === 0) {
         var empty = el('div', { className: 'rhacs-panel__empty' });
         empty.appendChild(txt('No comments yet. Click the comment button to add one.'));
@@ -993,6 +1004,28 @@
     }).then(function () {
       Notify.startPolling();
     });
+
+    // Watch for DOM changes (e.g. clicking Edit/Cancel) and re-render pins
+    // so only the pins for the current view state are shown.
+    setTimeout(function () {
+      var watchTarget = document.querySelector('.pf-v6-c-page__main, .pf-c-page__main, main') || document.body;
+      var observer = new MutationObserver(function () {
+        var newState = detectViewState();
+        if (newState !== S.pageViewState) {
+          S.pageViewState = newState;
+          Overlay.renderPins();
+          if (Panel.el && Panel.el.classList.contains('rhacs-panel--open')) Panel.render();
+          // Close popup if its pin is no longer visible in the new state
+          if (S.activePinId) {
+            var activePin = S.pins.find(function (p) { return p.id === S.activePinId; });
+            if (activePin && activePin.meta && activePin.meta.viewState && activePin.meta.viewState !== newState) {
+              Popup.close();
+            }
+          }
+        }
+      });
+      observer.observe(watchTarget, { childList: true, subtree: true });
+    }, 3000); // delay until React is stable
   }
 
   if (document.readyState === 'loading') {

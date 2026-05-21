@@ -705,6 +705,15 @@
       this.root = el('div', { id: 'rhacs-comment-root' });
       this.overlayEl = el('div', { className: 'rhacs-overlay' });
       this.overlayEl.addEventListener('click', Overlay.handleClick);
+
+      // Forward wheel events through the overlay so mouse scroll works in comment mode
+      this.overlayEl.addEventListener('wheel', function (e) {
+        var scroller = findScrollContainer();
+        var target   = scroller || document.documentElement;
+        target.scrollTop  += e.deltaY;
+        target.scrollLeft += e.deltaX;
+      }, { passive: true });
+
       this.root.appendChild(this.overlayEl);
       rhacsMount().appendChild(this.root);
 

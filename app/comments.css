@@ -70,6 +70,8 @@
 
 #rhacs-comment-root .rhacs-overlay--active {
   pointer-events: all;
+  /* touch-action: pan-y allows vertical scroll gestures to pass through on touch devices */
+  touch-action: pan-y pan-x;
 }
 
 /* ── Pins ────────────────────────────────────────────────────────────────── */

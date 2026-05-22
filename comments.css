@@ -1173,7 +1173,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-panel__item--unread:hover { background: #fef9c3; }
 
-.rhacs-panel__item--resolved { opacity: 0.55; }
+/* resolved panel items keep full opacity — the resolved badge is sufficient indicator */
 
 .rhacs-panel__item-header {
   display: flex;

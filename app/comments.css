@@ -113,31 +113,31 @@ body.rhacs-comment-mode-active .rhacs-pin {
   user-select: none;
 }
 
-#rhacs-comment-root .rhacs-pin:hover {
+#rhacs-pin-layer .rhacs-pin:hover {
   transform: translate(-50%, -50%) scale(1.25);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
-#rhacs-comment-root .rhacs-pin--read {
+#rhacs-pin-layer .rhacs-pin--read {
   opacity: 0.55;
 }
 
-#rhacs-comment-root .rhacs-pin--read:hover {
+#rhacs-pin-layer .rhacs-pin--read:hover {
   opacity: 1;
 }
 
-#rhacs-comment-root .rhacs-pin--resolved {
-  background: #2d9e4e;
-  border-color: #c3e6cd;
-  opacity: 0.82;
+/* Resolved: green background, low opacity so it feels "done", white ✓ stands out */
+#rhacs-pin-layer .rhacs-pin--resolved {
+  background: rgba(45, 158, 78, 0.72);
+  border-color: #b7e4c7;
 }
 
-#rhacs-comment-root .rhacs-pin--resolved:hover {
-  opacity: 1;
+#rhacs-pin-layer .rhacs-pin--resolved:hover {
+  background: rgba(45, 158, 78, 0.95);
 }
 
 /* Checkmark shown inside resolved pin instead of initials */
-#rhacs-comment-root .rhacs-pin__checkmark {
+#rhacs-pin-layer .rhacs-pin__checkmark {
   font-size: 14px;
   font-weight: 700;
   color: #fff;
@@ -150,7 +150,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   70%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
-#rhacs-comment-root .rhacs-pin--enter {
+#rhacs-pin-layer .rhacs-pin--enter {
   animation: rhacs-pin-enter 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
@@ -159,13 +159,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
   to   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
 }
-#rhacs-comment-root .rhacs-pin--exit {
+#rhacs-pin-layer .rhacs-pin--exit {
   animation: rhacs-pin-exit 0.18s ease forwards;
   pointer-events: none;
 }
 
 /* Pulsing unread indicator */
-#rhacs-comment-root .rhacs-pin--unread::after {
+#rhacs-pin-layer .rhacs-pin--unread::after {
   content: '';
   position: absolute;
   top: -4px;

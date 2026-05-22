@@ -45,6 +45,7 @@
     unread:       0,
     origTitle:    document.title,
     pollTimer:    null,
+    showResolved: false,
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
@@ -1055,13 +1056,22 @@
         var vp = pinToViewport(pin.meta);
         var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
         var isResolved = pin.meta.resolved;
+        // Resolved pins are hidden by default; only shown when the panel toggle is on
+        if (isResolved && !S.showResolved) return;
         var isRead = !isUnread && !isResolved;
         var cls = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '') +
           (isRead     ? ' rhacs-pin--read'     : '');
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
-        pinEl.appendChild(txt(pinInitials(pin.author)));
+        if (isResolved) {
+          // Replace initials with a checkmark badge
+          var checkSpan = el('span', { className: 'rhacs-pin__checkmark' });
+          checkSpan.appendChild(txt('✓'));
+          pinEl.appendChild(checkSpan);
+        } else {
+          pinEl.appendChild(txt(pinInitials(pin.author)));
+        }
         var stateLabel = isResolved ? ' · Resolved' : (isUnread ? ' · Unread' : ' · Read');
         pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : 'Guest') + stateLabel + ' — click to view');
         // Document-pixel position: viewport coords + window scroll offset.
@@ -1967,9 +1977,29 @@
       append(this.sortWrap, this.sortBtn, this.sortDropdown);
       append(this.filterRow, this.filterChips, this.sortWrap);
 
+      // "Show resolved" toggle — page-scoped, controls pin visibility on the page
+      this.resolvedToggleRow = el('div', { className: 'rhacs-panel__resolved-toggle-row' });
+      var toggleLabel = el('label', { className: 'rhacs-panel__resolved-toggle' });
+      this.resolvedToggleInput = el('input', {
+        type: 'checkbox',
+        className: 'rhacs-panel__resolved-toggle__input',
+        'aria-label': 'Show resolved comments on page',
+      });
+      var toggleTrack = el('span', { className: 'rhacs-panel__resolved-toggle__track' });
+      var toggleThumb = el('span', { className: 'rhacs-panel__resolved-toggle__thumb' });
+      toggleTrack.appendChild(toggleThumb);
+      var toggleText = el('span', { className: 'rhacs-panel__resolved-toggle__label' });
+      toggleText.appendChild(txt('Show resolved on page'));
+      append(toggleLabel, this.resolvedToggleInput, toggleTrack, toggleText);
+      this.resolvedToggleInput.addEventListener('change', function () {
+        S.showResolved = self.resolvedToggleInput.checked;
+        Overlay.renderPins();
+      });
+      this.resolvedToggleRow.appendChild(toggleLabel);
+
       this.listEl = el('div', { className: 'rhacs-panel__list' });
 
-      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.listEl);
+      append(this.el, this.topEl, this.searchWrap, this.filterRow, this.resolvedToggleRow, this.listEl);
       rhacsMount().appendChild(this.el);
     },
     _makeFilterChip: function (state, label) {
@@ -2285,6 +2315,8 @@
       page.style.marginRight = open ? '320px' : '';
     },
     open: function () {
+      // Keep toggle checkbox in sync with current state
+      if (this.resolvedToggleInput) this.resolvedToggleInput.checked = S.showResolved;
       this.render(); // render BEFORE updating lastSeen so unread yellows show
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
@@ -3036,6 +3068,7 @@
 
     // Always clear per-page state on every navigation so stale pins from the
     // previous page are never rendered on the new page.
+    S.showResolved = false;
     S.discussionId = null;
     S.pins = [];
     S.seenIds = new Set();

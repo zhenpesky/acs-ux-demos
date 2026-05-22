@@ -1394,6 +1394,18 @@
       S.activePinId = pinId;
       var pin = S.pins.find(function (p) { return p.id === pinId; });
       if (!pin) return;
+
+      // Auto-mark as read when the thread is opened — updates the pin's visual state
+      var pinTs = new Date(pin.createdAt).getTime();
+      var wasUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
+      if (wasUnread) {
+        S.seenIds.add(pin.id);
+        localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+        Overlay.renderPins();
+        FAB.updateBadge();
+        Panel.render();
+      }
+
       this.el.innerHTML = '';
       var isProtoOwner = Auth.isPrototypeOwner();
       var isOwnComment = !!(S.user && (

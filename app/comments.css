@@ -108,9 +108,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   pointer-events: all;
   letter-spacing: 0.3px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease, border-color 0.12s ease;
   z-index: 10;
   user-select: none;
+  /* Needed so .rhacs-pin__count can be absolutely positioned relative to the pin */
+  overflow: visible;
 }
 
 #rhacs-pin-layer .rhacs-pin:hover {
@@ -118,12 +120,35 @@ body.rhacs-comment-mode-active .rhacs-pin {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
+/* Read state: lower opacity + amber ring to show it's been seen */
 #rhacs-pin-layer .rhacs-pin--read {
-  opacity: 0.55;
+  opacity: 0.6;
+  border-color: #f0a030;
+  box-shadow: 0 0 0 2px rgba(240, 160, 48, 0.45), 0 2px 6px rgba(0, 0, 0, 0.28);
 }
 
 #rhacs-pin-layer .rhacs-pin--read:hover {
-  opacity: 1;
+  opacity: 0.9;
+  border-color: #f0a030;
+}
+
+/* Reply/thread count badge — top-right corner of pin */
+#rhacs-pin-layer .rhacs-pin__count {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  background: #e3a000;
+  border: 1.5px solid #fff;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  color: #fff;
+  pointer-events: none;
 }
 
 /* Resolved: green background, low opacity so it feels "done", white ✓ stands out */

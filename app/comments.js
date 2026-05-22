@@ -42,10 +42,11 @@
     activePinId:  null,
     lastSeen:     0,
     seenIds:      new Set(),
-    unread:       0,
-    origTitle:    document.title,
-    pollTimer:    null,
-    showResolved: false,
+    unread:          0,
+    origTitle:       document.title,
+    pollTimer:       null,
+    showResolved:    false,
+    seenReplyCounts: {},   // { [pinId]: replyCount at time of reading } — detects new replies
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
@@ -925,6 +926,17 @@
         S.discussionId = id;
         return loadComments(id).then(function (comments) {
           S.pins = parseComments(comments);
+          // If a previously-read pin now has more replies than when it was read,
+          // remove it from seenIds so the pin becomes unread again (new reply badge)
+          S.pins.forEach(function (p) {
+            if (S.seenIds.has(p.id)) {
+              var prevCount = S.seenReplyCounts[p.id];
+              if (prevCount !== undefined && (p.replies || []).length > prevCount) {
+                S.seenIds.delete(p.id);
+                localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+              }
+            }
+          });
           scheduleRenderPinsAfterLayout();
           FAB.updateBadge();
         });
@@ -1059,6 +1071,9 @@
         // Resolved pins are hidden by default; only shown when the panel toggle is on
         if (isResolved && !S.showResolved) return;
         var isRead = !isUnread && !isResolved;
+        var replyCount = (pin.replies || []).length;
+        // Total visible thread depth: root post + replies
+        var threadCount = 1 + replyCount;
         var cls = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '') +
@@ -1071,9 +1086,16 @@
           pinEl.appendChild(checkSpan);
         } else {
           pinEl.appendChild(txt(pinInitials(pin.author)));
+          // Reply count badge — top-right, only when unread and thread has replies
+          if (isUnread && replyCount > 0) {
+            var countBadge = el('span', { className: 'rhacs-pin__count' });
+            countBadge.appendChild(txt(String(threadCount)));
+            pinEl.appendChild(countBadge);
+          }
         }
+        var replyLabel = replyCount > 0 ? (', ' + replyCount + ' ' + (replyCount === 1 ? 'reply' : 'replies')) : '';
         var stateLabel = isResolved ? ' · Resolved' : (isUnread ? ' · Unread' : ' · Read');
-        pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : 'Guest') + stateLabel + ' — click to view');
+        pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : 'Guest') + stateLabel + replyLabel + ' — click to view');
         // Document-pixel position: viewport coords + window scroll offset.
         // Because #rhacs-pin-layer is position:absolute in the document, these
         // document coordinates make pins move with page content including the
@@ -1411,6 +1433,10 @@
       if (wasUnread) {
         S.seenIds.add(pin.id);
         localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      }
+      // Always record the reply count at the moment of opening so new replies can be detected
+      S.seenReplyCounts[pin.id] = (pin.replies || []).length;
+      if (wasUnread) {
         Overlay.renderPins();
         FAB.updateBadge();
         Panel.render();
@@ -2323,15 +2349,31 @@
       Panel._pushPage(true);
       S.lastSeen = Date.now();
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
+      S.pins.forEach(function (p) {
+        if (p.id) {
+          S.seenIds.add(p.id);
+          // Record reply count at time of opening so new replies trigger unread again
+          S.seenReplyCounts[p.id] = (p.replies || []).length;
+        }
+      });
       localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      // Update pins and badge to reflect the now-read state
+      Overlay.renderPins();
+      FAB.updateBadge();
     },
     close: function () {
       // Mark everything as seen when the user closes the panel
       S.lastSeen = Date.now();
       localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
+      S.pins.forEach(function (p) {
+        if (p.id) {
+          S.seenIds.add(p.id);
+          S.seenReplyCounts[p.id] = (p.replies || []).length;
+        }
+      });
       localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      Overlay.renderPins();
+      FAB.updateBadge();
       this.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);

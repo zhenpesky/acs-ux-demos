@@ -3031,6 +3031,12 @@
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
+      // Hide any body-level tooltip or mode announcement left over from the previous page
+      if (typeof Tooltip !== 'undefined' && Tooltip.hide) Tooltip.hide();
+      if (typeof ModeAnnounce !== 'undefined' && ModeAnnounce._el) {
+        ModeAnnounce._el.remove(); ModeAnnounce._el = null;
+        if (ModeAnnounce._timer) { clearTimeout(ModeAnnounce._timer); ModeAnnounce._timer = null; }
+      }
     } else {
       // Load the correct comments for the newly active prototype page
       loadAndRender();

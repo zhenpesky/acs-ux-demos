@@ -1579,7 +1579,7 @@
       CHOICES.forEach(function (item) {
         var btn = el('button', { className: 'rhacs-reaction-picker__btn' });
         btn.appendChild(txt(item.e));
-        btn.addEventListener('click', function () { picker.remove(); Popup.handleReaction(pinId, item.c, false); });
+        btn.addEventListener('click', function (e) { e.stopPropagation(); Popup.handleReaction(pinId, item.c, false); });
         picker.appendChild(btn);
       });
       container.appendChild(picker);

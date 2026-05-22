@@ -1529,6 +1529,7 @@
           replyArea.value = '';
           replyArea.classList.remove('rhacs-popup__textarea--error');
           replyError.style.display = 'none';
+          replyForm.style.display = 'none';
         });
         append(replyActions, replyBtn, replyCancelBtn);
         append(replyForm, replyArea, replyError, replyActions);

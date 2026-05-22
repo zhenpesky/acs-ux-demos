@@ -1055,12 +1055,15 @@
         var vp = pinToViewport(pin.meta);
         var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
         var isResolved = pin.meta.resolved;
+        var isRead = !isUnread && !isResolved;
         var cls = 'rhacs-pin' +
           (isResolved ? ' rhacs-pin--resolved' : '') +
-          (isUnread   ? ' rhacs-pin--unread'   : '');
+          (isUnread   ? ' rhacs-pin--unread'   : '') +
+          (isRead     ? ' rhacs-pin--read'     : '');
         var pinEl = el('div', { className: cls, 'data-pin-id': pin.id });
         pinEl.appendChild(txt(pinInitials(pin.author)));
-        pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : '') + ' — click to view');
+        var stateLabel = isResolved ? ' · Resolved' : (isUnread ? ' · Unread' : ' · Read');
+        pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : 'Guest') + stateLabel + ' — click to view');
         // Document-pixel position: viewport coords + window scroll offset.
         // Because #rhacs-pin-layer is position:absolute in the document, these
         // document coordinates make pins move with page content including the

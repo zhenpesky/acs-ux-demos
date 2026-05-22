@@ -118,10 +118,36 @@ body.rhacs-comment-mode-active .rhacs-pin {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38);
 }
 
+#rhacs-comment-root .rhacs-pin--read {
+  opacity: 0.55;
+}
+
+#rhacs-comment-root .rhacs-pin--read:hover {
+  opacity: 1;
+}
+
 #rhacs-comment-root .rhacs-pin--resolved {
+  position: relative;
   background: #8c959f;
   border-color: #d0d7de;
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+#rhacs-comment-root .rhacs-pin--resolved::before {
+  content: '✓';
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  width: 13px;
+  height: 13px;
+  background: #57606a;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  font-size: 8px;
+  line-height: 12px;
+  text-align: center;
+  color: #fff;
+  font-weight: 700;
 }
 
 #rhacs-comment-root .rhacs-pin--resolved:hover {

@@ -2999,7 +2999,17 @@
   // Returns true only when the current URL is a versioned prototype page (not baseline).
   function isPrototypePage() {
     var v = new URLSearchParams(window.location.search).get('prototype');
-    return v !== null && v !== 'baseline';
+    // Must be a real non-empty, non-baseline prototype version (v1, v2, v3, …)
+    if (!v || v === 'baseline' || !/^v\d+$/i.test(v.trim())) return false;
+    // Must be on a known prototype-capable pathname
+    var path = window.location.pathname;
+    var ALLOWED = [
+      '/main/vulnerabilities/',
+      '/main/systemconfig',
+      '/main/risk',
+      '/main/violations',
+    ];
+    return ALLOWED.some(function (prefix) { return path.indexOf(prefix) !== -1; });
   }
 
   // Toggle the single mount wrapper — hides everything at once.
@@ -3031,12 +3041,18 @@
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
-      // Hide any body-level tooltip or mode announcement left over from the previous page
+      // Hide / remove all body-level overlays that may persist across navigation
       if (typeof Tooltip !== 'undefined' && Tooltip.hide) Tooltip.hide();
       if (typeof ModeAnnounce !== 'undefined' && ModeAnnounce._el) {
         ModeAnnounce._el.remove(); ModeAnnounce._el = null;
         if (ModeAnnounce._timer) { clearTimeout(ModeAnnounce._timer); ModeAnnounce._timer = null; }
       }
+      // Dismiss any open confirmation dialog
+      var backdrop = document.querySelector('.rhacs-confirm-backdrop');
+      if (backdrop) backdrop.remove();
+      // Hide pin layer (clear its children; the container can stay)
+      var pinLayer = document.getElementById('rhacs-pin-layer');
+      if (pinLayer) pinLayer.innerHTML = '';
     } else {
       // Load the correct comments for the newly active prototype page
       loadAndRender();

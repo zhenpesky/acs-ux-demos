@@ -407,10 +407,96 @@
           </a>
         </div>
 
+        <!-- Card: Reusable Resources — Available in -->
+        <div class="qs-card-wrapper"
+             data-area="vulnerability-management"
+             data-status="in-progress"
+             data-title="Reusable Resources Available in"
+             data-desc="Collection scope with cross-feature Available in destinations on the vulnerability report wizard (Theme D). Distinct from saved filters.">
+          <a class="qs-card" href="/rhacs-ux-prototypes/app/main/vulnerabilities/reports/configuration?action=create&prototype=v1">
+            <div class="qs-card__header">
+              <div class="qs-card__icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2l-10 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm0 2.18l7.45 3.72L12 11.62 4.55 7.9 12 4.18zM4 9.47l7 3.5v7.05c3.31-1.13 5.71-3.01 7-5.05v-2L4 9.47z"/>
+                </svg>
+              </div>
+              <span class="qs-status qs-status--in-progress">
+                <span class="qs-status__dot"></span>In progress
+              </span>
+            </div>
+
+            <div class="qs-card__body">
+              <div class="qs-card__title">Reusable Resources — Available in</div>
+              <div class="qs-card__desc">
+                Prototype v1 report wizard: select a collection scope and configure where that reusable
+                resource applies (reports, User Workloads, Policy, Risk, Network Graph, and more).
+              </div>
+            </div>
+
+            <div class="qs-card__footer">
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                Vulnerability Management
+              </span>
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Reporting
+              </span>
+            </div>
+
+            <div class="qs-card__cta">
+              <span class="qs-card__cta-btn">View prototype</span>
+            </div>
+          </a>
+        </div>
+
+        <!-- Card: Universal Reports -->
+        <div class="qs-card-wrapper"
+             data-area="vulnerability-management"
+             data-status="in-progress"
+             data-title="Universal Reports"
+             data-desc="Type-first report configuration wizard. Step 1 picks the report source; later steps show matching parameters and resource scope — not a one-size-fits-all flow.">
+          <a class="qs-card" href="/rhacs-ux-prototypes/app/main/vulnerabilities/reports/configuration?prototype=v4">
+            <div class="qs-card__header">
+              <div class="qs-card__icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                </svg>
+              </div>
+              <span class="qs-status qs-status--in-progress">
+                <span class="qs-status__dot"></span>In progress
+              </span>
+            </div>
+
+            <div class="qs-card__body">
+              <div class="qs-card__title">Universal Reports</div>
+              <div class="qs-card__desc">
+                Report configurations list shows source type (Vulnerability, Violation, Platform CVE,
+                Node CVE). Create wizard branches parameters and resource scope by the type you pick in Step 1.
+              </div>
+            </div>
+
+            <div class="qs-card__footer">
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                Vulnerability Management
+              </span>
+              <span class="qs-label">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                Reporting
+              </span>
+            </div>
+
+            <div class="qs-card__cta">
+              <span class="qs-card__cta-btn">View prototype</span>
+            </div>
+          </a>
+        </div>
+
         <!-- Card: System Configuration — Option A Retention -->
         <div class="qs-card-wrapper"
              data-area="platform-configuration"
-             data-status="in-progress"
+             data-status="review"
              data-title="System Configuration — Retention Option A"
              data-desc="Proposes a consistent 'min 1 + Keep indefinitely' pattern for all private data retention fields, resolving the two conflicting zero-value conventions and introducing the new soft-deleted deployments setting.">
           <a class="qs-card" href="/rhacs-ux-prototypes/app/main/systemconfig?prototype=v1">
@@ -421,8 +507,8 @@
                   <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
                 </svg>
               </div>
-              <span class="qs-status qs-status--in-progress">
-                <span class="qs-status__dot"></span>In progress
+              <span class="qs-status qs-status--review">
+                <span class="qs-status__dot"></span>Review
               </span>
             </div>
 

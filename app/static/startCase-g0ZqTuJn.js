@@ -1,1 +1,0 @@
-import{g as p}from"./lodash-JMWJiBov.js";import{r as n}from"./_createCompounder-uK0_cYqb.js";import{ix as m}from"./index-Ceh1q-Sp.js";var r,t;function C(){if(t)return r;t=1;var e=n(),a=m(),s=e(function(o,i,u){return o+(u?" ":"")+a(i)});return r=s,r}var f=C();const x=p(f);export{x as s};

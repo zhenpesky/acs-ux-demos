@@ -627,14 +627,9 @@
         // Button starts disabled; lights up once first name has content
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary', disabled: true });
         continueBtn.innerHTML = '<span>Continue to add comments</span>';
-        continueBtn.style.opacity = '0.45';
-        continueBtn.style.cursor  = 'not-allowed';
 
         function syncBtn() {
-          var hasFirst = !!firstF.input.value.trim();
-          continueBtn.disabled      = !hasFirst;
-          continueBtn.style.opacity = hasFirst ? '' : '0.45';
-          continueBtn.style.cursor  = hasFirst ? '' : 'not-allowed';
+          continueBtn.disabled = !firstF.input.value.trim();
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {
@@ -2912,7 +2907,7 @@
     },
   };
 
-  // ── Mode announcement (large centered overlay on enter/exit comment mode) ────
+  // ── Mode announcement (compact bottom toast on enter/exit comment mode) ────
   var ModeAnnounce = {
     _el: null,
     _timer: null,
@@ -2930,10 +2925,13 @@
       var iconEl = document.createElement('span');
       iconEl.className = 'rhacs-mode-announce__icon';
       if (active) {
-        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 16 16" fill="currentColor"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
+        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.678 11.894a1 1 0 0 1 .287.801 11 11 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8 8 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894m-.493 3.905a22 22 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a10 10 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9 9 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105"/></svg>';
       } else {
-        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 512 512" fill="currentColor"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 192 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128zM160 96c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 32C43 32 0 75 0 128L0 384c0 53 43 96 96 96l64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l64 0z"/></svg>';
+        iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 192 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128zM160 96c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 32C43 32 0 75 0 128L0 384c0 53 43 96 96 96l64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l64 0z"/></svg>';
       }
+
+      var copyEl = document.createElement('div');
+      copyEl.className = 'rhacs-mode-announce__copy';
 
       var textEl = document.createElement('span');
       textEl.className = 'rhacs-mode-announce__text';
@@ -2943,9 +2941,10 @@
       subEl.className = 'rhacs-mode-announce__sub';
       subEl.textContent = active ? 'Click to pin a comment' : 'All comments saved';
 
+      copyEl.appendChild(textEl);
+      copyEl.appendChild(subEl);
       inner.appendChild(iconEl);
-      inner.appendChild(textEl);
-      inner.appendChild(subEl);
+      inner.appendChild(copyEl);
       wrap.appendChild(inner);
       document.body.appendChild(wrap);
       this._el = wrap;

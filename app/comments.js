@@ -627,14 +627,9 @@
         // Button starts disabled; lights up once first name has content
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary', disabled: true });
         continueBtn.innerHTML = '<span>Continue to add comments</span>';
-        continueBtn.style.opacity = '0.45';
-        continueBtn.style.cursor  = 'not-allowed';
 
         function syncBtn() {
-          var hasFirst = !!firstF.input.value.trim();
-          continueBtn.disabled      = !hasFirst;
-          continueBtn.style.opacity = hasFirst ? '' : '0.45';
-          continueBtn.style.cursor  = hasFirst ? '' : 'not-allowed';
+          continueBtn.disabled = !firstF.input.value.trim();
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {

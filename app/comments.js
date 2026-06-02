@@ -2732,6 +2732,7 @@
           return;
         }
         if (e.key !== 'c' && e.key !== 'C') return;
+        if (e.metaKey || e.ctrlKey) return;
         var tag = document.activeElement && document.activeElement.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable)) return;
         FAB.toggleMode();

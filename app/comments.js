@@ -3092,25 +3092,18 @@
   // Returns true only when the current URL is a versioned prototype page (not baseline).
   function isPrototypePage() {
     var v = new URLSearchParams(window.location.search).get('prototype');
-    // Some pages (e.g. Exception Management) strip the ?prototype= param during
-    // React Router navigation but the app still stores the active tier in sessionStorage.
-    // Fall back to sessionStorage so commenting stays active across those navigations.
+    // Some pages strip the ?prototype= param during React Router navigation but
+    // the app still stores the active tier in sessionStorage — fall back to that.
     if (!v) {
       var stored = sessionStorage.getItem('acs.vmPrototype.tier');
       if (stored && stored !== 'baseline') v = stored;
     }
     // Must be a real non-empty, non-baseline prototype version (v1, v2, v3, …)
     if (!v || v === 'baseline' || !/^v\d+$/i.test(v.trim())) return false;
-    // Must be on a known prototype-capable pathname
-    var path = window.location.pathname;
-    var ALLOWED = [
-      '/main/vulnerabilities/',
-      '/main/systemconfig',
-      '/main/exception-configuration',
-      '/main/risk',
-      '/main/violations',
-    ];
-    return ALLOWED.some(function (prefix) { return path.indexOf(prefix) !== -1; });
+    // Page must have the version switcher rendered — this is the single source of
+    // truth for "prototype-capable pages". No hardcoded pathname list needed:
+    // every new prototype page that mounts the switcher is automatically included.
+    return !!document.querySelector('[data-testid="vm-prototype-version-switcher"]');
   }
 
   // Toggle the single mount wrapper — hides everything at once.

@@ -3104,23 +3104,29 @@
 
   function isPrototypePage() {
     var path = window.location.pathname;
-    // Must be on a known prototype-capable pathname — this is the hard gate.
-    // Pages not in this list never show the comment feature, regardless of any
-    // URL param or sessionStorage value.
+    // Must be on a known prototype-capable pathname — hard gate.
     var isRelevantPath = PROTOTYPE_PATHS.some(function (p) {
       return path.indexOf(p) !== -1;
     });
     if (!isRelevantPath) return false;
 
     var v = new URLSearchParams(window.location.search).get('prototype');
-    // Some pages (e.g. Exception Configuration) strip the ?prototype= param
-    // during React Router navigation but stay in the prototype session via
-    // sessionStorage. Only fall back to sessionStorage on relevant paths so
-    // stale session data never bleeds onto non-prototype pages.
-    if (!v) {
+
+    // sessionStorage fallback: only for /main/vulnerabilities/ sub-pages.
+    // Those pages strip ?prototype= from the URL during React Router navigation
+    // (linkForScopedVmPrototypeNav doesn't preserve it for all sub-routes) but
+    // the user is still in a prototype session.
+    //
+    // For all other paths (systemconfig, exception-configuration, risk,
+    // violations) the URL param is the authoritative source — switching to
+    // "Baseline UI" removes the param but does NOT clear sessionStorage, so
+    // trusting sessionStorage there would incorrectly show the baseline as a
+    // prototype page.
+    if (!v && path.indexOf('/main/vulnerabilities/') !== -1) {
       var stored = sessionStorage.getItem('acs.vmPrototype.tier');
       if (stored && stored !== 'baseline') v = stored;
     }
+
     return !!(v && v !== 'baseline' && /^v\d+$/i.test(v.trim()));
   }
 

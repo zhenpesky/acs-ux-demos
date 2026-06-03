@@ -3092,6 +3092,13 @@
   // Returns true only when the current URL is a versioned prototype page (not baseline).
   function isPrototypePage() {
     var v = new URLSearchParams(window.location.search).get('prototype');
+    // Some pages (e.g. Exception Management) strip the ?prototype= param during
+    // React Router navigation but the app still stores the active tier in sessionStorage.
+    // Fall back to sessionStorage so commenting stays active across those navigations.
+    if (!v) {
+      var stored = sessionStorage.getItem('acs.vmPrototype.tier');
+      if (stored && stored !== 'baseline') v = stored;
+    }
     // Must be a real non-empty, non-baseline prototype version (v1, v2, v3, …)
     if (!v || v === 'baseline' || !/^v\d+$/i.test(v.trim())) return false;
     // Must be on a known prototype-capable pathname

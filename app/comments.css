@@ -1909,13 +1909,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
     cursor: not-allowed;
   }
   .rhacs-auth-dialog__btn--primary:not(:disabled) {
-    background: var(--pf-v6-global--palette--purple-400, #6753ac);
-    border-color: var(--pf-v6-global--palette--purple-400, #6753ac);
+    background: #24292f;
+    border-color: #24292f;
     color: #fff;
   }
   .rhacs-auth-dialog__btn--primary:not(:disabled):hover {
-    background: var(--pf-v6-global--palette--purple-500, #4f3e8c);
-    border-color: var(--pf-v6-global--palette--purple-500, #4f3e8c);
+    background: #32383f;
+    border-color: #32383f;
   }
 
   .rhacs-auth-dialog__btn--secondary {
@@ -2009,13 +2009,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   cursor: not-allowed;
 }
 .rhacs-auth-dialog__btn--primary:not(:disabled) {
-  background: var(--pf-v6-global--palette--purple-400, #6753ac);
-  border-color: var(--pf-v6-global--palette--purple-400, #6753ac);
+  background: #24292f;
+  border-color: #24292f;
   color: #fff;
 }
 .rhacs-auth-dialog__btn--primary:not(:disabled):hover {
-  background: var(--pf-v6-global--palette--purple-500, #4f3e8c);
-  border-color: var(--pf-v6-global--palette--purple-500, #4f3e8c);
+  background: #32383f;
+  border-color: #32383f;
 }
 
 .rhacs-auth-dialog__btn--secondary {

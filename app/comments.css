@@ -1909,13 +1909,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
     cursor: not-allowed;
   }
   .rhacs-auth-dialog__btn--primary:not(:disabled) {
-    background: #24292f;
+    background: #fff;
     border-color: #24292f;
-    color: #fff;
+    color: #24292f;
   }
   .rhacs-auth-dialog__btn--primary:not(:disabled):hover {
-    background: #32383f;
-    border-color: #32383f;
+    background: #f6f8fa;
+    border-color: #24292f;
   }
 
   .rhacs-auth-dialog__btn--secondary {
@@ -2009,13 +2009,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   cursor: not-allowed;
 }
 .rhacs-auth-dialog__btn--primary:not(:disabled) {
-  background: #24292f;
+  background: #fff;
   border-color: #24292f;
-  color: #fff;
+  color: #24292f;
 }
 .rhacs-auth-dialog__btn--primary:not(:disabled):hover {
-  background: #32383f;
-  border-color: #32383f;
+  background: #f6f8fa;
+  border-color: #24292f;
 }
 
 .rhacs-auth-dialog__btn--secondary {

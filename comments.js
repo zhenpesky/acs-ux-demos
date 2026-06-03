@@ -3090,21 +3090,37 @@
   }
 
   // Returns true only when the current URL is a versioned prototype page (not baseline).
+  // Mirrors RELEVANT_PATHS in VmPrototypeVersionSwitcher.tsx — the exact set of
+  // pages where the version switcher renders. Keep in sync with that file when
+  // adding new prototype pages (only this list needs updating, not the rest of
+  // comments.js).
+  var PROTOTYPE_PATHS = [
+    '/main/risk',
+    '/main/systemconfig',
+    '/main/exception-configuration',
+    '/main/violations',
+    '/main/vulnerabilities/',
+  ];
+
   function isPrototypePage() {
+    var path = window.location.pathname;
+    // Must be on a known prototype-capable pathname — this is the hard gate.
+    // Pages not in this list never show the comment feature, regardless of any
+    // URL param or sessionStorage value.
+    var isRelevantPath = PROTOTYPE_PATHS.some(function (p) {
+      return path.indexOf(p) !== -1;
+    });
+    if (!isRelevantPath) return false;
+
     var v = new URLSearchParams(window.location.search).get('prototype');
-    // Some pages strip the ?prototype= param during React Router navigation but
-    // the app still stores the active tier in sessionStorage — fall back to that.
-    // sessionStorage is only written by the app's own version switcher, so it is
-    // trustworthy as a "currently in a prototype session" signal.
+    // Some pages (e.g. Exception Configuration) strip the ?prototype= param
+    // during React Router navigation but stay in the prototype session via
+    // sessionStorage. Only fall back to sessionStorage on relevant paths so
+    // stale session data never bleeds onto non-prototype pages.
     if (!v) {
       var stored = sessionStorage.getItem('acs.vmPrototype.tier');
       if (stored && stored !== 'baseline') v = stored;
     }
-    // Valid non-baseline prototype version (v1, v2, v3, …) is the sole gate.
-    // No hardcoded pathname list needed: new prototype pages are picked up
-    // automatically as long as they write a version to the URL / sessionStorage.
-    // Body-level cleanup in syncVisibility() prevents any UI leaking to
-    // non-prototype pages that happen to have stale sessionStorage.
     return !!(v && v !== 'baseline' && /^v\d+$/i.test(v.trim()));
   }
 

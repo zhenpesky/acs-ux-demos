@@ -3094,16 +3094,18 @@
     var v = new URLSearchParams(window.location.search).get('prototype');
     // Some pages strip the ?prototype= param during React Router navigation but
     // the app still stores the active tier in sessionStorage — fall back to that.
+    // sessionStorage is only written by the app's own version switcher, so it is
+    // trustworthy as a "currently in a prototype session" signal.
     if (!v) {
       var stored = sessionStorage.getItem('acs.vmPrototype.tier');
       if (stored && stored !== 'baseline') v = stored;
     }
-    // Must be a real non-empty, non-baseline prototype version (v1, v2, v3, …)
-    if (!v || v === 'baseline' || !/^v\d+$/i.test(v.trim())) return false;
-    // Page must have the version switcher rendered — this is the single source of
-    // truth for "prototype-capable pages". No hardcoded pathname list needed:
-    // every new prototype page that mounts the switcher is automatically included.
-    return !!document.querySelector('[data-testid="vm-prototype-version-switcher"]');
+    // Valid non-baseline prototype version (v1, v2, v3, …) is the sole gate.
+    // No hardcoded pathname list needed: new prototype pages are picked up
+    // automatically as long as they write a version to the URL / sessionStorage.
+    // Body-level cleanup in syncVisibility() prevents any UI leaking to
+    // non-prototype pages that happen to have stale sessionStorage.
+    return !!(v && v !== 'baseline' && /^v\d+$/i.test(v.trim()));
   }
 
   // Toggle the single mount wrapper — hides everything at once.

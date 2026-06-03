@@ -3106,6 +3106,7 @@
     var ALLOWED = [
       '/main/vulnerabilities/',
       '/main/systemconfig',
+      '/main/exception-configuration',
       '/main/risk',
       '/main/violations',
     ];

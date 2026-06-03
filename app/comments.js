@@ -2939,7 +2939,11 @@
 
       var subEl = document.createElement('span');
       subEl.className = 'rhacs-mode-announce__sub';
-      subEl.textContent = active ? 'Click to pin a comment' : 'All comments saved';
+      if (active) {
+        subEl.innerHTML = 'Click to pin a comment \u00b7 Press <kbd style="display:inline-block;padding:0 4px;border:1px solid rgba(255,255,255,0.45);border-radius:3px;font-size:11px;font-family:inherit;line-height:1.5;background:rgba(255,255,255,0.12)">C</kbd> to exit';
+      } else {
+        subEl.textContent = 'All comments saved';
+      }
 
       copyEl.appendChild(textEl);
       copyEl.appendChild(subEl);

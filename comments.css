@@ -227,7 +227,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   flex-direction: row;
   align-items: center;
   gap: 10px;
-  background: rgba(103, 83, 172, 0.82);
+  background: rgba(33, 36, 39, 0.78);
   color: #fff;
   border-radius: 10px;
   padding: 10px 14px;

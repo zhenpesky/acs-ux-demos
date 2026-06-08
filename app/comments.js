@@ -2750,7 +2750,7 @@
       if (S.commentMode) { FAB.setMode(false); return; }
       // Not yet authed — show login/guest dialog first, then activate
       if (!Auth.isAuthed()) {
-        Auth.showAuthDialog().then(function () {
+        Auth.requireAuth().then(function () {
           FAB.setMode(true);
         }).catch(function () {}); // user cancelled
         return;

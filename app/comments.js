@@ -762,6 +762,7 @@
     // ── requireAuth: shows choice dialog if not authed ────────────────────────
     requireAuth: function () {
       if (Auth.isAuthed()) return Promise.resolve();
+      if (isShareMode()) return Auth.loginAsGuest();
       return Auth.showAuthDialog();
     },
     showAuthDialog: function () {

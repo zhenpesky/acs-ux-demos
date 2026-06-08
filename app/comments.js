@@ -627,15 +627,15 @@
         var lastF     = makeField('Last name',  'e.g. Smith');
         append(nameRow, firstF.wrap, lastF.wrap);
 
-        var titleF   = makeField('Title or role',  'e.g. UX Designer, PM', false);
-        var companyF = makeField('Company',         'e.g. Red Hat, IBM',    false);
+        var titleF   = makeField('Title or role',  'e.g. UX Designer, PM', true);
+        var companyF = makeField('Company',         'e.g. Red Hat, IBM',    true);
 
-        // Button starts disabled; lights up once first name has content
+        // Button starts disabled; lights up once all required fields have content
         var continueBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--primary', disabled: true });
         continueBtn.innerHTML = '<span>Continue to add comments</span>';
 
         function syncBtn() {
-          continueBtn.disabled = !firstF.input.value.trim();
+          continueBtn.disabled = !firstF.input.value.trim() || !titleF.input.value.trim() || !companyF.input.value.trim();
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {

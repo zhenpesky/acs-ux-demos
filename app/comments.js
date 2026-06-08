@@ -22,6 +22,12 @@
     pollMs:      30000,
   };
 
+  // ── Share mode: ?share=1 hides GitHub login and isolates the view ──────────
+  function isShareMode() {
+    if (new URLSearchParams(window.location.search).get('share') === '1') return true;
+    try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
+  }
+
   // PAGE_KEY must be evaluated at call time (SPA route changes after load)
   function getPageKey() {
     return 'page:' + window.location.pathname;
@@ -832,7 +838,12 @@
         cancelBtn.appendChild(txt('Cancel'));
         cancelBtn.addEventListener('click', function () { overlay.remove(); reject(new Error('cancelled')); });
 
-        append(card, iconEl, titleEl, subEl, ghBtn, ghFeatures, divider, guestBtn, guestFeatures, cancelBtn);
+        if (isShareMode()) {
+          subEl.firstChild.nodeValue = 'Leave your feedback on this prototype.';
+          append(card, iconEl, titleEl, subEl, guestBtn, guestFeatures, cancelBtn);
+        } else {
+          append(card, iconEl, titleEl, subEl, ghBtn, ghFeatures, divider, guestBtn, guestFeatures, cancelBtn);
+        }
         overlay.appendChild(card);
 
         // Close on backdrop click
@@ -3187,6 +3198,13 @@
       var clean = window.location.pathname + window.location.search.replace(/[?&]rhacs_token=[^&]*/g, '').replace(/^&/, '?') + window.location.hash;
       history.replaceState({}, '', clean || window.location.pathname);
     }
+
+    // Persist share mode to sessionStorage so it survives SPA navigation
+    try {
+      if (new URLSearchParams(window.location.search).get('share') === '1') {
+        sessionStorage.setItem('rhacs_share_mode', '1');
+      }
+    } catch (e) {}
 
     Auth.init();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);

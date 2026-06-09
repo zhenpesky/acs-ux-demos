@@ -778,6 +778,18 @@
         var overlay = el('div', { id: 'rhacs-guest-prompt', className: 'rhacs-auth-dialog-overlay' });
         var card    = el('div', { className: 'rhacs-auth-dialog' });
 
+        // Back arrow — only shown when this dialog was reached from the choice dialog (not share mode)
+        if (!isShareMode()) {
+          var backBtn = el('button', { className: 'rhacs-auth-dialog__back', 'aria-label': 'Back' });
+          backBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/></svg>';
+          backBtn.addEventListener('click', function () {
+            overlay.remove();
+            // Re-open the choice dialog and forward its outcome to this promise
+            Auth.showAuthDialog().then(resolve).catch(reject);
+          });
+          card.appendChild(backBtn);
+        }
+
         var iconEl = el('div', { className: 'rhacs-auth-dialog__icon' });
         iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
 

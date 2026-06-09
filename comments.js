@@ -175,14 +175,20 @@
     return heading && heading.textContent ? heading.textContent.trim() : '';
   }
 
+  function isElementVisible(el) {
+    if (!el) return false;
+    if (el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+    var st = getComputedStyle(el);
+    return st.display !== 'none' && st.visibility !== 'hidden';
+  }
+
   function findOpenModal(title) {
     if (!title) return null;
     var dialogs = document.querySelectorAll('[role="dialog"], .pf-v6-c-modal-box, .pf-c-modal-box');
     for (var i = 0; i < dialogs.length; i++) {
       var d = dialogs[i];
-      if (getComputedStyle(d).display === 'none') continue;
-      var heading = d.querySelector('h1,h2,h3,[class*="title"]');
-      if (heading && heading.textContent.trim() === title) return d;
+      if (!isElementVisible(d)) continue;
+      if (getModalHeadingText(d) === title) return d;
     }
     return null;
   }
@@ -298,14 +304,47 @@
     return Math.floor(s / 86400) + 'd ago';
   }
 
+  // Extract RHACS_PIN JSON even when modal titles contain "}" or other special chars.
+  function extractMetaJson(body) {
+    if (!body) return null;
+    var marker = body.indexOf('<!-- RHACS_PIN ');
+    if (marker === -1) marker = body.indexOf('<!--RHACS_PIN ');
+    if (marker === -1) return null;
+    var jsonStart = body.indexOf('{', marker);
+    if (jsonStart === -1) return null;
+    var depth = 0, inString = false, escape = false;
+    for (var i = jsonStart; i < body.length; i++) {
+      var c = body[i];
+      if (inString) {
+        if (escape) { escape = false; continue; }
+        if (c === '\\') { escape = true; continue; }
+        if (c === '"') inString = false;
+        continue;
+      }
+      if (c === '"') { inString = true; continue; }
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) return body.slice(jsonStart, i + 1);
+      }
+    }
+    return null;
+  }
+
   function parseMeta(body) {
-    var m = body && body.match(/<!--\s*RHACS_PIN\s*(\{[\s\S]*?\})\s*-->/);
-    if (!m) return null;
-    try { return JSON.parse(m[1]); } catch (e) { return null; }
+    var json = extractMetaJson(body);
+    if (!json) return null;
+    try { return JSON.parse(json); } catch (e) { return null; }
   }
 
   function pinText(body) {
-    return (body || '').replace(/<!--\s*RHACS_PIN\s*\{[\s\S]*?\}\s*-->\s*/, '').trim();
+    if (!body) return '';
+    var marker = body.indexOf('<!-- RHACS_PIN ');
+    if (marker === -1) marker = body.indexOf('<!--RHACS_PIN ');
+    if (marker === -1) return body.trim();
+    var end = body.indexOf('-->', marker);
+    if (end === -1) return body.trim();
+    return body.slice(end + 3).trim();
   }
 
   // Get 1-2 char initials from an author object for use as pin label
@@ -336,10 +375,12 @@
   }
 
   function setMeta(body, updates) {
-    return body.replace(/<!--\s*RHACS_PIN\s*(\{[\s\S]*?\})\s*-->/, function (m, json) {
-      try { return '<!-- RHACS_PIN ' + JSON.stringify(Object.assign(JSON.parse(json), updates)) + ' -->'; }
-      catch (e) { return m; }
-    });
+    var json = extractMetaJson(body);
+    if (!json) return body;
+    try {
+      var merged = '<!-- RHACS_PIN ' + JSON.stringify(Object.assign(JSON.parse(json), updates)) + ' -->';
+      return body.replace(/<!--\s*RHACS_PIN\s[\s\S]*?-->/, merged);
+    } catch (e) { return body; }
   }
 
   function el(tag, attrs) {
@@ -1477,7 +1518,11 @@
     },
     close: function () {
       this.el.style.display = 'none';
+      this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
+    },
+    _setModalElevated: function (elevated) {
+      this.el.classList.toggle('rhacs-popup--modal', !!elevated);
     },
     _anchorX: 0,
     _anchorY: 0,
@@ -1603,6 +1648,7 @@
     showNewForm: function (x, y, clientX, clientY, modalMeta) {
       S.activePinId = null;
       Popup._pendingModalMeta = modalMeta || null;
+      Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
       this.el.innerHTML = '';
 
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1714,6 +1760,8 @@
       }
       if (!pin) return;
 
+      Popup._setModalElevated(!!(pin.meta && pin.meta.modalTitle));
+
       // Auto-mark as read when the thread is opened — updates the pin's visual state
       var pinTs = new Date(pin.createdAt).getTime();
       var wasUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
@@ -1731,12 +1779,10 @@
 
       this.el.innerHTML = '';
       var isProtoOwner = Auth.isPrototypeOwner();
-      var isOwnComment = !!(S.user && (
-        pin.author.login === S.user.login ||
-        String(pin.id).startsWith('guest-')
-      ));
+      var _share = isShareMode();
+      var isOwnComment = !!(S.user && pin.author && pin.author.login === S.user.login);
       var canDelete  = isProtoOwner || isOwnComment;
-      var canResolve = isProtoOwner;
+      var canResolve = isProtoOwner && !_share;
 
       // ── Level 1: conversation header with conversation-level kebab ──
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1751,7 +1797,6 @@
       // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
       var pinTs   = new Date(pin.createdAt).getTime();
       var isUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
-      var _share = isShareMode();
       var convKebab = Popup.makeKebab([
         canDelete && !_share ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
         canResolve ? { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } } : null,
@@ -1831,7 +1876,7 @@
         noticeText.appendChild(noticeLink);
         append(guestReplyNotice, noticeIcon, noticeText);
         replyForm.appendChild(guestReplyNotice);
-      } else if (S.guestMode && isShareMode() && pin._guest) {
+      } else if (S.guestMode && isShareMode() && pin._guest && isOwnComment) {
         // Share-mode guest on their own comment — allow replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2872,11 +2917,9 @@
 
         // Per-pin permissions (mirrors showThread logic)
         var pIsProtoOwner = Auth.isPrototypeOwner();
-        var pIsOwnComment = !!(S.user && (
-          pin.author.login === S.user.login || String(pin.id).startsWith('guest-')
-        ));
+        var pIsOwnComment = !!(S.user && pin.author && pin.author.login === S.user.login);
         var pCanDelete  = pIsProtoOwner || pIsOwnComment;
-        var pCanResolve = pIsProtoOwner;
+        var pCanResolve = pIsProtoOwner && !isShareMode();
 
         var itemHdr = el('div', { className: 'rhacs-panel__item-header' });
         var av  = makeAvatar(pin.author, 'rhacs-avatar--sm');

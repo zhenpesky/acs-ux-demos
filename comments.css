@@ -364,6 +364,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
               max-height 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Above PF modal backdrop (9999) when commenting inside an open modal */
+.rhacs-popup.rhacs-popup--modal {
+  z-index: 10010;
+}
+
 .rhacs-popup__header {
   display: flex;
   align-items: center;

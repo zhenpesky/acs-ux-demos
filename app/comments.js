@@ -921,7 +921,15 @@
     // Comments are only visible to GitHub-authenticated users.
     // Guests and unauthenticated visitors can add comments but cannot see pins.
     if (!S.token) {
-      S.pins = [];
+      if (S.guestMode) {
+        S.pins = Auth.loadGuestPins().map(function (p) {
+          if (!p.meta) p.meta = parseMeta(p.body);
+          p._guest = true;
+          return p;
+        });
+      } else {
+        S.pins = [];
+      }
       if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
       if (FAB.badge) FAB.updateBadge();
       return Promise.resolve();
@@ -1391,13 +1399,18 @@
         .then(function () {
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
           if (S.guestMode && !S.token) {
-            Auth.addGuestPin(text, x, y, num);
-            Popup.close();
+            var newPin = Auth.addGuestPin(text, x, y, num);
             S.pins = Auth.loadGuestPins().map(function (p) {
               if (!p.meta) p.meta = parseMeta(p.body);
+              p._guest = true;
               return p;
             });
             Overlay.renderPins();
+            if (isShareMode()) {
+              Popup.showThread(newPin.id);
+            } else {
+              Popup.close();
+            }
             Notify.toast('Comment submitted — thank you!');
           } else {
             // Optimistic: show pin immediately, sync in background

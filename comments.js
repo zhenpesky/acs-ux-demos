@@ -28,6 +28,37 @@
     try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
   }
 
+  // Share links skip GitHub login — restore guest session + pins after refresh.
+  function restoreShareGuestSession() {
+    if (!isShareMode() || S.token || S.guestMode) return;
+    var guest = Auth.guestIdentity();
+    if (guest) {
+      S.guestMode = true;
+      S.user = guest;
+    }
+  }
+
+  function loadGuestPinsIntoState() {
+    S.pins = Auth.loadGuestPins().map(function (p) {
+      if (!p.meta) p.meta = parseMeta(p.body);
+      p._guest = true;
+      return p;
+    });
+  }
+
+  function isEventInsidePopup(e) {
+    if (!Popup.el) return false;
+    if (typeof e.composedPath === 'function') {
+      var path = e.composedPath();
+      for (var i = 0; i < path.length; i++) {
+        if (path[i] === Popup.el) return true;
+      }
+    }
+    var t = e.target;
+    if (t && t.nodeType === 3) t = t.parentNode;
+    return !!(t && typeof t.closest === 'function' && t.closest('#rhacs-popup'));
+  }
+
   // PAGE_KEY must be evaluated at call time (SPA route changes after load)
   function getPageKey() {
     return 'page:' + window.location.pathname;
@@ -369,11 +400,11 @@
         var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
         S.seenIds = new Set(Array.isArray(ids) ? ids : []);
       } catch (e) { S.seenIds = new Set(); }
-      // Guest mode is NOT auto-restored on page load — the user must explicitly
+      // Guest mode is NOT auto-restored on normal pages — the user must explicitly
       // choose "Continue as guest" each session via the auth dialog.
-      // (The stored guest identity key is kept so the same name/avatar is reused
-      //  when they do choose guest again, but the active mode starts cleared.)
+      // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
+      restoreShareGuestSession();
     },
     isLoggedIn:        function () { return !!S.token; },
     isAuthed:          function () { return !!S.token || S.guestMode; },
@@ -918,15 +949,12 @@
   }
 
   function loadAndRender() {
-    // Comments are only visible to GitHub-authenticated users.
-    // Guests and unauthenticated visitors can add comments but cannot see pins.
+    // GitHub users load from Discussions; share-mode guests load from localStorage.
     if (!S.token) {
-      if (S.guestMode) {
-        S.pins = Auth.loadGuestPins().map(function (p) {
-          if (!p.meta) p.meta = parseMeta(p.body);
-          p._guest = true;
-          return p;
-        });
+      restoreShareGuestSession();
+      if (S.guestMode || (isShareMode() && Auth.loadGuestPins().length > 0)) {
+        if (!S.guestMode) restoreShareGuestSession();
+        loadGuestPinsIntoState();
       } else {
         S.pins = [];
       }
@@ -1021,12 +1049,14 @@
     onScroll: function () {
       // Always re-render pins so they track content
       Overlay.renderPins();
-      // Reposition popup next to its pin if open
-      if (S.activePinId) {
+      // Reposition popup next to its pin if open — never auto-close on scroll
+      // (a pin can be briefly missing during re-render or marked hidden off-screen).
+      if (S.activePinId && Popup.el && Popup.el.style.display !== 'none') {
         var pinEl = Overlay.pinLayerEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
-        if (!pinEl || pinEl.style.visibility === 'hidden') { Popup.close(); return; }
-        var r = pinEl.getBoundingClientRect();
-        Popup.positionFixed(r.right + 4, r.top);
+        if (pinEl && pinEl.style.visibility !== 'hidden') {
+          var r = pinEl.getBoundingClientRect();
+          Popup.positionFixed(r.right + 4, r.top);
+        }
       }
     },
 
@@ -1205,6 +1235,19 @@
   var Popup = {
     el: null,
     _ro: null,
+    _suppressOutsideDismissUntil: 0,
+    suppressOutsideDismiss: function (ms) {
+      Popup._suppressOutsideDismissUntil = Date.now() + (ms || 400);
+    },
+    keepOpenAfterAction: function (fn) {
+      Popup.suppressOutsideDismiss(500);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          fn();
+          Popup.suppressOutsideDismiss(350);
+        });
+      });
+    },
     init: function () {
       this.el = el('div', { className: 'rhacs-popup', id: 'rhacs-popup' });
       this.el.style.display = 'none';
@@ -1369,7 +1412,8 @@
       var actions = el('div', { className: 'rhacs-popup__actions' });
       var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
       postBtn.appendChild(txt('Post'));
-      postBtn.addEventListener('click', function () {
+      postBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
         if (!textarea.value.trim()) {
           textarea.classList.add('rhacs-popup__textarea--error');
           inputError.style.display = 'block';
@@ -1378,6 +1422,7 @@
         }
         postBtn.disabled = true;
         postBtn.textContent = 'Posting…';
+        Popup.suppressOutsideDismiss(500);
         Popup.submitNew(textarea.value, x, y);
       });
 
@@ -1400,14 +1445,10 @@
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
           if (S.guestMode && !S.token) {
             var newPin = Auth.addGuestPin(text, x, y, num);
-            S.pins = Auth.loadGuestPins().map(function (p) {
-              if (!p.meta) p.meta = parseMeta(p.body);
-              p._guest = true;
-              return p;
-            });
+            loadGuestPinsIntoState();
             Overlay.renderPins();
-            if (isShareMode()) {
-              Popup.showThread(newPin.id);
+            if (isShareMode() && newPin && newPin.id) {
+              Popup.keepOpenAfterAction(function () { Popup.showThread(newPin.id); });
             } else {
               Popup.close();
             }
@@ -1589,6 +1630,7 @@
         postBtn.appendChild(txt('Post'));
         postBtn.addEventListener('click', function (e) {
           e.stopPropagation();
+          e.preventDefault();
           if (!replyArea.value.trim()) {
             replyArea.classList.add('rhacs-popup__textarea--error');
             replyError.style.display = 'block';
@@ -1609,7 +1651,8 @@
           }
           Auth.saveGuestPins(stored);
           replyArea.value = '';
-          Popup.showThread(pinId);
+          Popup.suppressOutsideDismiss(500);
+          Popup.keepOpenAfterAction(function () { Popup.showThread(pinId); });
           if (!String(pinId).startsWith('guest-') && S.discussionId) {
             fetch(CFG.workerUrl, {
               method: 'POST',
@@ -3360,10 +3403,8 @@
       }
       // Popup: close on outside click; shake instead if there's unsaved input
       if (Popup.el && Popup.el.style.display !== 'none') {
-        // Use composedPath so clicks on buttons that rebuild the popup (e.g. guest Post)
-        // still count as inside — the target may be detached before this handler runs.
-        var clickPath = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
-        var clickedInsidePopup = clickPath.indexOf(Popup.el) !== -1;
+        if (Popup._suppressOutsideDismissUntil && Date.now() < Popup._suppressOutsideDismissUntil) return;
+        var clickedInsidePopup = isEventInsidePopup(e);
         if (!clickedInsidePopup) {
           var hasUnsavedInput = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
             return ta.value.trim().length > 0;

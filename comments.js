@@ -166,6 +166,83 @@
     };
   }
 
+  // ── Modal pin helpers ────────────────────────────────────────────────────────
+  var _lastFocusedBtn = null;
+
+  function getModalHeadingText(modalEl) {
+    if (!modalEl) return '';
+    var heading = modalEl.querySelector('[class*="modal-box__title"], [class*="modal__title"], h1, h2, h3');
+    return heading && heading.textContent ? heading.textContent.trim() : '';
+  }
+
+  function findOpenModal(title) {
+    if (!title) return null;
+    var dialogs = document.querySelectorAll('[role="dialog"], .pf-v6-c-modal-box, .pf-c-modal-box');
+    for (var i = 0; i < dialogs.length; i++) {
+      var d = dialogs[i];
+      if (getComputedStyle(d).display === 'none') continue;
+      var heading = d.querySelector('h1,h2,h3,[class*="title"]');
+      if (heading && heading.textContent.trim() === title) return d;
+    }
+    return null;
+  }
+
+  function isInsideCommentsUI(el) {
+    return !!(el && el.closest && (
+      el.closest('#rhacs-mount') || el.closest('[role="dialog"]') ||
+      el.closest('.pf-v6-c-modal-box') || el.closest('.pf-c-modal-box')
+    ));
+  }
+
+  function findModalOpenerButton(modalTitle, storedOpener) {
+    var allBtns = Array.prototype.slice.call(document.querySelectorAll('button, a[role="button"]'))
+      .filter(function (b) { return !isInsideCommentsUI(b); });
+    if (storedOpener) {
+      var exact = allBtns.find(function (b) {
+        var t = (b.textContent || b.getAttribute('aria-label') || '').trim();
+        return t === storedOpener;
+      });
+      if (exact) return exact;
+    }
+    var modalWords = (modalTitle || '').toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
+    var matched = allBtns.find(function (b) {
+      var bt = (b.textContent || b.getAttribute('aria-label') || '').toLowerCase();
+      return modalWords.some(function (w) { return bt.includes(w); });
+    });
+    if (matched) return matched;
+    if (_lastFocusedBtn && !isInsideCommentsUI(_lastFocusedBtn)) return _lastFocusedBtn;
+    return null;
+  }
+
+  function modalPinToViewport(meta) {
+    var modal = findOpenModal(meta.modalTitle);
+    if (!modal || meta.modalX == null || meta.modalY == null) return null;
+    var mr = modal.getBoundingClientRect();
+    return {
+      left: mr.left + (meta.modalX / 100) * mr.width,
+      top:  mr.top  + (meta.modalY / 100) * mr.height,
+      visible: true,
+      isModal: true,
+    };
+  }
+
+  function hasModalPins() {
+    return S.pins.some(function (p) { return p.meta && p.meta.modalTitle; });
+  }
+
+  function ensureModalPinRefresh() {
+    if (Overlay._modalPinInterval) return;
+    if (!hasModalPins()) return;
+    Overlay._modalPinInterval = setInterval(function () {
+      if (!hasModalPins()) {
+        clearInterval(Overlay._modalPinInterval);
+        Overlay._modalPinInterval = null;
+        return;
+      }
+      Overlay.renderPins();
+    }, 500);
+  }
+
   // ── Page-state detection (4-state CRUD) ──────────────────────────────────────
   // Priority: URL signals → visible delete dialog → DOM form signals → view
   function detectViewState() {
@@ -246,9 +323,15 @@
     return (author.login || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
   }
 
-  function buildBody(x, y, num, text, guestAuthor) {
+  function buildBody(x, y, num, text, guestAuthor, modalMeta) {
     var meta = { x: x, y: y, resolved: false, pinNumber: num, viewState: detectViewState(), pageUrl: window.location.href };
     if (guestAuthor) meta.guestAuthor = guestAuthor;
+    if (modalMeta) {
+      if (modalMeta.modalTitle) meta.modalTitle = modalMeta.modalTitle;
+      if (modalMeta.modalX != null) meta.modalX = modalMeta.modalX;
+      if (modalMeta.modalY != null) meta.modalY = modalMeta.modalY;
+      if (modalMeta.modalOpener) meta.modalOpener = modalMeta.modalOpener;
+    }
     return '<!-- RHACS_PIN ' + JSON.stringify(meta) + ' -->\n' + text;
   }
 
@@ -370,11 +453,11 @@
     });
   }
 
-  function addPinComment(text, x, y, num) {
+  function addPinComment(text, x, y, num, modalMeta) {
     return ensureDiscussion().then(function (discId) {
       return ghReq(
         'mutation($d:ID!,$b:String!){ addDiscussionComment(input:{discussionId:$d,body:$b}){ comment{ id createdAt } } }',
-        { d: discId, b: buildBody(x, y, num, text) },
+        { d: discId, b: buildBody(x, y, num, text, null, modalMeta) },
         true
       ).then(function (d) { return d.addDiscussionComment.comment; });
     });
@@ -753,10 +836,10 @@
     saveGuestPins: function (pins) {
       localStorage.setItem(Auth.guestPinsKey(), JSON.stringify(pins));
     },
-    addGuestPin: function (text, x, y, num) {
+    addGuestPin: function (text, x, y, num, modalMeta) {
       // Build the comment body with embedded guest author identity
       var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : null;
-      var body = buildBody(x, y, num, text, guestAuthor);
+      var body = buildBody(x, y, num, text, guestAuthor, modalMeta);
       var tempId = 'guest-' + Date.now();
       var pin = {
         id: tempId,
@@ -1016,6 +1099,28 @@
     var pending = S.pendingPanelPinOpen;
     if (!pending) return;
     S.pendingPanelPinOpen = null;
+    if (pending.modalTitle) {
+      waitForViewState(pending.targetState, function () {
+        var pin = S.pins.find(function (p) { return p.id === pending.pinId; });
+        if (findOpenModal(pending.modalTitle)) {
+          Overlay.renderPins();
+          setTimeout(function () { Popup.showThread(pending.pinId); }, 50);
+          return;
+        }
+        var opener = findModalOpenerButton(pending.modalTitle, pending.modalOpener);
+        if (opener) opener.click();
+        var elapsed = 0;
+        var poll = setInterval(function () {
+          elapsed += 100;
+          if (findOpenModal(pending.modalTitle) || elapsed >= 2500) {
+            clearInterval(poll);
+            Overlay.renderPins();
+            setTimeout(function () { Popup.showThread(pending.pinId); }, 50);
+          }
+        }, 100);
+      }, 2500);
+      return;
+    }
     waitForViewState(pending.targetState, function () {
       scrollToPinMetaY(pending.metaY, pending.pinId);
     }, 2500);
@@ -1095,6 +1200,12 @@
 
       startLayoutSettleObserver();
 
+      // Re-render modal pins when dialogs appear/disappear in the DOM
+      Overlay._modalObserver = new MutationObserver(function () {
+        if (hasModalPins()) Overlay.renderPins();
+      });
+      Overlay._modalObserver.observe(document.body, { childList: true, subtree: true });
+
       // Re-detect scroll container after React finishes hydrating
       setTimeout(function () { Overlay.refresh(); }, 800);
       setTimeout(function () { Overlay.refresh(); }, 2500);
@@ -1155,7 +1266,30 @@
       var ci = containerInfo();
       var x = ((e.clientX - ci.clientLeft + ci.scrollLeft) / Math.max(ci.scrollWidth,  1)) * 100;
       var y = ((e.clientY - ci.clientTop  + ci.scrollTop)  / Math.max(ci.scrollHeight, 1)) * 100;
-      Popup.showNewForm(x, y, e.clientX, e.clientY);
+      var popupX = e.clientX;
+      var popupY = e.clientY;
+      var modalMeta = null;
+
+      var modalEl = e.target.closest && e.target.closest('[role="dialog"], .pf-v6-c-modal-box, .pf-c-modal-box');
+      if (modalEl) {
+        var mr = modalEl.getBoundingClientRect();
+        var modalX = ((e.clientX - mr.left) / Math.max(mr.width,  1)) * 100;
+        var modalY = ((e.clientY - mr.top)  / Math.max(mr.height, 1)) * 100;
+        var modalTitle = getModalHeadingText(modalEl);
+        var openerBtn = findModalOpenerButton(modalTitle, null);
+        modalMeta = {
+          modalTitle: modalTitle,
+          modalX: modalX,
+          modalY: modalY,
+          modalOpener: openerBtn
+            ? (openerBtn.textContent || openerBtn.getAttribute('aria-label') || '').trim().slice(0, 50)
+            : '',
+        };
+        popupX = mr.left + (modalX / 100) * mr.width;
+        popupY = mr.top  + (modalY / 100) * mr.height;
+      }
+
+      Popup.showNewForm(x, y, popupX, popupY, modalMeta);
     },
 
     renderPins: function () {
@@ -1172,7 +1306,14 @@
         // Legacy pins without viewState are shown in both states.
         var pinState = pin.meta.viewState;
         if (pinState && pinState !== curState) return;
-        var vp = pinToViewport(pin.meta);
+        var isModalPin = !!(pin.meta.modalTitle && pin.meta.modalX != null && pin.meta.modalY != null);
+        var vp;
+        if (isModalPin) {
+          vp = modalPinToViewport(pin.meta);
+          if (!vp) return; // modal closed — hide pin until modal reopens
+        } else {
+          vp = pinToViewport(pin.meta);
+        }
         var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
         var isResolved = pin.meta.resolved;
         // Resolved pins are hidden by default; only shown when the panel toggle is on
@@ -1182,6 +1323,7 @@
         // Total visible thread depth: root post + replies
         var threadCount = 1 + replyCount;
         var cls = 'rhacs-pin' +
+          (isModalPin ? ' rhacs-pin--modal' : '') +
           (isResolved ? ' rhacs-pin--resolved' : '') +
           (isUnread   ? ' rhacs-pin--unread'   : '') +
           (isRead     ? ' rhacs-pin--read'     : '');
@@ -1203,19 +1345,29 @@
         var replyLabel = replyCount > 0 ? (', ' + replyCount + ' ' + (replyCount === 1 ? 'reply' : 'replies')) : '';
         var stateLabel = isResolved ? ' · Resolved' : (isUnread ? ' · Unread' : ' · Read');
         pinEl.setAttribute('data-tip', (pin.author ? pin.author.login : 'Guest') + stateLabel + replyLabel + ' — click to view');
-        // Document-pixel position: viewport coords + window scroll offset.
-        // Because #rhacs-pin-layer is position:absolute in the document, these
-        // document coordinates make pins move with page content including the
-        // browser's rubber-band overscroll bounce on macOS Chrome/Safari.
-        pinEl.style.left       = (vp.left + winScrollX) + 'px';
-        pinEl.style.top        = (vp.top  + winScrollY) + 'px';
-        pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
+        if (isModalPin) {
+          // Fixed viewport coords — track modal position while open
+          pinEl.style.position  = 'fixed';
+          pinEl.style.zIndex    = '10010';
+          pinEl.style.left      = vp.left + 'px';
+          pinEl.style.top       = vp.top + 'px';
+          pinEl.style.visibility = 'visible';
+        } else {
+          // Document-pixel position: viewport coords + window scroll offset.
+          // Because #rhacs-pin-layer is position:absolute in the document, these
+          // document coordinates make pins move with page content including the
+          // browser's rubber-band overscroll bounce on macOS Chrome/Safari.
+          pinEl.style.left       = (vp.left + winScrollX) + 'px';
+          pinEl.style.top        = (vp.top  + winScrollY) + 'px';
+          pinEl.style.visibility = vp.visible ? 'visible' : 'hidden';
+        }
         pinEl.addEventListener('click', function (e) {
           e.stopPropagation();
           Popup.showThread(pin.id);
         });
         Overlay.pinLayerEl.appendChild(pinEl);
       });
+      ensureModalPinRefresh();
     },
 
     setMode: function (active) {
@@ -1448,8 +1600,9 @@
         if (Popup._ro) Popup._ro.observe(popupEl);
       });
     },
-    showNewForm: function (x, y, clientX, clientY) {
+    showNewForm: function (x, y, clientX, clientY, modalMeta) {
       S.activePinId = null;
+      Popup._pendingModalMeta = modalMeta || null;
       this.el.innerHTML = '';
 
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1502,11 +1655,13 @@
       text = text.trim();
       if (!text) return;
       var num = S.pins.length + 1;
+      var modalMeta = Popup._pendingModalMeta || null;
+      Popup._pendingModalMeta = null;
       Auth.requireAuth()
         .then(function () {
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
           if (S.guestMode && !S.token) {
-            var newPin = Auth.addGuestPin(text, x, y, num);
+            var newPin = Auth.addGuestPin(text, x, y, num, modalMeta);
             loadGuestPinsIntoState();
             Overlay.renderPins();
             if (isShareMode() && newPin && newPin.id) {
@@ -1517,7 +1672,7 @@
             Notify.toast('Comment submitted — thank you!');
           } else {
             // Optimistic: show pin immediately, sync in background
-            var body = buildBody(x, y, num, text);
+            var body = buildBody(x, y, num, text, null, modalMeta);
             var optimisticPin = {
               id: 'optimistic-' + Date.now(),
               body: body,
@@ -1532,7 +1687,7 @@
             Overlay.renderPins();
             Panel.render();
             FAB.updateBadge();
-            return addPinComment(text, x, y, num)
+            return addPinComment(text, x, y, num, modalMeta)
               .then(function () { return loadAndRender(); })
               .catch(function (e) {
                 // Rollback optimistic pin on failure
@@ -2786,7 +2941,13 @@
         var ptext = pinText(pin.body);
         preview.appendChild(txt(ptext.length > 80 ? ptext.slice(0, 80) + '\u2026' : ptext));
 
-        append(itemBody, itemHdr, preview);
+        if (pin.meta.modalTitle) {
+          var modalBadge = el('div', { className: 'rhacs-panel__modal-badge' });
+          modalBadge.appendChild(txt('\uD83D\uDCCB ' + pin.meta.modalTitle));
+          append(itemBody, itemHdr, modalBadge, preview);
+        } else {
+          append(itemBody, itemHdr, preview);
+        }
 
         if (pin.replies && pin.replies.length > 0) {
           var replyCount = el('button', { className: 'rhacs-panel__item-replies' });
@@ -2821,8 +2982,35 @@
           var pinId = p.id;
           var targetState = p.meta && p.meta.viewState;
           var pinPageUrl  = p.meta && p.meta.pageUrl;
+          var modalTitle  = p.meta && p.meta.modalTitle;
+
+          function showAfterModalReady() {
+            Overlay.renderPins();
+            setTimeout(function () { Popup.showThread(pinId); }, 50);
+          }
+
+          function openModalAndShowPin() {
+            if (findOpenModal(modalTitle)) {
+              showAfterModalReady();
+              return;
+            }
+            var opener = findModalOpenerButton(modalTitle, p.meta.modalOpener);
+            if (opener) opener.click();
+            var elapsed = 0;
+            var poll = setInterval(function () {
+              elapsed += 100;
+              if (findOpenModal(modalTitle) || elapsed >= 2500) {
+                clearInterval(poll);
+                showAfterModalReady();
+              }
+            }, 100);
+          }
 
           function activateAndShow() {
+            if (modalTitle) {
+              openModalAndShowPin();
+              return;
+            }
             waitForViewState(targetState, function () {
               scrollToPinMetaY(p.meta.y, pinId);
             }, 2500);
@@ -2830,7 +3018,13 @@
 
           // Step 1: navigate only when pathname differs (ignore query/hash drift on same page)
           if (pinPageUrl && !pinUrlsSamePage(pinPageUrl, window.location.href)) {
-            S.pendingPanelPinOpen = { pinId: pinId, targetState: targetState, metaY: p.meta.y };
+            S.pendingPanelPinOpen = {
+              pinId: pinId,
+              targetState: targetState,
+              metaY: p.meta.y,
+              modalTitle: modalTitle || null,
+              modalOpener: p.meta.modalOpener || null,
+            };
             history.pushState({}, '', pinPageUrl);
             window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
             return;
@@ -3407,6 +3601,18 @@
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
 
     Overlay.init();
+    document.addEventListener('focusin', function (e) {
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A')) {
+        _lastFocusedBtn = e.target;
+      }
+    }, true);
+    document.addEventListener('mousedown', function (e) {
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' ||
+          (e.target.closest && e.target.closest('button, a[role="button"]')))) {
+        var btn = e.target.closest ? (e.target.closest('button') || e.target.closest('a[role="button"]')) : e.target;
+        if (btn && !btn.closest('#rhacs-mount')) _lastFocusedBtn = btn;
+      }
+    }, true);
     Popup.init();
     Panel.init();
     FAB.init();

@@ -1292,6 +1292,21 @@ body.rhacs-comment-mode-active .rhacs-pin {
   white-space: nowrap;
 }
 
+#rhacs-pin-layer .rhacs-pin--modal {
+  position: fixed;
+  z-index: 10010;
+}
+
+.rhacs-panel__modal-badge {
+  font-size: 11px;
+  color: #57606a;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* PF6 label compact — mirrors .pf-v6-c-label.pf-m-compact */
 .rhacs-panel__state-badge {
   display: inline-flex;

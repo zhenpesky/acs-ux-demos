@@ -1531,7 +1531,7 @@
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
       fpTm.appendChild(txt(timeAgo(pin.createdAt)));
       append(fpHdr, fpAv, fpAu, fpTm);
-      if (isProtoOwner) {
+      if (isProtoOwner && !(S.guestMode && _share)) {
         var msgKebab = Popup.makeKebab([
           { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } }
         ]);
@@ -1868,7 +1868,7 @@
       var bd = el('div', { className: 'rhacs-reply__body' });
       bd.appendChild(txt(reply.body));
 
-      if (S.user && reply.author.login === S.user.login) {
+      if (S.user && reply.author.login === S.user.login && !(S.guestMode && isShareMode())) {
         hdr.appendChild(Popup.makeKebab([
           { label: 'Edit',   action: function () { Popup.showReplyEdit(reply, pinId, bd); } },
           { label: 'Delete', danger: true, action: function () {

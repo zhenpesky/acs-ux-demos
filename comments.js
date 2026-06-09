@@ -1529,29 +1529,30 @@
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
       if (S.guestMode) {
-        // Guests can't reply — show an inline info notice instead of a text box
-        var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
-        var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
-        noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
-        var noticeText = el('span');
-        noticeText.appendChild(txt('Log in with GitHub to reply. '));
-        var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
-        noticeLink.appendChild(txt('Log in'));
-        noticeLink.addEventListener('click', function () {
-          Auth.login()
-            .then(function () { return Auth.fetchUser(); })
-            .then(function () {
-              FAB.updateUser();
-              return loadAndRender().then(function () {
-                // Re-render the open thread so the reply notice is replaced by the reply textarea
-                Popup.showThread(pinId);
-              });
-            })
-            .catch(function () {});
-        });
-        noticeText.appendChild(noticeLink);
-        append(guestReplyNotice, noticeIcon, noticeText);
-        replyForm.appendChild(guestReplyNotice);
+        if (!isShareMode()) {
+          // Guests from standard login can upgrade — show info notice with login link
+          var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
+          var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
+          noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
+          var noticeText = el('span');
+          noticeText.appendChild(txt('Log in with GitHub to reply. '));
+          var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
+          noticeLink.appendChild(txt('Log in'));
+          noticeLink.addEventListener('click', function () {
+            Auth.login()
+              .then(function () { return Auth.fetchUser(); })
+              .then(function () {
+                FAB.updateUser();
+                return loadAndRender().then(function () {
+                  Popup.showThread(pinId);
+                });
+              })
+              .catch(function () {});
+          });
+          noticeText.appendChild(noticeLink);
+          append(guestReplyNotice, noticeIcon, noticeText);
+          replyForm.appendChild(guestReplyNotice);
+        }
       } else {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2416,12 +2417,18 @@
       // ── Guest notice banner (top) ────────────────────────────────────────────
       if (S.guestMode) {
         var guestBanner = el('div', { className: 'rhacs-panel__guest-banner' });
-        guestBanner.innerHTML =
-          '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
-          '<span>You\u2019re commenting as a guest \u2014 no login needed. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to get notifications when someone replies.</span>';
-        guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
-          Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
-        });
+        if (isShareMode()) {
+          guestBanner.innerHTML =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
+            '<span>You\u2019re commenting as a guest \u2014 no login needed.</span>';
+        } else {
+          guestBanner.innerHTML =
+            '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
+            '<span>You\u2019re commenting as a guest \u2014 no login needed. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to get notifications when someone replies.</span>';
+          guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
+            Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
+          });
+        }
         this.topEl.appendChild(guestBanner);
       }
 
@@ -2820,29 +2827,36 @@
         toggleBtn.innerHTML = CHEVRON_DOWN;
 
         var splitDropdown = el('div', { className: 'rhacs-split-btn__dropdown' });
-        var loginItem = el('button', { className: 'rhacs-kebab__item' });
-        loginItem.appendChild(txt('Log in with GitHub'));
-        loginItem.addEventListener('click', function (e) {
-          e.stopPropagation();
-          splitDropdown.classList.remove('rhacs-split-btn__dropdown--open');
-          Auth.login()
-            .then(function () { return Auth.fetchUser(); })
-            .then(function () { FAB.updateUser(); return loadAndRender(); })
-            .catch(function () {});
-        });
-        splitDropdown.appendChild(loginItem);
 
-        toggleBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var isOpen = splitDropdown.classList.contains('rhacs-split-btn__dropdown--open');
-          document.querySelectorAll('.rhacs-split-btn__dropdown--open, .rhacs-kebab__dropdown--open').forEach(function (d) {
-            d.classList.remove('rhacs-split-btn__dropdown--open');
-            d.classList.remove('rhacs-kebab__dropdown--open');
+        if (!isShareMode()) {
+          var loginItem = el('button', { className: 'rhacs-kebab__item' });
+          loginItem.appendChild(txt('Log in with GitHub'));
+          loginItem.addEventListener('click', function (e) {
+            e.stopPropagation();
+            splitDropdown.classList.remove('rhacs-split-btn__dropdown--open');
+            Auth.login()
+              .then(function () { return Auth.fetchUser(); })
+              .then(function () { FAB.updateUser(); return loadAndRender(); })
+              .catch(function () {});
           });
-          if (!isOpen) splitDropdown.classList.add('rhacs-split-btn__dropdown--open');
-        });
+          splitDropdown.appendChild(loginItem);
 
-        append(splitBtn, labelPart, toggleBtn, splitDropdown);
+          toggleBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = splitDropdown.classList.contains('rhacs-split-btn__dropdown--open');
+            document.querySelectorAll('.rhacs-split-btn__dropdown--open, .rhacs-kebab__dropdown--open').forEach(function (d) {
+              d.classList.remove('rhacs-split-btn__dropdown--open');
+              d.classList.remove('rhacs-kebab__dropdown--open');
+            });
+            if (!isOpen) splitDropdown.classList.add('rhacs-split-btn__dropdown--open');
+          });
+        }
+
+        if (isShareMode()) {
+          append(splitBtn, labelPart);
+        } else {
+          append(splitBtn, labelPart, toggleBtn, splitDropdown);
+        }
 
         // ── Standalone Log out button below ───────────────────────────────
         var logoutGuestBtn = el('button', { className: 'rhacs-guest-logout-btn' });

@@ -24,13 +24,22 @@
 
   // ── Share mode: ?share=1 hides GitHub login and isolates the view ──────────
   function isShareMode() {
+    // GitHub-authenticated users always get full UI — share restrictions are guest-only.
+    if (S.token) return false;
     if (new URLSearchParams(window.location.search).get('share') === '1') return true;
     try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
   }
 
+  // GitHub token always wins over guest/share session state.
+  function prioritizeGitHubAuth() {
+    if (!S.token) return false;
+    S.guestMode = false;
+    return true;
+  }
+
   // Share links skip GitHub login — restore guest session + pins after refresh.
   function restoreShareGuestSession() {
-    if (!isShareMode() || S.token || S.guestMode) return;
+    if (prioritizeGitHubAuth() || !isShareMode() || S.guestMode) return;
     var guest = Auth.guestIdentity();
     if (guest) {
       S.guestMode = true;
@@ -404,7 +413,7 @@
       // choose "Continue as guest" each session via the auth dialog.
       // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
-      restoreShareGuestSession();
+      if (!S.token) restoreShareGuestSession();
     },
     isLoggedIn:        function () { return !!S.token; },
     isAuthed:          function () { return !!S.token || S.guestMode; },
@@ -445,10 +454,12 @@
           if (token) {
             S.token = token;
             S.guestMode = false;
+            S.user = null;
             localStorage.setItem(CFG.tokenKey, S.token);
+            localStorage.removeItem(CFG.userKey);
             localStorage.removeItem(CFG.guestKey);
             // Resolve immediately so the dialog closes — don't block on fetchUser
-            resolve(S.user);
+            resolve();
             // Fetch profile in background; a failure just means no avatar
             Auth.fetchUser()
               .then(function () { try { FAB.updateUser(); } catch (e) {} })
@@ -948,46 +959,51 @@
     Overlay._layoutSettleRO.observe(document.body);
   }
 
-  function loadAndRender() {
-    // GitHub users load from Discussions; share-mode guests load from localStorage.
-    if (!S.token) {
-      restoreShareGuestSession();
-      if (S.guestMode || (isShareMode() && Auth.loadGuestPins().length > 0)) {
-        if (!S.guestMode) restoreShareGuestSession();
-        loadGuestPinsIntoState();
-      } else {
-        S.pins = [];
+  function applyLoadedPins(comments) {
+    S.pins = parseComments(comments);
+    // If a previously-read pin now has more replies than when it was read,
+    // remove it from seenIds so the pin becomes unread again (new reply badge)
+    S.pins.forEach(function (p) {
+      if (S.seenIds.has(p.id)) {
+        var prevCount = S.seenReplyCounts[p.id];
+        if (prevCount !== undefined && (p.replies || []).length > prevCount) {
+          S.seenIds.delete(p.id);
+          localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+        }
       }
-      if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
-      if (FAB.badge) FAB.updateBadge();
-      return Promise.resolve();
-    }
+    });
+    scheduleRenderPinsAfterLayout();
+    FAB.updateBadge();
+  }
+
+  function loadFromGitHub() {
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.pins = []; scheduleRenderPinsAfterLayout(); return; }
+        if (!id) { S.discussionId = null; S.pins = []; scheduleRenderPinsAfterLayout(); return; }
         S.discussionId = id;
-        return loadComments(id).then(function (comments) {
-          S.pins = parseComments(comments);
-          // If a previously-read pin now has more replies than when it was read,
-          // remove it from seenIds so the pin becomes unread again (new reply badge)
-          S.pins.forEach(function (p) {
-            if (S.seenIds.has(p.id)) {
-              var prevCount = S.seenReplyCounts[p.id];
-              if (prevCount !== undefined && (p.replies || []).length > prevCount) {
-                S.seenIds.delete(p.id);
-                localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-              }
-            }
-          });
-          scheduleRenderPinsAfterLayout();
-          FAB.updateBadge();
-        });
+        return loadComments(id).then(applyLoadedPins);
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
         S.pins = [];
         scheduleRenderPinsAfterLayout();
       });
+  }
+
+  function loadAndRender() {
+    // GitHub-authenticated users always load from Discussions (includes guest posts via worker).
+    if (prioritizeGitHubAuth()) return loadFromGitHub();
+
+    // Share-mode / guest path: localStorage only.
+    restoreShareGuestSession();
+    if (S.guestMode || (isShareMode() && Auth.loadGuestPins().length > 0)) {
+      loadGuestPinsIntoState();
+    } else {
+      S.pins = [];
+    }
+    if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
+    if (FAB.badge) FAB.updateBadge();
+    return Promise.resolve();
   }
 
   // ── Overlay ───────────────────────────────────────────────────────────────────
@@ -2903,7 +2919,7 @@
     },
     updateBadge: function () {
       // Only count unread pins from OTHER users — not your own comments.
-      var myLogin = S.user && S.user.login;
+      var myLogin = (S.token && !S.guestMode && S.user) ? S.user.login : null;
       var count = S.pins.filter(function (p) {
         if (!p.meta || p.meta.resolved) return false;
         if (!(new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id))) return false;
@@ -3189,20 +3205,35 @@
     startPolling: function () {
       var poll = function () {
         if (document.visibilityState !== 'visible') return;
-        if (!S.discussionId) return;
-        loadComments(S.discussionId).then(function (comments) {
-          var freshPins = parseComments(comments);
-          var newOnes = freshPins.filter(function (fp) {
-            return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen && !S.seenIds.has(fp.id) &&
-              !S.pins.some(function (ep) { return ep.id === fp.id; });
+        if (!prioritizeGitHubAuth()) return;
+
+        function refreshFromDiscussion(discId) {
+          if (!discId) return Promise.resolve();
+          S.discussionId = discId;
+          return loadComments(discId).then(function (comments) {
+            var freshPins = parseComments(comments);
+            var newOnes = freshPins.filter(function (fp) {
+              return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen && !S.seenIds.has(fp.id) &&
+                !S.pins.some(function (ep) { return ep.id === fp.id; });
+            });
+            if (newOnes.length > 0 || freshPins.length !== S.pins.length) {
+              S.pins = freshPins;
+              Overlay.renderPins();
+              Panel.render();
+              if (newOnes.length > 0) Notify.showUnread(newOnes.length);
+              else FAB.updateBadge();
+            }
           });
-          if (newOnes.length > 0) {
-            S.pins = freshPins;
-            Overlay.renderPins();
-            Panel.render();
-            Notify.showUnread(newOnes.length);
-          }
-        }).catch(function () {});
+        }
+
+        if (S.discussionId) {
+          refreshFromDiscussion(S.discussionId).catch(function () {});
+        } else {
+          // Guest may have created the discussion after the owner first loaded the page.
+          findDiscussion().then(function (id) {
+            if (id) refreshFromDiscussion(id).catch(function () {});
+          }).catch(function () {});
+        }
       };
       S.pollTimer = setInterval(poll, CFG.pollMs);
       document.addEventListener('visibilitychange', function () {
@@ -3434,8 +3465,8 @@
       // It can only be dismissed via its own close (×) button or the FAB "View all" toggle.
     });
 
-    // If token exists but user profile is missing, fetch it now (e.g. after page reload)
-    var userPromise = (S.token && !S.user)
+    // Validate token + refresh GitHub profile on every load (clears stale guest S.user).
+    var userPromise = S.token
       ? Auth.fetchUser()
           .then(function () { FAB.updateUser(); })
           .catch(function (e) {

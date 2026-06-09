@@ -72,6 +72,16 @@
   function getPageKey() {
     return 'page:' + window.location.pathname;
   }
+  // Pins store full href at creation time; SPA nav often strips ?prototype= while pathname stays the same.
+  function pinUrlsSamePage(storedUrl, currentUrl) {
+    if (!storedUrl) return true;
+    try {
+      return new URL(storedUrl, window.location.origin).pathname
+           === new URL(currentUrl, window.location.origin).pathname;
+    } catch (e) {
+      return storedUrl === currentUrl;
+    }
+  }
   var PAGE_KEY  = getPageKey(); // legacy alias — still used for GitHub Discussion title lookup
   var GH_GQL    = 'https://api.github.com/graphql';
 
@@ -93,6 +103,7 @@
     pollTimer:       null,
     showResolved:    false,
     seenReplyCounts: {},   // { [pinId]: replyCount at time of reading } — detects new replies
+    pendingPanelPinOpen: null, // set before cross-page panel nav; fulfilled after pins load
   };
 
   // ── Scroll container detection ───────────────────────────────────────────────
@@ -974,18 +985,53 @@
     });
     scheduleRenderPinsAfterLayout();
     FAB.updateBadge();
+    fulfillPendingPanelPinOpen();
+  }
+
+  function waitForViewState(target, onReady, timeoutMs) {
+    timeoutMs = timeoutMs || 2500;
+    if (!target || detectViewState() === target) { onReady(); return; }
+    var elapsed = 0;
+    var interval = setInterval(function () {
+      elapsed += 100;
+      if (detectViewState() === target || elapsed >= timeoutMs) {
+        clearInterval(interval);
+        onReady();
+      }
+    }, 100);
+  }
+
+  function scrollToPinMetaY(metaY, pinId) {
+    var ci = containerInfo();
+    var scrollY = (metaY / 100) * ci.scrollHeight;
+    if (S.scrollContainer) {
+      S.scrollContainer.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
+    }
+    setTimeout(function () { Popup.showThread(pinId); }, 200);
+  }
+
+  function fulfillPendingPanelPinOpen() {
+    var pending = S.pendingPanelPinOpen;
+    if (!pending) return;
+    S.pendingPanelPinOpen = null;
+    waitForViewState(pending.targetState, function () {
+      scrollToPinMetaY(pending.metaY, pending.pinId);
+    }, 2500);
   }
 
   function loadFromGitHub() {
     return getRepoMeta()
       .then(findDiscussion)
       .then(function (id) {
-        if (!id) { S.discussionId = null; S.pins = []; scheduleRenderPinsAfterLayout(); return; }
+        if (!id) { S.discussionId = null; S.pins = []; S.pendingPanelPinOpen = null; scheduleRenderPinsAfterLayout(); return; }
         S.discussionId = id;
         return loadComments(id).then(applyLoadedPins);
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
         S.pins = [];
+        S.pendingPanelPinOpen = null;
         scheduleRenderPinsAfterLayout();
       });
   }
@@ -2762,6 +2808,8 @@
         append(item, itemCheck, itemBody);
 
         item.addEventListener('click', (function (p) { return function () {
+          Popup.suppressOutsideDismiss(600);
+
           if (new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id)) {
             S.seenIds.add(p.id);
             localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
@@ -2774,41 +2822,17 @@
           var targetState = p.meta && p.meta.viewState;
           var pinPageUrl  = p.meta && p.meta.pageUrl;
 
-          // Poll until the page reaches the target view state, then scroll + show popup.
-          // Max wait 2.5s to avoid hanging if state never matches (legacy pins, etc.)
-          function showAfterStateReady() {
-            var ci = containerInfo();
-            var scrollY = (p.meta.y / 100) * ci.scrollHeight;
-            if (S.scrollContainer) {
-              S.scrollContainer.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
-            } else {
-              window.scrollTo({ top: scrollY - 120, behavior: 'smooth' });
-            }
-            setTimeout(function () { Popup.showThread(pinId); }, 200);
-          }
-
-          function waitForState(target, onReady, timeoutMs) {
-            if (!target || detectViewState() === target) { onReady(); return; }
-            var elapsed = 0;
-            var interval = setInterval(function () {
-              elapsed += 100;
-              if (detectViewState() === target || elapsed >= timeoutMs) {
-                clearInterval(interval);
-                onReady();
-              }
-            }, 100);
-          }
-
           function activateAndShow() {
-            waitForState(targetState, showAfterStateReady, 2500);
+            waitForViewState(targetState, function () {
+              scrollToPinMetaY(p.meta.y, pinId);
+            }, 2500);
           }
 
-          // Step 1: navigate to the correct URL if different
-          if (pinPageUrl && pinPageUrl !== window.location.href) {
+          // Step 1: navigate only when pathname differs (ignore query/hash drift on same page)
+          if (pinPageUrl && !pinUrlsSamePage(pinPageUrl, window.location.href)) {
+            S.pendingPanelPinOpen = { pinId: pinId, targetState: targetState, metaY: p.meta.y };
             history.pushState({}, '', pinPageUrl);
             window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
-            // Give React Router time to start re-rendering, then check state
-            setTimeout(activateAndShow, 300);
             return;
           }
 
@@ -2837,7 +2861,7 @@
           }
 
           // Step 3: already on the right URL and state — show immediately
-          showAfterStateReady();
+          activateAndShow();
         }; })(pin));
 
         Panel.listEl.appendChild(item);

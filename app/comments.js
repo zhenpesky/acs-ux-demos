@@ -1528,32 +1528,91 @@
 
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
-      if (S.guestMode) {
-        if (!isShareMode()) {
-          // Guests from standard login can upgrade — show info notice with login link
-          var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
-          var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
-          noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
-          var noticeText = el('span');
-          noticeText.appendChild(txt('Log in with GitHub to reply. '));
-          var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
-          noticeLink.appendChild(txt('Log in'));
-          noticeLink.addEventListener('click', function () {
-            Auth.login()
-              .then(function () { return Auth.fetchUser(); })
-              .then(function () {
-                FAB.updateUser();
-                return loadAndRender().then(function () {
-                  Popup.showThread(pinId);
-                });
-              })
-              .catch(function () {});
-          });
-          noticeText.appendChild(noticeLink);
-          append(guestReplyNotice, noticeIcon, noticeText);
-          replyForm.appendChild(guestReplyNotice);
-        }
-      } else {
+      if (S.guestMode && !isShareMode()) {
+        // Standard guest login — show info notice with login link to upgrade
+        var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
+        var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
+        noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
+        var noticeText = el('span');
+        noticeText.appendChild(txt('Log in with GitHub to reply. '));
+        var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
+        noticeLink.appendChild(txt('Log in'));
+        noticeLink.addEventListener('click', function () {
+          Auth.login()
+            .then(function () { return Auth.fetchUser(); })
+            .then(function () {
+              FAB.updateUser();
+              return loadAndRender().then(function () {
+                Popup.showThread(pinId);
+              });
+            })
+            .catch(function () {});
+        });
+        noticeText.appendChild(noticeLink);
+        append(guestReplyNotice, noticeIcon, noticeText);
+        replyForm.appendChild(guestReplyNotice);
+      } else if (S.guestMode && isShareMode() && pin._guest) {
+        // Share-mode guest on their own comment — allow replies via worker
+        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
+        var replyError = el('div', { className: 'rhacs-popup__input-error' });
+        replyError.appendChild(txt('Reply can\u2019t be empty'));
+        replyArea.addEventListener('input', function () {
+          if (replyArea.value.trim()) {
+            replyArea.classList.remove('rhacs-popup__textarea--error');
+            replyError.style.display = 'none';
+          }
+        });
+        var replyActions = el('div', { className: 'rhacs-btn-row' });
+        var replyBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+        replyBtn.appendChild(txt('Reply'));
+        replyBtn.addEventListener('click', function () {
+          if (!replyArea.value.trim()) {
+            replyArea.classList.add('rhacs-popup__textarea--error');
+            replyError.style.display = 'block';
+            replyArea.focus();
+            return;
+          }
+          var replyText = replyArea.value.trim();
+          var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : { login: 'Guest', name: 'Guest' };
+          var authorTag = guestAuthor.name ? '\n\n— _' + guestAuthor.name + ' (guest)_' : '';
+          var fullBody = replyText + authorTag;
+          replyBtn.disabled = true;
+          replyBtn.textContent = 'Replying\u2026';
+          // Optimistic local reply
+          var optimisticReply = { id: 'guest-reply-' + Date.now(), body: fullBody, createdAt: new Date().toISOString(), author: guestAuthor };
+          if (pin.replies) pin.replies.push(optimisticReply); else pin.replies = [optimisticReply];
+          var stored = Auth.loadGuestPins();
+          for (var gi = 0; gi < stored.length; gi++) {
+            if (stored[gi].id === pinId) { stored[gi].replies = pin.replies; break; }
+          }
+          Auth.saveGuestPins(stored);
+          replyArea.value = '';
+          Popup.showThread(pinId);
+          // POST reply to worker
+          if (!String(pinId).startsWith('guest-') && S.discussionId) {
+            fetch(CFG.workerUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'guest_reply', commentId: pinId, discussionId: S.discussionId, replyBody: fullBody })
+            }).then(function (r) { return r.json(); }).then(function (data) {
+              if (data && data.id) {
+                var st = Auth.loadGuestPins();
+                for (var si = 0; si < st.length; si++) {
+                  if (st[si].id === pinId && st[si].replies) {
+                    for (var ri = 0; ri < st[si].replies.length; ri++) {
+                      if (st[si].replies[ri].id === optimisticReply.id) { st[si].replies[ri].id = data.id; break; }
+                    }
+                    break;
+                  }
+                }
+                Auth.saveGuestPins(st);
+              }
+            }).catch(function (e) { console.warn('[rhacs] Guest reply upload failed:', e && e.message); });
+          }
+        });
+        append(replyActions, replyBtn);
+        append(replyForm, replyArea, replyError, replyActions);
+      } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
         replyError.appendChild(txt('Reply can\u2019t be empty'));

@@ -1560,6 +1560,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-fab__panel-btn {
+  position: relative;
+  z-index: 1;
   max-width: 40px;
   min-width: 40px;
   height: 40px;
@@ -1578,7 +1580,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   transition: background 0.2s, max-width 0.22s ease, padding 0.22s ease, gap 0.22s ease;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow: visible;
   white-space: nowrap;
 }
 .rhacs-fab__panel-btn:hover {

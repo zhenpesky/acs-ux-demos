@@ -1555,7 +1555,7 @@
         // Share-mode guest on their own comment — allow replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
-        replyError.appendChild(txt('Reply can\u2019t be empty'));
+        replyError.appendChild(txt('Comment can\u2019t be empty'));
         replyArea.addEventListener('input', function () {
           if (replyArea.value.trim()) {
             replyArea.classList.remove('rhacs-popup__textarea--error');
@@ -1563,9 +1563,9 @@
           }
         });
         var replyActions = el('div', { className: 'rhacs-btn-row' });
-        var replyBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
-        replyBtn.appendChild(txt('Reply'));
-        replyBtn.addEventListener('click', function () {
+        var postBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+        postBtn.appendChild(txt('Post'));
+        postBtn.addEventListener('click', function () {
           if (!replyArea.value.trim()) {
             replyArea.classList.add('rhacs-popup__textarea--error');
             replyError.style.display = 'block';
@@ -1574,11 +1574,10 @@
           }
           var replyText = replyArea.value.trim();
           var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : { login: 'Guest', name: 'Guest' };
-          var authorTag = guestAuthor.name ? '\n\n— _' + guestAuthor.name + ' (guest)_' : '';
+          var authorTag = guestAuthor.name ? '\n\n\u2014 _' + guestAuthor.name + ' (guest)_' : '';
           var fullBody = replyText + authorTag;
-          replyBtn.disabled = true;
-          replyBtn.textContent = 'Replying\u2026';
-          // Optimistic local reply
+          postBtn.disabled = true;
+          postBtn.textContent = 'Posting\u2026';
           var optimisticReply = { id: 'guest-reply-' + Date.now(), body: fullBody, createdAt: new Date().toISOString(), author: guestAuthor };
           if (pin.replies) pin.replies.push(optimisticReply); else pin.replies = [optimisticReply];
           var stored = Auth.loadGuestPins();
@@ -1588,7 +1587,6 @@
           Auth.saveGuestPins(stored);
           replyArea.value = '';
           Popup.showThread(pinId);
-          // POST reply to worker
           if (!String(pinId).startsWith('guest-') && S.discussionId) {
             fetch(CFG.workerUrl, {
               method: 'POST',
@@ -1610,7 +1608,7 @@
             }).catch(function (e) { console.warn('[rhacs] Guest reply upload failed:', e && e.message); });
           }
         });
-        append(replyActions, replyBtn);
+        append(replyActions, postBtn);
         append(replyForm, replyArea, replyError, replyActions);
       } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });

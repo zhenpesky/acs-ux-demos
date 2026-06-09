@@ -2009,6 +2009,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-auth-dialog__btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 11px 14px;
   border-radius: 8px;
@@ -2017,7 +2018,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  text-align: left;
+  text-align: center;
   transition: background 0.12s, border-color 0.12s;
 }
 
@@ -2047,7 +2048,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 .rhacs-auth-dialog__btn--secondary:hover { background: #f6f8fa; color: #24292f; }
 
-.rhacs-auth-dialog__btn span:nth-child(2) { flex: 1; }
+.rhacs-auth-dialog__btn span { flex: none; }
 
 .rhacs-auth-dialog__badge {
   font-size: 10px;

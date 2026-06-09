@@ -1445,6 +1445,15 @@
     showThread: function (pinId) {
       S.activePinId = pinId;
       var pin = S.pins.find(function (p) { return p.id === pinId; });
+      if (!pin && S.guestMode) {
+        var guestPin = Auth.loadGuestPins().find(function (p) { return p.id === pinId; });
+        if (guestPin) {
+          if (!guestPin.meta) guestPin.meta = parseMeta(guestPin.body);
+          guestPin._guest = true;
+          S.pins.push(guestPin);
+          pin = guestPin;
+        }
+      }
       if (!pin) return;
 
       // Auto-mark as read when the thread is opened — updates the pin's visual state
@@ -1578,7 +1587,8 @@
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var postBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
         postBtn.appendChild(txt('Post'));
-        postBtn.addEventListener('click', function () {
+        postBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
           if (!replyArea.value.trim()) {
             replyArea.classList.add('rhacs-popup__textarea--error');
             replyError.style.display = 'block';
@@ -3350,7 +3360,11 @@
       }
       // Popup: close on outside click; shake instead if there's unsaved input
       if (Popup.el && Popup.el.style.display !== 'none') {
-        if (!Popup.el.contains(e.target)) {
+        // Use composedPath so clicks on buttons that rebuild the popup (e.g. guest Post)
+        // still count as inside — the target may be detached before this handler runs.
+        var clickPath = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
+        var clickedInsidePopup = clickPath.indexOf(Popup.el) !== -1;
+        if (!clickedInsidePopup) {
           var hasUnsavedInput = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
             return ta.value.trim().length > 0;
           });

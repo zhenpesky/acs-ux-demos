@@ -1471,10 +1471,11 @@
       // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
       var pinTs   = new Date(pin.createdAt).getTime();
       var isUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
+      var _share = isShareMode();
       var convKebab = Popup.makeKebab([
-        canDelete  ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
+        canDelete && !_share ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
         canResolve ? { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } } : null,
-        isUnread
+        !_share ? (isUnread
           ? { label: 'Mark as read', action: function () {
               S.seenIds.add(pin.id);
               localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
@@ -1485,14 +1486,13 @@
           : { label: 'Mark as unread', action: function () {
               S.seenIds.delete(pin.id);
               localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-              // Set lastSeen to just before this pin so it becomes unread again
               S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
               localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
               S.unread = Math.max(1, S.unread);
               FAB.updateBadge();
               Overlay.renderPins();
               Panel.render();
-            }}
+            }}) : null
       ].filter(Boolean));
 
       var closeBtn = el('button', { className: 'rhacs-btn rhacs-btn--plain rhacs-popup__close', onclick: function () { Popup.close(); } });
@@ -1609,8 +1609,9 @@
       }
     },
     buildReactions: function (pin) {
-      var EMOJI = { THUMBS_UP:'👍', THUMBS_DOWN:'👎', LAUGH:'😄', HOORAY:'🎉', CONFUSED:'😕', HEART:'❤️', ROCKET:'🚀', EYES:'👀' };
       var wrap = el('div', { className: 'rhacs-reactions' });
+      if (isShareMode()) return wrap;
+      var EMOJI = { THUMBS_UP:'👍', THUMBS_DOWN:'👎', LAUGH:'😄', HOORAY:'🎉', CONFUSED:'😕', HEART:'❤️', ROCKET:'🚀', EYES:'👀' };
       (pin.reactionGroups || []).forEach(function (g) {
         if (g.users.totalCount === 0 && !g.viewerHasReacted) return;
         var btn = el('button', { className: 'rhacs-reaction-btn' + (g.viewerHasReacted ? ' active' : '') });
@@ -1618,7 +1619,6 @@
         btn.addEventListener('click', function () { Popup.handleReaction(pin.id, g.content, g.viewerHasReacted); });
         wrap.appendChild(btn);
       });
-      // Add reaction picker
       var addBtn = el('button', { className: 'rhacs-reaction-btn rhacs-reaction-add' });
       addBtn.appendChild(txt('+ 😀'));
       addBtn.addEventListener('click', function (e) { e.stopPropagation(); Popup.showPicker(pin.id, wrap); });
@@ -2202,19 +2202,22 @@
 
         var menuItems = [];
         var isOwner = Auth.isPrototypeOwner();
+        var _sm = isShareMode();
         if (isOwner && hasUnresolved) {
           menuItems.push({ label: 'Resolve selected', action: function () { self._bulkResolve(true); } });
         }
         if (isOwner && hasResolved) {
           menuItems.push({ label: 'Unresolve selected', action: function () { self._bulkResolve(false); } });
         }
-        if (isOwner) {
+        if (isOwner && !_sm) {
           menuItems.push({ label: 'Delete selected', danger: true, action: function () { self._bulkDelete(); } });
         }
-        if (hasUnread) {
-          menuItems.push({ label: 'Mark as read', action: function () { self._bulkMarkRead(); } });
-        } else {
-          menuItems.push({ label: 'Mark as unread', action: function () { self._bulkMarkUnread(); } });
+        if (!_sm) {
+          if (hasUnread) {
+            menuItems.push({ label: 'Mark as read', action: function () { self._bulkMarkRead(); } });
+          } else {
+            menuItems.push({ label: 'Mark as unread', action: function () { self._bulkMarkUnread(); } });
+          }
         }
 
         var kebab = Popup.makeKebab(menuItems);
@@ -2565,14 +2568,15 @@
 
         (function (p, unread, canDel, canRes) {
           var pinTs = new Date(p.createdAt).getTime();
+          var _sh = isShareMode();
           var menuItems = [
-            canDel ? { label: 'Delete thread', danger: true, action: function () {
+            canDel && !_sh ? { label: 'Delete thread', danger: true, action: function () {
               Popup.confirmDelete(p.id);
             }} : null,
             canRes ? { label: p.meta.resolved ? 'Unresolve' : 'Resolve', action: function () {
               Popup.toggleResolve(p);
             }} : null,
-            unread
+            !_sh ? (unread
               ? { label: 'Mark as read', action: function () {
                   S.seenIds.add(p.id);
                   localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
@@ -2585,7 +2589,7 @@
                   localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
                   S.unread = Math.max(1, S.unread);
                   FAB.updateBadge(); Overlay.renderPins(); Panel.render();
-                }}
+                }}) : null
           ].filter(Boolean);
           var panelKebab = Popup.makeKebab(menuItems);
           panelKebab.style.marginLeft = 'auto';

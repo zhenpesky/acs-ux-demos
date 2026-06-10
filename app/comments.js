@@ -220,6 +220,117 @@
     pendingPanelPinOpen: null, // set before cross-page panel nav; fulfilled after pins load
   };
 
+  // ── Per-user seen / unread tracking ───────────────────────────────────────────
+  function seenUserKey() {
+    try {
+      if (S.token) {
+        var login = S.user && S.user.login;
+        if (!login) {
+          var cached = JSON.parse(localStorage.getItem(CFG.userKey) || 'null');
+          if (cached && cached.login) login = cached.login;
+        }
+        if (login) return 'gh:' + login;
+      }
+    } catch (e) {}
+    if (S.guestMode && S.user && S.user.login) return 'guest:' + S.user.login;
+    try {
+      var gid = localStorage.getItem(CFG.guestKey);
+      if (gid) return 'guestid:' + gid;
+    } catch (e) {}
+    return 'anon';
+  }
+
+  function seenIdsStorageKey() {
+    return CFG.seenPrefix + 'ids-' + seenUserKey() + '-' + window.location.pathname;
+  }
+
+  function seenTsStorageKey() {
+    return CFG.seenPrefix + seenUserKey() + '-' + window.location.pathname;
+  }
+
+  function migrateLegacySeenKeys() {
+    var oldIds = CFG.seenPrefix + 'ids-' + window.location.pathname;
+    var oldTs  = CFG.seenPrefix + window.location.pathname;
+    var newIds = seenIdsStorageKey();
+    var newTs  = seenTsStorageKey();
+    try {
+      if (!localStorage.getItem(newIds) && localStorage.getItem(oldIds)) {
+        localStorage.setItem(newIds, localStorage.getItem(oldIds));
+      }
+      if (!localStorage.getItem(newTs) && localStorage.getItem(oldTs)) {
+        localStorage.setItem(newTs, localStorage.getItem(oldTs));
+      }
+    } catch (e) {}
+  }
+
+  function loadSeenState() {
+    migrateLegacySeenKeys();
+    S.lastSeen = parseInt(localStorage.getItem(seenTsStorageKey()) || '0', 10);
+    try {
+      var ids = JSON.parse(localStorage.getItem(seenIdsStorageKey()));
+      S.seenIds = new Set(Array.isArray(ids) ? ids : []);
+    } catch (e) { S.seenIds = new Set(); }
+  }
+
+  function saveSeenIds() {
+    try {
+      localStorage.setItem(seenIdsStorageKey(), JSON.stringify(Array.from(S.seenIds)));
+    } catch (e) {}
+  }
+
+  function saveLastSeen() {
+    try {
+      localStorage.setItem(seenTsStorageKey(), String(S.lastSeen));
+    } catch (e) {}
+  }
+
+  function isOwnPin(pin) {
+    var myLogin = (S.token && !S.guestMode && S.user) ? S.user.login : null;
+    return !!(myLogin && pin.author && pin.author.login === myLogin && !pin._guest);
+  }
+
+  function isPinUnread(pin) {
+    if (!pin || !pin.id || !pin.meta || pin.meta.resolved) return false;
+    if (isOwnPin(pin)) return false;
+    return !S.seenIds.has(pin.id);
+  }
+
+  function markPinAsSeen(pin) {
+    if (!pin || !pin.id) return false;
+    S.seenReplyCounts[pin.id] = (pin.replies || []).length;
+    if (S.seenIds.has(pin.id)) return false;
+    S.seenIds.add(pin.id);
+    saveSeenIds();
+    return true;
+  }
+
+  function reconcileSeenStateAfterPinLoad() {
+    S.pins.forEach(function (p) {
+      if (isOwnPin(p)) S.seenIds.add(p.id);
+      if (S.seenIds.has(p.id)) {
+        var prevCount = S.seenReplyCounts[p.id];
+        if (prevCount !== undefined && (p.replies || []).length > prevCount) {
+          S.seenIds.delete(p.id);
+          saveSeenIds();
+        }
+      }
+    });
+  }
+
+  function pinsDataChanged(oldPins, freshPins) {
+    if (oldPins.length !== freshPins.length) return true;
+    var oldMap = {};
+    oldPins.forEach(function (p) { oldMap[p.id] = p; });
+    for (var i = 0; i < freshPins.length; i++) {
+      var fp = freshPins[i];
+      var ep = oldMap[fp.id];
+      if (!ep) return true;
+      if ((fp.replies || []).length !== (ep.replies || []).length) return true;
+      if (fp.body !== ep.body) return true;
+    }
+    return false;
+  }
+
   // ── Scroll container detection ───────────────────────────────────────────────
   // PatternFly SPAs scroll inside .pf-v5-c-page__main rather than window/body.
   // We detect this read-only (never move the overlay into it) and recompute each
@@ -659,10 +770,7 @@
     init: function () {
       S.token = localStorage.getItem(CFG.tokenKey);
       try { S.user = JSON.parse(localStorage.getItem(CFG.userKey)); } catch (e) {}
-      try {
-        var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
-        S.seenIds = new Set(Array.isArray(ids) ? ids : []);
-      } catch (e) { S.seenIds = new Set(); }
+      loadSeenState();
       // Guest mode is only available on share links (?share=1).
       // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
@@ -1250,21 +1358,7 @@
 
   function applyLoadedPins(comments) {
     S.pins = parseComments(comments);
-    // If a previously-read pin now has more replies than when it was read,
-    // remove it from seenIds so the pin becomes unread again (new reply badge)
-    S.pins.forEach(function (p) {
-      // Own non-guest pins are always read for the poster
-      if (S.user && !p._guest && p.author && p.author.login === S.user.login) {
-        S.seenIds.add(p.id);
-      }
-      if (S.seenIds.has(p.id)) {
-        var prevCount = S.seenReplyCounts[p.id];
-        if (prevCount !== undefined && (p.replies || []).length > prevCount) {
-          S.seenIds.delete(p.id);
-          localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-        }
-      }
-    });
+    reconcileSeenStateAfterPinLoad();
     scheduleRenderPinsAfterLayout();
     FAB.updateBadge();
     fulfillPendingPanelPinOpen();
@@ -1513,7 +1607,7 @@
         } else {
           vp = pinToViewport(pin.meta);
         }
-        var isUnread   = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
+        var isUnread   = isPinUnread(pin);
         var isResolved = pin.meta.resolved;
         // Resolved pins are hidden by default; only shown when the panel toggle is on
         if (isResolved && !S.showResolved) return;
@@ -2083,18 +2177,11 @@
       Popup._setModalElevated(!!(pin.meta && pin.meta.modalTitle));
 
       // Auto-mark as read when the thread is opened — updates the pin's visual state
-      var pinTs = new Date(pin.createdAt).getTime();
-      var wasUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
-      if (wasUnread) {
-        S.seenIds.add(pin.id);
-        localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-      }
-      // Always record the reply count at the moment of opening so new replies can be detected
-      S.seenReplyCounts[pin.id] = (pin.replies || []).length;
+      var wasUnread = markPinAsSeen(pin);
       if (wasUnread) {
         Overlay.renderPins();
         FAB.updateBadge();
-        Panel.render();
+        if (Panel.el && Panel.el.classList.contains('rhacs-panel--open')) Panel.render();
       }
 
       this.el.innerHTML = '';
@@ -2116,23 +2203,22 @@
 
       // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
       var pinTs   = new Date(pin.createdAt).getTime();
-      var isUnread = pinTs > S.lastSeen && !S.seenIds.has(pin.id);
+      var isUnread = isPinUnread(pin);
       var convKebab = Popup.makeKebab([
         canDelete && !_share ? { label: 'Delete thread', danger: true, action: function () { Popup.confirmDelete(pin.id); } } : null,
         canResolve ? { label: pin.meta.resolved ? 'Unresolve' : 'Resolve', action: function () { Popup.toggleResolve(pin); } } : null,
         !_share ? (isUnread
           ? { label: 'Mark as read', action: function () {
-              S.seenIds.add(pin.id);
-              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+              markPinAsSeen(pin);
               Overlay.renderPins();
               FAB.updateBadge();
               Panel.render();
             }}
           : { label: 'Mark as unread', action: function () {
               S.seenIds.delete(pin.id);
-              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+              saveSeenIds();
               S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
-              localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+              saveLastSeen();
               S.unread = Math.max(1, S.unread);
               FAB.updateBadge();
               Overlay.renderPins();
@@ -2761,7 +2847,7 @@
     },
     _getTabPins: function () {
       var allPins        = S.pins.filter(function (p) { return p.meta; });
-      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id); });
+      var unreadPins     = allPins.filter(function (p) { return isPinUnread(p); });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
       return Panel.activeTab === 'unread'     ? unreadPins
@@ -2851,7 +2937,7 @@
           if (!pin) return;
           if (pin.meta.resolved) hasResolved = true;
           else hasUnresolved = true;
-          if (new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id)) {
+          if (isPinUnread(pin)) {
             hasUnread = true;
           }
         });
@@ -2889,14 +2975,14 @@
         var pin = S.pins.find(function (p) { return p.id === id; });
         if (!pin) return;
         S.seenIds.add(id);
+        S.seenReplyCounts[id] = (pin.replies || []).length;
         var ts = new Date(pin.createdAt).getTime();
         if (ts > maxTs) maxTs = ts;
       });
       S.lastSeen = maxTs;
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      saveLastSeen();
+      saveSeenIds();
       Panel.selected.clear();
-      Notify.clearUnread();
       Overlay.renderPins();
       Panel.render();
       FAB.updateBadge();
@@ -2913,10 +2999,9 @@
       if (oldestTs !== Infinity) {
         S.lastSeen = Math.min(S.lastSeen, oldestTs - 1);
       }
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+      saveLastSeen();
+      saveSeenIds();
       Panel.selected.clear();
-      Notify.clearUnread();
       FAB.updateBadge();
       Overlay.renderPins();
       Panel.render();
@@ -2995,43 +3080,20 @@
       // the PatternFly masthead which causes toolbar icons to wrap/overflow.
     },
     open: function () {
-      // Keep toggle checkbox in sync with current state
       if (this.resolvedToggleInput) this.resolvedToggleInput.checked = S.showResolved;
-      this.render(); // render BEFORE updating lastSeen so unread yellows show
+      this.render();
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
       Panel._pushPage(true);
-      S.lastSeen = Date.now();
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      S.pins.forEach(function (p) {
-        if (p.id) {
-          S.seenIds.add(p.id);
-          // Record reply count at time of opening so new replies trigger unread again
-          S.seenReplyCounts[p.id] = (p.replies || []).length;
-        }
-      });
-      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-      // Update pins and badge to reflect the now-read state
-      Overlay.renderPins();
-      FAB.updateBadge();
     },
-    close: function () {
-      // Mark everything as seen when the user closes the panel
-      S.lastSeen = Date.now();
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      S.pins.forEach(function (p) {
-        if (p.id) {
-          S.seenIds.add(p.id);
-          S.seenReplyCounts[p.id] = (p.replies || []).length;
-        }
-      });
-      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-      Overlay.renderPins();
-      FAB.updateBadge();
+    dismiss: function () {
+      if (!this.el) return;
       this.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
-      Notify.clearUnread();
+    },
+    close: function () {
+      this.dismiss();
     },
     toggle: function () {
       if (this.el.classList.contains('rhacs-panel--open')) this.close(); else this.open();
@@ -3082,7 +3144,7 @@
 
       // ── PF6 Tabs ─────────────────────────────────────────────────────────────
       var allPins        = S.pins.filter(function (p) { return p.meta; });
-      var unreadPins     = allPins.filter(function (p) { return !p.meta.resolved && new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id); });
+      var unreadPins     = allPins.filter(function (p) { return isPinUnread(p); });
       var unresolvedPins = allPins.filter(function (p) { return !p.meta.resolved; });
       var resolvedPins   = allPins.filter(function (p) { return p.meta.resolved; });
 
@@ -3145,7 +3207,7 @@
       }
 
       visible.forEach(function (pin) {
-        var isUnread = new Date(pin.createdAt).getTime() > S.lastSeen && !S.seenIds.has(pin.id);
+        var isUnread = isPinUnread(pin);
         var cls = 'rhacs-panel__item' +
           (isUnread   ? ' rhacs-panel__item--unread'   : '') +
           (pin.meta.resolved ? ' rhacs-panel__item--resolved' : '');
@@ -3210,15 +3272,14 @@
             }} : null,
             !_sh ? (unread
               ? { label: 'Mark as read', action: function () {
-                  S.seenIds.add(p.id);
-                  localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+                  markPinAsSeen(p);
                   Overlay.renderPins(); FAB.updateBadge(); Panel.render();
                 }}
               : { label: 'Mark as unread', action: function () {
                   S.seenIds.delete(p.id);
-                  localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+                  saveSeenIds();
                   S.lastSeen = Math.min(S.lastSeen, pinTs - 1);
-                  localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
+                  saveLastSeen();
                   S.unread = Math.max(1, S.unread);
                   FAB.updateBadge(); Overlay.renderPins(); Panel.render();
                 }}) : null
@@ -3246,13 +3307,6 @@
           replyCount.appendChild(txt(pin.replies.length + ' ' + (pin.replies.length === 1 ? 'reply' : 'replies')));
           replyCount.addEventListener('click', (function (p) { return function (e) {
             e.stopPropagation();
-            if (new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id)) {
-              S.seenIds.add(p.id);
-              localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-              FAB.updateBadge();
-              Overlay.renderPins();
-              Panel.render();
-            }
             Popup.showThread(p.id);
           }; })(pin));
           itemBody.appendChild(replyCount);
@@ -3262,14 +3316,6 @@
 
         item.addEventListener('click', (function (p) { return function () {
           Popup.suppressOutsideDismiss(600);
-
-          if (new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id)) {
-            S.seenIds.add(p.id);
-            localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-            FAB.updateBadge();
-            Overlay.renderPins();
-            Panel.render();
-          }
 
           var pinId = p.id;
           var targetState = p.meta && p.meta.viewState;
@@ -3428,15 +3474,7 @@
       ModeAnnounce.show(active);
     },
     updateBadge: function () {
-      // Only count unread pins from OTHER users — not your own comments.
-      var myLogin = (S.token && !S.guestMode && S.user) ? S.user.login : null;
-      var count = S.pins.filter(function (p) {
-        if (!p.meta || p.meta.resolved) return false;
-        if (!(new Date(p.createdAt).getTime() > S.lastSeen && !S.seenIds.has(p.id))) return false;
-        // Exclude the current user's own pins
-        if (myLogin && p.author && p.author.login === myLogin) return false;
-        return true;
-      }).length;
+      var count = S.pins.filter(function (p) { return isPinUnread(p); }).length;
       S.unread = count;
       if (count > 0) {
         this.badge.textContent = count;
@@ -3676,52 +3714,35 @@
       setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, dur || 4000);
     },
     startPolling: function () {
+      if (S.pollTimer) clearInterval(S.pollTimer);
       var poll = function () {
         if (document.visibilityState !== 'visible') return;
         if (!prioritizeGitHubAuth()) return;
+        if (!isPrototypePage()) return;
 
         function refreshFromDiscussion(discId) {
           if (!discId) return Promise.resolve();
           S.discussionId = discId;
           return loadComments(discId).then(function (comments) {
             var freshPins = parseComments(comments);
-            var newOnes = freshPins.filter(function (fp) {
-              return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen && !S.seenIds.has(fp.id) &&
-                !S.pins.some(function (ep) { return ep.id === fp.id; });
-            });
-            var hasNewReplies = freshPins.some(function (fp) {
-              var existing = S.pins.find(function (ep) { return ep.id === fp.id; });
-              return existing && (fp.replies || []).length > (existing.replies || []).length;
-            });
-            if (newOnes.length > 0 || freshPins.length !== S.pins.length || hasNewReplies) {
-              S.pins = freshPins;
-              // Re-run seenReplyCounts check: new replies on read pins → mark unread
-              S.pins.forEach(function (p) {
-                if (S.seenIds.has(p.id)) {
-                  var prevCount = S.seenReplyCounts[p.id];
-                  if (prevCount !== undefined && (p.replies || []).length > prevCount) {
-                    S.seenIds.delete(p.id);
-                    localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
-                  }
-                }
-              });
-              Overlay.renderPins();
-              Panel.render();
-              if (newOnes.length > 0) Notify.showUnread(newOnes.length);
-              else FAB.updateBadge();
-            }
+            if (!pinsDataChanged(S.pins, freshPins)) return;
+            S.pins = freshPins;
+            reconcileSeenStateAfterPinLoad();
+            Overlay.renderPins();
+            if (Panel.el && Panel.el.classList.contains('rhacs-panel--open')) Panel.render();
+            FAB.updateBadge();
           });
         }
 
         if (S.discussionId) {
           refreshFromDiscussion(S.discussionId).catch(function () {});
         } else {
-          // Guest may have created the discussion after the owner first loaded the page.
           findDiscussion().then(function (id) {
             if (id) refreshFromDiscussion(id).catch(function () {});
           }).catch(function () {});
         }
       };
+      poll();
       S.pollTimer = setInterval(poll, CFG.pollMs);
       document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'visible') poll();
@@ -3731,10 +3752,6 @@
       FAB.updateBadge();
     },
     clearUnread: function () {
-      S.lastSeen = Date.now();
-      localStorage.setItem(CFG.seenPrefix + window.location.pathname, String(S.lastSeen));
-      S.pins.forEach(function (p) { if (p.id) S.seenIds.add(p.id); });
-      localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
       FAB.updateBadge();
       Overlay.renderPins();
     },
@@ -3813,17 +3830,12 @@
     S.showResolved = false;
     S.discussionId = null;
     S.pins = [];
-    S.seenIds = new Set();
-    S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
-    try {
-      var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
-      S.seenIds = new Set(Array.isArray(ids) ? ids : []);
-    } catch (e) { S.seenIds = new Set(); }
+    loadSeenState();
     if (Overlay.pinLayerEl) Overlay.renderPins();
     if (FAB.badge) FAB.updateBadge();
 
-    // Close the panel and popup on every route/tab navigation
-    Panel.close();
+    // Dismiss panel/popup UI on navigation without marking comments as read
+    Panel.dismiss();
     Popup.close();
     if (!active) {
       FAB.setMode(false);
@@ -3868,7 +3880,7 @@
 
     Auth.init();
     AccessGate.check();
-    S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
+    loadSeenState();
 
     Overlay.init();
     document.addEventListener('focusin', function (e) {

@@ -1827,62 +1827,64 @@
         loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:16px;font-weight:600;z-index:100002;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.7)';
         loadingEl.textContent = 'Capturing…';
         document.body.appendChild(loadingEl);
-        overlay.style.display = 'block';
 
         self._loadHtmlToImage().then(function (hti) {
-          // Capture visible viewport from app root (smaller DOM than body), then crop
-          var vw = window.innerWidth;
-          var vh = window.innerHeight;
           var captureEl = self._captureRoot();
-          var isBody = captureEl === document.body;
-          var elRect = isBody ? { left: 0, top: 0, width: vw, height: vh } : captureEl.getBoundingClientRect();
-          var capW = Math.round(isBody ? vw : elRect.width);
-          var capH = Math.round(isBody ? vh : elRect.height);
+          var elRect = captureEl.getBoundingClientRect();
           var sx = nr.x - elRect.left;
           var sy = nr.y - elRect.top;
+          var cropW = Math.round(nr.w);
+          var cropH = Math.round(nr.h);
+          var selLeft = nr.x;
+          var selTop = nr.y;
+          var selRight = nr.x + nr.w;
+          var selBottom = nr.y + nr.h;
+
+          function outsideSelection(node) {
+            if (!node.getBoundingClientRect) return false;
+            var r = node.getBoundingClientRect();
+            if (!r.width && !r.height) return false;
+            return r.bottom <= selTop || r.top >= selBottom || r.right <= selLeft || r.left >= selRight;
+          }
+
           hti.toCanvas(captureEl, {
             useCORS: true,
             skipFonts: true,
             fontEmbedCSS: '',
             pixelRatio: 1,
-            width: capW,
-            height: capH,
-            canvasWidth: capW,
-            canvasHeight: capH,
+            width: cropW,
+            height: cropH,
+            canvasWidth: cropW,
+            canvasHeight: cropH,
+            skipAutoScale: true,
             filter: function (node) {
-              // Skip the comments overlay so we don't render our own UI on the screenshot
+              if (node.nodeType !== 1) return true;
               var id = node.id || '';
-              return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
+              if (id === 'rhacs-mount' || id === 'rhacs-sc-overlay') return false;
+              if (node === captureEl) return true;
+              return !outsideSelection(node);
             },
-            style: isBody ? {
-              width: vw + 'px',
-              height: vh + 'px',
-              overflow: 'hidden',
-            } : undefined,
-          }).then(function (fullCanvas) {
+            style: {
+              transform: 'translate(' + (-sx) + 'px, ' + (-sy) + 'px)',
+              width: elRect.width + 'px',
+              height: elRect.height + 'px',
+            },
+          }).then(function (cropCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
 
-            // Crop to the selection rectangle
-            var cropW = Math.min(nr.w, fullCanvas.width - sx);
-            var cropH = Math.min(nr.h, fullCanvas.height - sy);
-            if (cropW < 10 || cropH < 10) {
+            if (cropCanvas.width < 10 || cropCanvas.height < 10) {
               console.log('[RHACS-SC] crop region too small');
               Notify.toast('Screenshot failed — try a larger area');
               Popup.el.style.display = 'block';
               return;
             }
-            var cropCanvas = document.createElement('canvas');
-            cropCanvas.width = cropW;
-            cropCanvas.height = cropH;
-            var ctx = cropCanvas.getContext('2d');
-            ctx.drawImage(fullCanvas, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
 
             var dataUrl;
             try {
               dataUrl = cropCanvas.toDataURL('image/png');
-              console.log('[RHACS-SC] capture OK ' + cropW + 'x' + cropH + ' len=' + dataUrl.length);
+              console.log('[RHACS-SC] capture OK ' + cropCanvas.width + 'x' + cropCanvas.height + ' len=' + dataUrl.length);
             } catch (e) {
               console.log('[RHACS-SC] toDataURL blocked:', e.message);
               Notify.toast('Screenshot blocked by browser security — try a different area');

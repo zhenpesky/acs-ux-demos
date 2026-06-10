@@ -2056,16 +2056,14 @@
         (async function () {
           var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            // Mount is already hidden; wait two frames so browser repaints fully
-            // before snapdom serialises the DOM.
+            // Wait two frames so the overlay removal repaints before snapdom reads the DOM
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
             // Capture the full visible document at CSS-pixel scale.
             var result = await window.snapdom(document.documentElement, {});
 
-            // Restore the comment window right after capture
+            // Restore the comment window immediately — don't wait for canvas decode
             ScreenshotCapture._restoreMount();
-            await new Promise(function (r) { requestAnimationFrame(r); });
 
             // Resolve to a canvas
             var fullCanvas;

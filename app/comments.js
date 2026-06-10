@@ -2042,10 +2042,18 @@
             var scrollX = window.scrollX || window.pageXOffset || 0;
             var scrollY = window.scrollY || window.pageYOffset || 0;
 
+            // Hide the RHACS mount (popup + panel) so they don't appear in the capture
+            var rhacsMount = document.getElementById('rhacs-mount');
+            var prevVisibility = rhacsMount ? rhacsMount.style.visibility : null;
+            if (rhacsMount) rhacsMount.style.visibility = 'hidden';
+
             // snapdom captures the element at CSS-pixel scale (1:1 with page layout).
             // Do NOT pass scale=devicePixelRatio here — the output canvas from
             // toCanvas() is always naturalWidth × naturalHeight CSS pixels regardless.
             var result = await window.snapdom(document.documentElement, {});
+
+            // Restore the mount immediately after capture
+            if (rhacsMount) rhacsMount.style.visibility = prevVisibility || '';
 
             // Resolve the full-page canvas (CSS pixels, 1:1 with page coordinates)
             var fullCanvas;
@@ -2100,6 +2108,9 @@
             };
           } catch (err) {
             console.warn('snapdom capture failed', err);
+            // Ensure mount is restored even on error
+            var m = document.getElementById('rhacs-mount');
+            if (m) m.style.visibility = '';
           }
           finish();
         })();

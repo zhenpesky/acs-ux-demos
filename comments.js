@@ -1829,62 +1829,55 @@
         document.body.appendChild(loadingEl);
 
         self._loadHtmlToImage().then(function (hti) {
-          var captureEl = self._captureRoot();
-          var elRect = captureEl.getBoundingClientRect();
-          var sx = nr.x - elRect.left;
-          var sy = nr.y - elRect.top;
+          // Capture the visible viewport, then crop to the selected region
+          var vw = window.innerWidth;
+          var vh = window.innerHeight;
+          var sx = Math.round(nr.x);
+          var sy = Math.round(nr.y);
           var cropW = Math.round(nr.w);
           var cropH = Math.round(nr.h);
-          var selLeft = nr.x;
-          var selTop = nr.y;
-          var selRight = nr.x + nr.w;
-          var selBottom = nr.y + nr.h;
 
-          function outsideSelection(node) {
-            if (!node.getBoundingClientRect) return false;
-            var r = node.getBoundingClientRect();
-            if (!r.width && !r.height) return false;
-            return r.bottom <= selTop || r.top >= selBottom || r.right <= selLeft || r.left >= selRight;
-          }
-
-          hti.toCanvas(captureEl, {
+          hti.toCanvas(document.body, {
             useCORS: true,
             skipFonts: true,
             fontEmbedCSS: '',
             pixelRatio: 1,
-            width: cropW,
-            height: cropH,
-            canvasWidth: cropW,
-            canvasHeight: cropH,
-            skipAutoScale: true,
+            width: vw,
+            height: vh,
+            canvasWidth: vw,
+            canvasHeight: vh,
             filter: function (node) {
-              if (node.nodeType !== 1) return true;
-              var id = node.id || '';
-              if (id === 'rhacs-mount' || id === 'rhacs-sc-overlay') return false;
-              if (node === captureEl) return true;
-              return !outsideSelection(node);
+              var id = (node && node.id) || '';
+              return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
             },
             style: {
-              transform: 'translate(' + (-sx) + 'px, ' + (-sy) + 'px)',
-              width: elRect.width + 'px',
-              height: elRect.height + 'px',
+              width: vw + 'px',
+              height: vh + 'px',
+              overflow: 'hidden',
             },
-          }).then(function (cropCanvas) {
+          }).then(function (fullCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
 
-            if (cropCanvas.width < 10 || cropCanvas.height < 10) {
+            // Crop to the drawn selection
+            var safeCropW = Math.min(cropW, fullCanvas.width - sx);
+            var safeCropH = Math.min(cropH, fullCanvas.height - sy);
+            if (safeCropW < 10 || safeCropH < 10) {
               console.log('[RHACS-SC] crop region too small');
               Notify.toast('Screenshot failed — try a larger area');
               Popup.el.style.display = 'block';
               return;
             }
+            var cropCanvas = document.createElement('canvas');
+            cropCanvas.width = safeCropW;
+            cropCanvas.height = safeCropH;
+            cropCanvas.getContext('2d').drawImage(fullCanvas, sx, sy, safeCropW, safeCropH, 0, 0, safeCropW, safeCropH);
 
             var dataUrl;
             try {
               dataUrl = cropCanvas.toDataURL('image/png');
-              console.log('[RHACS-SC] capture OK ' + cropCanvas.width + 'x' + cropCanvas.height + ' len=' + dataUrl.length);
+              console.log('[RHACS-SC] capture OK ' + safeCropW + 'x' + safeCropH + ' len=' + dataUrl.length);
             } catch (e) {
               console.log('[RHACS-SC] toDataURL blocked:', e.message);
               Notify.toast('Screenshot blocked by browser security — try a different area');

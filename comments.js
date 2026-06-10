@@ -1810,40 +1810,64 @@
 
         self._loadHtml2Canvas().then(function (h2c) {
           h2c(document.body, {
-            x: nr.x,
-            y: nr.y + window.scrollY,
+            x: nr.x + (window.scrollX || 0),
+            y: nr.y + (window.scrollY || 0),
             width: nr.w,
             height: nr.h,
-            scrollX: 0,
-            scrollY: -window.scrollY,
             useCORS: true,
+            allowTaint: false,
             logging: false,
             scale: 1,
+            imageTimeout: 8000,
           }).then(function (canvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
-            var dataUrl = canvas.toDataURL('image/png');
+
+            // Validate canvas rendered properly (default blank canvas is 300×150)
+            if (canvas.width < 10 || canvas.height < 10 ||
+                (canvas.width === 300 && canvas.height === 150)) {
+              console.log('[RHACS-SC] html2canvas returned blank/default canvas (' + canvas.width + 'x' + canvas.height + ')');
+              Notify.toast('Screenshot failed — try a smaller area');
+              Popup.el.style.display = 'block';
+              return;
+            }
+
+            var dataUrl;
+            try {
+              dataUrl = canvas.toDataURL('image/png');
+              console.log('[RHACS-SC] capture OK ' + canvas.width + 'x' + canvas.height + ', len=' + dataUrl.length);
+            } catch (e) {
+              // SecurityError: canvas tainted by cross-origin content
+              console.log('[RHACS-SC] toDataURL blocked (cross-origin content):', e.message);
+              Notify.toast('Screenshot blocked — browser security prevents capturing cross-origin content');
+              Popup.el.style.display = 'block';
+              return;
+            }
+
             var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
             self._attachments.push({ dataUrl: dataUrl, filename: filename });
             var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
+            console.log('[RHACS-SC] thumbsEl:', !!thumbsEl, 'attachments:', self._attachments.length);
             if (thumbsEl) {
               self._thumbsEl = thumbsEl;
               self.renderThumbnails(thumbsEl);
             }
             if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
             Popup.el.style.display = 'block';
-          }).catch(function () {
+          }).catch(function (err) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
+            console.log('[RHACS-SC] html2canvas error:', err && err.message);
             Notify.toast('Screenshot failed — try a smaller area');
             Popup.el.style.display = 'block';
           });
-        }).catch(function () {
+        }).catch(function (err) {
           mount.style.display = '';
           if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
           if (overlay.parentNode) document.body.removeChild(overlay);
+          console.log('[RHACS-SC] html2canvas load error:', err && err.message);
           Notify.toast('Could not load capture library');
           Popup.el.style.display = 'block';
         });
@@ -4018,8 +4042,21 @@
 
   // ── Notifications ─────────────────────────────────────────────────────────────
   var Notify = {
-    init: function () { /* toast removed */ },
-    toast: function () { /* toasts disabled */ },
+    _stack: null,
+    init: function () {
+      var stack = document.createElement('div');
+      stack.className = 'rhacs-toast-stack';
+      rhacsMount().appendChild(stack);
+      this._stack = stack;
+    },
+    toast: function (msg, dur) {
+      if (!this._stack) return;
+      var t = document.createElement('div');
+      t.className = 'rhacs-toast';
+      t.textContent = msg;
+      this._stack.appendChild(t);
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, dur || 4000);
+    },
     startPolling: function () {
       var poll = function () {
         if (document.visibilityState !== 'visible') return;

@@ -2619,6 +2619,38 @@ body.rhacs-comment-mode-active .rhacs-pin {
   gap: 8px;
 }
 
+/* ── Toast notifications ────────────────────────────────────────────────────── */
+.rhacs-toast-stack {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100010;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.rhacs-toast {
+  background: #1f2328;
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  animation: rhacs-toast-in 0.18s ease;
+}
+@keyframes rhacs-toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-color-scheme: dark) {
+  .rhacs-toast { background: #e6edf3; color: #1f2328; }
+}
+
 .rhacs-sc-btn {
   display: inline-flex;
   align-items: center;

@@ -382,6 +382,9 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-bottom: 1px solid var(--pf-v5-global--BorderColor--100, #d2d2d2);
   gap: 8px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background: var(--pf-v5-global--BackgroundColor--100, #fff);
 }
 
 /* Scrollable comments area */
@@ -394,6 +397,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
 /* Sticky input area — always visible at the bottom, never scrolls */
 .rhacs-popup__sticky-footer {
   flex-shrink: 0;
+  max-height: 50vh;
+  overflow-y: auto;
   border-top: 1px solid var(--pf-v5-global--BorderColor--100, #d2d2d2);
   background: #fff;
 }
@@ -1746,6 +1751,12 @@ body.rhacs-comment-mode-active .rhacs-pin {
   .rhacs-popup__header,
   .rhacs-panel__header {
     border-bottom-color: #30363d;
+    background: #161b22;
+  }
+
+  .rhacs-popup__sticky-footer {
+    background: #161b22;
+    border-top-color: #30363d;
   }
 
   .rhacs-panel__tabs {

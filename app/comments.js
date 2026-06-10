@@ -2374,40 +2374,34 @@
       var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
       var vh = window.innerHeight;
       var vw = window.innerWidth - (panelOpen ? 300 : 0);
+      var maxAvail = vh - 2 * margin;
 
-      // Let content determine natural height — remove any previous cap first
+      // CSS flex layout owns max-height + overflow — never override in JS
       if (Popup._ro) Popup._ro.disconnect();
       popupEl.style.maxHeight = '';
       popupEl.style.overflowY = '';
+      popupEl.scrollTop = 0;
 
-      var naturalH = popupEl.scrollHeight;
-      var naturalW = popupEl.offsetWidth;
+      // Use rendered height (CSS-capped), not scrollHeight (full thread content)
+      var visibleH = popupEl.offsetHeight || Math.min(popupEl.scrollHeight, maxAvail);
+      var visibleW = popupEl.offsetWidth;
       var curTop   = parseFloat(popupEl.style.top)  || 0;
       var curLeft  = parseFloat(popupEl.style.left) || 0;
 
-      // Best top: shift up just enough so bottom fits, but never above margin
-      var idealTop = curTop;
-      if (curTop + naturalH > vh - margin) {
-        idealTop = vh - margin - naturalH;
-      }
+      var idealTop = Math.min(curTop, vh - margin - visibleH);
       idealTop = Math.max(margin, idealTop);
 
-      // Best left: shift left just enough so right edge fits
       var idealLeft = curLeft;
-      if (curLeft + naturalW > vw - margin) {
-        idealLeft = vw - margin - naturalW;
+      if (curLeft + visibleW > vw - margin) {
+        idealLeft = vw - margin - visibleW;
       }
       idealLeft = Math.max(margin, idealLeft);
 
       popupEl.style.top  = idealTop  + 'px';
       popupEl.style.left = idealLeft + 'px';
 
-      // Only add scroll if content is taller than the entire viewport
-      var maxAvail = vh - 2 * margin;
-      if (naturalH > maxAvail) {
-        popupEl.style.maxHeight = maxAvail + 'px';
-        popupEl.style.overflowY = 'auto';
-      }
+      var scrollBody = popupEl.querySelector('.rhacs-popup__scroll-body');
+      if (scrollBody) scrollBody.scrollTop = 0;
 
       requestAnimationFrame(function () {
         if (Popup._ro) Popup._ro.observe(popupEl);
@@ -2808,6 +2802,11 @@
       append(stickyFooter, replyForm);
       append(this.el, header, scrollBody, stickyFooter);
       this.el.style.display = 'block';
+      // Ensure legacy reposition() never left root-level scroll on the popup
+      this.el.style.maxHeight = '';
+      this.el.style.overflowY = '';
+      this.el.scrollTop = 0;
+      scrollBody.scrollTop = 0;
 
       // Position near pin element (pins now live in pinLayerEl)
       var pinEl = Overlay.pinLayerEl.querySelector('[data-pin-id="' + pinId + '"]');

@@ -1461,6 +1461,25 @@
     return Promise.resolve();
   }
 
+  // ── Ghost preview pin (temporary dot while "Add comment" popup is open) ─────
+  var GhostPin = {
+    el: null,
+    show: function (clientX, clientY) {
+      if (!this.el) {
+        this.el = el('div', { className: 'rhacs-ghost-pin' });
+        rhacsMount().appendChild(this.el);
+      }
+      this.el.style.left = clientX + 'px';
+      this.el.style.top = clientY + 'px';
+    },
+    hide: function () {
+      if (this.el) {
+        this.el.parentNode && this.el.parentNode.removeChild(this.el);
+        this.el = null;
+      }
+    }
+  };
+
   // ── Overlay ───────────────────────────────────────────────────────────────────
   // Strategy: root stays on document.body with position:fixed (full viewport,
   // zero layout impact). Pins use position:fixed with viewport-pixel coords
@@ -1591,6 +1610,7 @@
         popupY = mr.top  + (modalY / 100) * mr.height;
       }
 
+      GhostPin.show(e.clientX, e.clientY);
       Popup.showNewForm(x, y, popupX, popupY, modalMeta);
     },
 
@@ -1898,6 +1918,7 @@
       y = Math.max(1, Math.min(99, y));
       var clientX = rect.left + rect.width / 2;
       var clientY = rect.bottom + 8;
+      GhostPin.show(clientX, clientY);
       Popup.showNewForm(x, y, clientX, clientY, null);
       Popup.setQuote(text);
     },
@@ -2260,6 +2281,7 @@
       S.activePinId = null;
       this._newFormQuote = null;
       ScreenshotCapture.reset();
+      GhostPin.hide();
     },
     _resetReplyPostBtn: function () {
       if (!this.el) return;
@@ -2567,6 +2589,7 @@
       Auth.requireAuth()
         .then(function () {
           if (submitGen !== Popup._newFormSubmitGen) return;
+          GhostPin.hide();
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
           if (S.guestMode && !S.token) {
             var newPin = Auth.addGuestPin(fullText, x, y, num, modalMeta);

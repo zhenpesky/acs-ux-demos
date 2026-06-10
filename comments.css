@@ -208,6 +208,21 @@ body.rhacs-comment-mode-active .rhacs-pin {
   50%       { transform: scale(1.4); opacity: 0.6; }
 }
 
+/* ── Ghost preview pin (temporary dot while "Add comment" popup is open) ── */
+.rhacs-ghost-pin {
+  position: fixed;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6f42c1;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9990;
+  transition: left 0.12s ease, top 0.12s ease;
+}
+
 /* ── PF6-style JS tooltip (appended to body by Tooltip manager) ───────────── */
 /* ── Mode announcement toast (bottom-center on enter/exit comment mode) ─── */
 .rhacs-mode-announce {

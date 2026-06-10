@@ -602,9 +602,12 @@
   function extractImages(body) {
     var text = (body || '').replace(/^<!--\s*RHACS_PIN\s+[\s\S]*?-->\n?/, '');
     var urls = [];
-    text = text.replace(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/g, function (_, url) {
-      urls.push(url);
-      return '';
+    text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function (match, alt, url) {
+      if (/^https?:\/\//.test(url) || /^data:image\//.test(url)) {
+        urls.push(url);
+        return '';
+      }
+      return match;
     });
     text = text.trim();
     return { text: text, urls: urls };
@@ -1897,6 +1900,197 @@
     },
   };
 
+  // ── Screenshot capture (drag-to-select + snapdom) ─────────────────────────────
+  function _loadSnapdom(cb) {
+    if (window.snapdom) return cb();
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@zumer/snapdom/dist/snapdom.umd.js';
+    s.onload = cb;
+    s.onerror = function () { console.warn('snapdom failed to load'); cb(); };
+    document.head.appendChild(s);
+  }
+
+  var ScreenshotCapture = {
+    _attachment: null,
+    _thumbContainer: null,
+    _overlay: null,
+    _active: false,
+    _escHandler: null,
+
+    start: function (onDone) {
+      if (ScreenshotCapture._active) return;
+      ScreenshotCapture._active = true;
+
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;cursor:crosshair;background:rgba(0,0,0,0.3);';
+
+      var selBox = document.createElement('div');
+      selBox.style.cssText = 'position:fixed;border:2px solid #4a90d9;background:rgba(74,144,217,0.1);pointer-events:none;display:none;';
+      overlay.appendChild(selBox);
+
+      var hint = document.createElement('div');
+      hint.textContent = 'Drag to select · Esc to cancel';
+      hint.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:6px 16px;border-radius:20px;font-size:13px;pointer-events:none;z-index:100000;';
+      overlay.appendChild(hint);
+
+      document.body.appendChild(overlay);
+      ScreenshotCapture._overlay = overlay;
+
+      var escHandler = function (e) {
+        if (e.key === 'Escape') {
+          e.stopImmediatePropagation();
+          ScreenshotCapture._cancel();
+        }
+      };
+      document.addEventListener('keydown', escHandler, true);
+      ScreenshotCapture._escHandler = escHandler;
+
+      var startX = 0;
+      var startY = 0;
+      var dragging = false;
+
+      function updateBox(x1, y1, x2, y2) {
+        var left = Math.min(x1, x2);
+        var top = Math.min(y1, y2);
+        var width = Math.abs(x2 - x1);
+        var height = Math.abs(y2 - y1);
+        selBox.style.left = left + 'px';
+        selBox.style.top = top + 'px';
+        selBox.style.width = width + 'px';
+        selBox.style.height = height + 'px';
+      }
+
+      overlay.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        selBox.style.display = 'block';
+        updateBox(startX, startY, startX, startY);
+        e.preventDefault();
+      });
+
+      overlay.addEventListener('mousemove', function (e) {
+        if (!dragging) return;
+        updateBox(startX, startY, e.clientX, e.clientY);
+      });
+
+      overlay.addEventListener('mouseup', function (e) {
+        if (!dragging) return;
+        dragging = false;
+        var selX = Math.min(startX, e.clientX);
+        var selY = Math.min(startY, e.clientY);
+        var selW = Math.abs(e.clientX - startX);
+        var selH = Math.abs(e.clientY - startY);
+        ScreenshotCapture._cancel();
+        if (selW > 10 && selH > 10) {
+          ScreenshotCapture._capture(selX, selY, selW, selH, onDone);
+        } else {
+          ScreenshotCapture._active = false;
+        }
+      });
+    },
+
+    _cancel: function () {
+      if (ScreenshotCapture._overlay && ScreenshotCapture._overlay.parentNode) {
+        ScreenshotCapture._overlay.parentNode.removeChild(ScreenshotCapture._overlay);
+      }
+      ScreenshotCapture._overlay = null;
+      ScreenshotCapture._active = false;
+      if (ScreenshotCapture._escHandler) {
+        document.removeEventListener('keydown', ScreenshotCapture._escHandler, true);
+        ScreenshotCapture._escHandler = null;
+      }
+    },
+
+    _capture: function (selX, selY, selW, selH, onDone) {
+      _loadSnapdom(function () {
+        if (!window.snapdom) {
+          ScreenshotCapture._active = false;
+          if (onDone) onDone();
+          return;
+        }
+        (async function () {
+          try {
+            var scale = window.devicePixelRatio || 1;
+            var scrollX = window.scrollX || window.pageXOffset || 0;
+            var scrollY = window.scrollY || window.pageYOffset || 0;
+            var result = await window.snapdom(document.documentElement, { scale: scale });
+            var fullDataUrl = result.toDataURL('image/png');
+            var img = new Image();
+            img.onload = function () {
+              try {
+                var canvas = document.createElement('canvas');
+                canvas.width = selW * scale;
+                canvas.height = selH * scale;
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(
+                  img,
+                  (selX + scrollX) * scale,
+                  (selY + scrollY) * scale,
+                  selW * scale,
+                  selH * scale,
+                  0,
+                  0,
+                  selW * scale,
+                  selH * scale
+                );
+                ScreenshotCapture._attachment = {
+                  dataUrl: canvas.toDataURL('image/png'),
+                  filename: 'screenshot.png'
+                };
+              } catch (err) {
+                console.warn('screenshot crop failed', err);
+              }
+              ScreenshotCapture._active = false;
+              if (onDone) onDone();
+            };
+            img.onerror = function () {
+              ScreenshotCapture._active = false;
+              if (onDone) onDone();
+            };
+            img.src = fullDataUrl;
+          } catch (err) {
+            console.warn('snapdom capture failed', err);
+            ScreenshotCapture._active = false;
+            if (onDone) onDone();
+          }
+        })();
+      });
+    },
+
+    renderThumbnail: function (container) {
+      ScreenshotCapture._thumbContainer = container;
+      container.innerHTML = '';
+      if (!ScreenshotCapture._attachment) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'rhacs-sc-thumb';
+      var img = document.createElement('img');
+      img.src = ScreenshotCapture._attachment.dataUrl;
+      img.alt = 'Screenshot';
+      var removeBtn = document.createElement('button');
+      removeBtn.className = 'rhacs-sc-thumb-remove';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.setAttribute('aria-label', 'Remove screenshot');
+      removeBtn.type = 'button';
+      removeBtn.onclick = function () {
+        ScreenshotCapture.reset();
+        container.innerHTML = '';
+      };
+      wrap.appendChild(img);
+      wrap.appendChild(removeBtn);
+      container.appendChild(wrap);
+    },
+
+    reset: function () {
+      this._cancel();
+      this._attachment = null;
+      if (this._thumbContainer) this._thumbContainer.innerHTML = '';
+    },
+
+    getAttachment: function () { return this._attachment; }
+  };
+
   // ── Popup ─────────────────────────────────────────────────────────────────────
   var Popup = {
     el: null,
@@ -1931,6 +2125,7 @@
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
+      ScreenshotCapture.reset();
     },
     _setModalElevated: function (elevated) {
       this.el.classList.toggle('rhacs-popup--modal', !!elevated);
@@ -2061,6 +2256,7 @@
       Popup._pendingModalMeta = modalMeta || null;
       Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
       this.el.innerHTML = '';
+      ScreenshotCapture.reset();
 
       var header = el('div', { className: 'rhacs-popup__header' });
       var titleEl = el('span', { className: 'rhacs-popup__title' });
@@ -2069,6 +2265,8 @@
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
       append(header, titleEl, closeBtn);
+
+      var thumbsDiv = el('div', { className: 'rhacs-sc-thumbs' });
 
       var textarea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
       var inputError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2102,9 +2300,23 @@
       cancelBtn.appendChild(txt('Cancel'));
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
-      append(actions, postBtn, cancelBtn);
+      var cameraBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
+      cameraBtn.appendChild(txt('\uD83D\uDCF7'));
+      cameraBtn.setAttribute('aria-label', 'Attach screenshot');
+      cameraBtn.title = 'Attach screenshot';
+      cameraBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Popup.suppressOutsideDismiss(60000);
+        ScreenshotCapture.start(function () {
+          Popup.suppressOutsideDismiss(500);
+          ScreenshotCapture.renderThumbnail(thumbsDiv);
+          Popup.reposition();
+        });
+      });
 
-      append(this.el, header, textarea, inputError, actions);
+      append(actions, postBtn, cancelBtn, cameraBtn);
+
+      append(this.el, header, thumbsDiv, textarea, inputError, actions);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
@@ -2117,6 +2329,8 @@
       var modalMeta = Popup._pendingModalMeta || null;
       Popup._pendingModalMeta = null;
       var fullText = text;
+      var attachment = ScreenshotCapture.getAttachment();
+      if (attachment) fullText += '\n\n![screenshot](' + attachment.dataUrl + ')';
       Auth.requireAuth()
         .then(function () {
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.

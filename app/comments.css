@@ -355,6 +355,9 @@ body.rhacs-comment-mode-active .rhacs-pin {
   pointer-events: all;
   /* Hard cap — JS must never override this */
   max-height: 50vh !important;
+  /* fit-content + max-height gives flex a definite used height when content overflows */
+  height: fit-content;
+  min-height: 0;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -389,9 +392,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 /* Scrollable comments area */
 .rhacs-popup__scroll-body {
-  flex: 1;
+  flex: 1 1 0%;
   overflow-y: auto;
   min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Sticky input area — always visible at the bottom, never scrolls */

@@ -2380,7 +2380,6 @@
       if (Popup._ro) Popup._ro.disconnect();
       popupEl.style.maxHeight = '';
       popupEl.style.overflowY = '';
-      popupEl.scrollTop = 0;
 
       // Use rendered height (CSS-capped), not scrollHeight (full thread content)
       var visibleH = popupEl.offsetHeight || Math.min(popupEl.scrollHeight, maxAvail);
@@ -2399,9 +2398,6 @@
 
       popupEl.style.top  = idealTop  + 'px';
       popupEl.style.left = idealLeft + 'px';
-
-      var scrollBody = popupEl.querySelector('.rhacs-popup__scroll-body');
-      if (scrollBody) scrollBody.scrollTop = 0;
 
       requestAnimationFrame(function () {
         if (Popup._ro) Popup._ro.observe(popupEl);
@@ -2513,6 +2509,8 @@
       append(this.el, header, stickyFooter);
 
       this.el.style.display = 'block';
+      this.el.style.maxHeight = '';
+      this.el.style.overflowY = '';
       this.positionFixed(clientX, clientY);
       Popup._focusNewFormEditor();
     },

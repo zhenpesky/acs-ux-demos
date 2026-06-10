@@ -1826,7 +1826,11 @@
             var dataUrl = canvas.toDataURL('image/png');
             var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
             self._attachments.push({ dataUrl: dataUrl, filename: filename });
-            if (self._thumbsEl) self.renderThumbnails(self._thumbsEl);
+            var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
+            if (thumbsEl) {
+              self._thumbsEl = thumbsEl;
+              self.renderThumbnails(thumbsEl);
+            }
             if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
             Popup.el.style.display = 'block';
           }).catch(function () {
@@ -1896,7 +1900,11 @@
         document.body.removeChild(panel);
         var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
         self._attachments.push({ dataUrl: dataUrl, filename: filename });
-        if (self._thumbsEl) self.renderThumbnails(self._thumbsEl);
+        var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
+        if (thumbsEl) {
+          self._thumbsEl = thumbsEl;
+          self.renderThumbnails(thumbsEl);
+        }
         if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
         Popup.el.style.display = 'block';
       });

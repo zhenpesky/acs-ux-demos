@@ -2509,6 +2509,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   z-index: 99999;
   overflow: hidden;
   user-select: none;
+  cursor: crosshair;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .rhacs-sc-canvas {
@@ -2517,13 +2519,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.rhacs-sc-dim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  cursor: crosshair;
 }
 
 .rhacs-sc-selection {
@@ -2744,6 +2739,18 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-lb-close:hover {
   background: rgba(255,255,255,0.25);
+}
+
+.rhacs-sc-hint {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
 
 @media (prefers-color-scheme: dark) {

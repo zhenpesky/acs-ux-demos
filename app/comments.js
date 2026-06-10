@@ -1668,36 +1668,15 @@
     start: function () {
       var self = this;
       if (this._attachments.length >= 4) return;
-
-      var mount = rhacsMount();
-      mount.style.display = 'none';
-
-      this._loadHtml2Canvas().then(function (h2c) {
-        h2c(document.documentElement, { useCORS: true, logging: false }).then(function (canvas) {
-          mount.style.display = '';
-          Popup.el.style.display = 'none';
-          self._showSelectionUI(canvas);
-        }).catch(function () {
-          mount.style.display = '';
-          Popup.el.style.display = 'block';
-        });
-      });
+      Popup.el.style.display = 'none';
+      Popup.suppressOutsideDismiss(60000);
+      self._showSelectionUI();
     },
 
-    _showSelectionUI: function (fullCanvas) {
+    _showSelectionUI: function () {
       var self = this;
       var overlay = document.createElement('div');
       overlay.id = 'rhacs-sc-overlay';
-
-      var displayCanvas = document.createElement('canvas');
-      displayCanvas.className = 'rhacs-sc-canvas';
-      displayCanvas.width = window.innerWidth;
-      displayCanvas.height = window.innerHeight;
-      var ctx = displayCanvas.getContext('2d');
-      ctx.drawImage(fullCanvas, 0, 0, window.innerWidth, window.innerHeight);
-
-      var dimLayer = document.createElement('div');
-      dimLayer.className = 'rhacs-sc-dim';
 
       var selEl = document.createElement('div');
       selEl.className = 'rhacs-sc-selection';
@@ -1720,15 +1699,19 @@
       cancelBtn.className = 'rhacs-sc-cancel-btn';
       cancelBtn.textContent = '\u2715  Cancel';
 
-      overlay.appendChild(displayCanvas);
-      overlay.appendChild(dimLayer);
+      var hintEl = document.createElement('div');
+      hintEl.className = 'rhacs-sc-hint';
+      hintEl.textContent = 'Drag to select an area';
+
       overlay.appendChild(selEl);
       overlay.appendChild(captureBtn);
       overlay.appendChild(cancelBtn);
+      overlay.appendChild(hintEl);
       document.body.appendChild(overlay);
 
       var rect = { x: 0, y: 0, w: 0, h: 0 };
       var dragState = null;
+      var hasDragged = false;
 
       function updateSelEl() {
         var x = rect.w >= 0 ? rect.x : rect.x + rect.w;
@@ -1745,6 +1728,7 @@
         captureBtn.style.left = (x + w / 2 - 50) + 'px';
         captureBtn.style.top = btnY + 'px';
         captureBtn.style.display = (w > 20 && h > 20) ? 'block' : 'none';
+        if (w > 4 && h > 4) hintEl.style.display = 'none';
       }
 
       function normalizedRect() {
@@ -1771,6 +1755,7 @@
           return;
         }
         e.preventDefault();
+        hasDragged = true;
         rect = { x: e.clientX, y: e.clientY, w: 0, h: 0 };
         dragState = { type: 'draw', startX: e.clientX, startY: e.clientY };
         updateSelEl();
@@ -1813,9 +1798,31 @@
 
       captureBtn.addEventListener('click', function () {
         var nr = normalizedRect();
-        var cropped = self._cropCanvas(fullCanvas, nr);
-        document.body.removeChild(overlay);
-        self._showConfirmPanel(cropped);
+        overlay.style.display = 'none';
+        var mount = rhacsMount();
+        mount.style.display = 'none';
+        self._loadHtml2Canvas().then(function (h2c) {
+          h2c(document.body, {
+            x: nr.x,
+            y: nr.y + window.scrollY,
+            width: nr.w,
+            height: nr.h,
+            scrollX: 0,
+            scrollY: -window.scrollY,
+            useCORS: true,
+            logging: false,
+            scale: 1,
+          }).then(function (canvas) {
+            mount.style.display = '';
+            if (overlay.parentNode) document.body.removeChild(overlay);
+            var dataUrl = canvas.toDataURL('image/png');
+            self._showConfirmPanel(dataUrl);
+          }).catch(function () {
+            mount.style.display = '';
+            if (overlay.parentNode) document.body.removeChild(overlay);
+            Popup.el.style.display = 'block';
+          });
+        });
       });
     },
 

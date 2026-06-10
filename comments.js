@@ -26,8 +26,12 @@
   function isShareMode() {
     // GitHub-authenticated users always get full UI — share restrictions are guest-only.
     if (S.token) return false;
-    if (new URLSearchParams(window.location.search).get('share') === '1') return true;
+    if (shareToken()) return true;
     try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
+  }
+
+  function shareToken() {
+    try { return new URLSearchParams(window.location.search).get('share') || ''; } catch (e) { return ''; }
   }
 
   // GitHub token always wins over guest/share session state.
@@ -920,6 +924,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'guest_post',
+          shareToken: shareToken(),
           pageKey: getPageKey(),
           pageUrl: window.location.href,
           commentBody: body,
@@ -1948,7 +1953,7 @@
             fetch(CFG.workerUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'guest_reply', commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
+              body: JSON.stringify({ type: 'guest_reply', shareToken: shareToken(), commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
             }).then(function (r) { return r.json(); }).then(function (data) {
               if (data && data.id) {
                 var st = Auth.loadGuestPins();
@@ -3679,7 +3684,7 @@
 
     // Persist share mode to sessionStorage so it survives SPA navigation
     try {
-      if (new URLSearchParams(window.location.search).get('share') === '1') {
+      if (shareToken()) {
         sessionStorage.setItem('rhacs_share_mode', '1');
       }
     } catch (e) {}

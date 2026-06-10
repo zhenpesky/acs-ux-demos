@@ -1,14 +1,15 @@
 /**
  * RHACS Comments Auth + Guest Post Worker
  *
- * Handles two request types (both via POST /):
+ * Handles three request types (all via POST /):
  *   1. OAuth code exchange  – body: { code }
- *   2. Guest comment post   – body: { type: "guest_post", pageKey, pageUrl, commentBody, owner, repo, categoryName }
+ *   2. Guest comment post   – body: { type: "guest_post", shareToken, pageKey, pageUrl, commentBody, owner, repo, categoryName }
+ *   3. Guest reply          – body: { type: "guest_reply", shareToken, commentId, discussionId, replyBody }
  *
  * Required Cloudflare Worker secrets:
  *   GITHUB_CLIENT_SECRET  – your GitHub OAuth App client secret
  *   GITHUB_OWNER_TOKEN    – a PAT for the repo owner with public_repo scope
- *                           (used to post guest comments and create discussions)
+ *   SHARE_TOKEN           – shared secret that must be present in guest_post / guest_reply requests
  *
  * Optional secret (falls back to hardcoded below):
  *   GITHUB_CLIENT_ID      – your GitHub OAuth App client ID
@@ -40,6 +41,15 @@ async function ghGraphQL(token, query, variables) {
   return res.json();
 }
 
+// ── Token guard ───────────────────────────────────────────────────────────────
+function checkShareToken(body, env) {
+  if (!env.SHARE_TOKEN) return null; // not configured — allow (backward compat during rollout)
+  if (body.shareToken !== env.SHARE_TOKEN) {
+    return jsonResp(403, { error: 'Invalid share token' });
+  }
+  return null;
+}
+
 // ── OAuth code exchange ───────────────────────────────────────────────────────
 async function handleOAuth(body, env) {
   if (!body.code) return jsonResp(400, { error: 'Missing code' });
@@ -55,8 +65,6 @@ async function handleOAuth(body, env) {
     }),
   });
   const data = await res.json();
-  // GitHub returns { access_token, token_type, scope } on success, or { error, error_description } on failure.
-  // Pass errors through; normalize access_token → token for the frontend.
   if (data.error) return jsonResp(400, { error: data.error, error_description: data.error_description });
   if (!data.access_token) return jsonResp(500, { error: 'No access_token in GitHub response' });
   return jsonResp(200, { token: data.access_token });
@@ -64,6 +72,9 @@ async function handleOAuth(body, env) {
 
 // ── Guest comment post ────────────────────────────────────────────────────────
 async function handleGuestPost(body, env) {
+  const tokenErr = checkShareToken(body, env);
+  if (tokenErr) return tokenErr;
+
   if (!env.GITHUB_OWNER_TOKEN) {
     return jsonResp(503, { error: 'GITHUB_OWNER_TOKEN not configured — guest comments unavailable' });
   }
@@ -120,6 +131,31 @@ async function handleGuestPost(body, env) {
   return jsonResp(200, { id: comment.id, createdAt: comment.createdAt, discussionId });
 }
 
+// ── Guest reply ───────────────────────────────────────────────────────────────
+async function handleGuestReply(body, env) {
+  const tokenErr = checkShareToken(body, env);
+  if (tokenErr) return tokenErr;
+
+  if (!env.GITHUB_OWNER_TOKEN) {
+    return jsonResp(503, { error: 'GITHUB_OWNER_TOKEN not configured' });
+  }
+
+  const { commentId, discussionId, replyBody } = body;
+  if (!commentId || !replyBody) {
+    return jsonResp(400, { error: 'Missing required fields: commentId, replyBody' });
+  }
+
+  const token = env.GITHUB_OWNER_TOKEN;
+  const replyRes = await ghGraphQL(token,
+    'mutation($d:ID!,$c:ID!,$b:String!){ addDiscussionComment(input:{discussionId:$d,replyToId:$c,body:$b}){ comment{ id createdAt } } }',
+    { d: discussionId, c: commentId, b: replyBody }
+  );
+  const reply = replyRes && replyRes.data && replyRes.data.addDiscussionComment && replyRes.data.addDiscussionComment.comment;
+  if (!reply) return jsonResp(500, { error: 'Could not post reply' });
+
+  return jsonResp(200, { id: reply.id, createdAt: reply.createdAt });
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -135,10 +171,8 @@ export default {
       return jsonResp(400, { error: 'Invalid JSON body' });
     }
 
-    if (body.type === 'guest_post') {
-      return handleGuestPost(body, env);
-    }
-
+    if (body.type === 'guest_post') return handleGuestPost(body, env);
+    if (body.type === 'guest_reply') return handleGuestReply(body, env);
     return handleOAuth(body, env);
   },
 };

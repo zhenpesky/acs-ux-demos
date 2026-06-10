@@ -2295,8 +2295,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  /* Fixed height — never changes so there's no vertical jump */
   height: 40px;
+  /* max-width drives the expand; browsers can interpolate it unlike width:auto */
+  max-width: 40px;
+  min-width: 40px;
   padding: 0;
   gap: 0;
   border-radius: 50%;
@@ -2306,8 +2309,16 @@ body.rhacs-comment-mode-active .rhacs-pin {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  transition: width 0.2s ease, border-radius 0.2s ease, padding 0.15s ease,
-              gap 0.15s ease, background 0.1s, border-color 0.1s, box-shadow 0.1s;
+  will-change: max-width, border-radius;
+  transition:
+    max-width       0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    min-width       0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius   0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    gap             0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    padding         0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    background      0.15s ease,
+    border-color    0.15s ease,
+    box-shadow      0.15s ease;
 }
 
 .rhacs-guest-logout-icon {
@@ -2316,40 +2327,42 @@ body.rhacs-comment-mode-active .rhacs-pin {
   flex-shrink: 0;
 }
 .rhacs-guest-logout-icon svg {
-  width: 20px;
-  height: 20px;
-  transition: width 0.15s ease, height 0.15s ease;
+  /* Icon stays the same size — no size transition = no jump */
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
   color: var(--pf-v6-global--Color--100, #151515);
+  transition: color 0.15s ease;
 }
 
 .rhacs-guest-logout-text {
   max-width: 0;
   opacity: 0;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--pf-v6-global--danger-color--100, #c9190b);
-  transition: max-width 0.2s ease, opacity 0.15s ease;
+  /* Slight delay so text fades in after width has opened */
+  transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity    0.18s ease 0.08s;
 }
 
 /* Expanded on hover */
 .rhacs-guest-logout-btn:hover {
-  width: auto;
-  height: 36px;
-  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
-  padding: 0 14px;
-  gap: 8px;
+  max-width: 140px;
+  min-width: 100px;
+  border-radius: 4px;
+  padding: 0 12px 0 10px;
+  gap: 7px;
   background: #fff5f5;
   border-color: var(--pf-v6-global--danger-color--100, #c9190b);
   box-shadow: none;
 }
 .rhacs-guest-logout-btn:hover .rhacs-guest-logout-icon svg {
-  width: 14px;
-  height: 14px;
   color: var(--pf-v6-global--danger-color--100, #c9190b);
 }
 .rhacs-guest-logout-btn:hover .rhacs-guest-logout-text {
-  max-width: 80px;
+  max-width: 100px;
   opacity: 1;
 }
 /* dark mode */

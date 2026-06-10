@@ -2513,8 +2513,9 @@
 
       append(actions, postBtn, cancelBtn);
 
-      // Order: header → toolbar (Take screenshot) → thumbsDiv → editor → error → actions
-      append(this.el, header, toolbar, thumbsDiv, editorContainer, inputError, actions);
+      var scrollBody = el('div', { className: 'rhacs-popup__scroll-body' });
+      append(scrollBody, toolbar, thumbsDiv, editorContainer, inputError, actions);
+      append(this.el, header, scrollBody);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
@@ -2799,7 +2800,9 @@
         append(replyForm, inputWrapper2, replyError, replyActions);
       }
 
-      append(this.el, header, firstPost, repliesEl, replyForm);
+      var scrollBody = el('div', { className: 'rhacs-popup__scroll-body' });
+      append(scrollBody, firstPost, repliesEl, replyForm);
+      append(this.el, header, scrollBody);
       this.el.style.display = 'block';
 
       // Position near pin element (pins now live in pinLayerEl)

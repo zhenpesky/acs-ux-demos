@@ -3823,17 +3823,6 @@
 
         var userDropdown = el('div', { className: 'rhacs-user-menu__dropdown' });
 
-        var profileItem = el('a', {
-          className: 'rhacs-user-menu__item',
-          href: 'https://github.com/' + S.user.login,
-          target: '_blank',
-          rel: 'noopener'
-        });
-        profileItem.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>';
-        profileItem.appendChild(txt('View GitHub profile'));
-
-        var dividerItem = el('div', { className: 'rhacs-user-menu__divider' });
-
         var logoutItem = el('button', { className: 'rhacs-user-menu__item rhacs-user-menu__item--danger' });
         logoutItem.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 512 512" fill="currentColor" style="flex-shrink:0"><path d="M502.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L402.7 224 192 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128zM160 96c17.7 0 32-14.3 32-32s-14.3-32-32-32L96 32C43 32 0 75 0 128L0 384c0 53 43 96 96 96l64 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32l0-256c0-17.7 14.3-32 32-32l64 0z"/></svg>';
         logoutItem.appendChild(txt('Log out'));
@@ -3844,7 +3833,7 @@
           Auth.logout();
         });
 
-        append(userDropdown, profileItem, dividerItem, logoutItem);
+        append(userDropdown, logoutItem);
         append(userDropWrap, userTrigger, userDropdown);
 
         userTrigger.addEventListener('click', function (e) {

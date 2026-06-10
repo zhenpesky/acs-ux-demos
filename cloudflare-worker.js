@@ -3,13 +3,13 @@
  *
  * Handles three request types (all via POST /):
  *   1. OAuth code exchange  – body: { code }
- *   2. Guest comment post   – body: { type: "guest_post", shareToken, pageKey, pageUrl, commentBody, owner, repo, categoryName }
- *   3. Guest reply          – body: { type: "guest_reply", shareToken, commentId, discussionId, replyBody }
+ *   2. Guest comment post   – body: { type: "guest_post", pageKey, pageUrl, commentBody, owner, repo, categoryName }
+ *   3. Guest reply          – body: { type: "guest_reply", commentId, discussionId, replyBody }
  *
  * Required Cloudflare Worker secrets:
  *   GITHUB_CLIENT_SECRET  – your GitHub OAuth App client secret
  *   GITHUB_OWNER_TOKEN    – a PAT for the repo owner with public_repo scope
- *   SHARE_TOKEN           – shared secret that must be present in guest_post / guest_reply requests
+ *                           (used to post guest comments and create discussions)
  *
  * Optional secret (falls back to hardcoded below):
  *   GITHUB_CLIENT_ID      – your GitHub OAuth App client ID
@@ -41,15 +41,6 @@ async function ghGraphQL(token, query, variables) {
   return res.json();
 }
 
-// ── Token guard ───────────────────────────────────────────────────────────────
-function checkShareToken(body, env) {
-  if (!env.SHARE_TOKEN) return null; // not configured — allow (backward compat during rollout)
-  if (body.shareToken !== env.SHARE_TOKEN) {
-    return jsonResp(403, { error: 'Invalid share token' });
-  }
-  return null;
-}
-
 // ── OAuth code exchange ───────────────────────────────────────────────────────
 async function handleOAuth(body, env) {
   if (!body.code) return jsonResp(400, { error: 'Missing code' });
@@ -72,9 +63,6 @@ async function handleOAuth(body, env) {
 
 // ── Guest comment post ────────────────────────────────────────────────────────
 async function handleGuestPost(body, env) {
-  const tokenErr = checkShareToken(body, env);
-  if (tokenErr) return tokenErr;
-
   if (!env.GITHUB_OWNER_TOKEN) {
     return jsonResp(503, { error: 'GITHUB_OWNER_TOKEN not configured — guest comments unavailable' });
   }
@@ -133,9 +121,6 @@ async function handleGuestPost(body, env) {
 
 // ── Guest reply ───────────────────────────────────────────────────────────────
 async function handleGuestReply(body, env) {
-  const tokenErr = checkShareToken(body, env);
-  if (tokenErr) return tokenErr;
-
   if (!env.GITHUB_OWNER_TOKEN) {
     return jsonResp(503, { error: 'GITHUB_OWNER_TOKEN not configured' });
   }

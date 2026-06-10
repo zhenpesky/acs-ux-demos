@@ -19,7 +19,6 @@
     guestKey:    'rhacs_guest_id',
     guestPinsPrefix: 'rhacs_guest_pins_',
     seenPrefix:  'rhacs_seen_',
-    shareKey:    'rh-ux-2026',
     pollMs:      30000,
   };
 
@@ -27,7 +26,7 @@
   function isShareMode() {
     // GitHub-authenticated users always get full UI — share restrictions are guest-only.
     if (S.token) return false;
-    return shareToken() === CFG.shareKey;
+    return !!shareToken();
   }
 
   function shareToken() {
@@ -924,7 +923,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'guest_post',
-          shareToken: shareToken(),
           pageKey: getPageKey(),
           pageUrl: window.location.href,
           commentBody: body,
@@ -933,10 +931,6 @@
           categoryName: CFG.categoryName,
         }),
       }).then(function (r) { return r.json(); }).then(function (data) {
-        if (data && data.error === 'Invalid share token') {
-          Notify.toast('This share link is no longer valid. Please request an updated link.');
-          return;
-        }
         if (data && data.id) {
           // Replace the temp ID with the real GitHub comment ID in localStorage
           var stored = Auth.loadGuestPins();
@@ -1957,12 +1951,8 @@
             fetch(CFG.workerUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'guest_reply', shareToken: shareToken(), commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
+              body: JSON.stringify({ type: 'guest_reply', commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
             }).then(function (r) { return r.json(); }).then(function (data) {
-              if (data && data.error === 'Invalid share token') {
-                Notify.toast('This share link is no longer valid. Please request an updated link.');
-                return;
-              }
               if (data && data.id) {
                 var st = Auth.loadGuestPins();
                 for (var si = 0; si < st.length; si++) {
@@ -3690,8 +3680,12 @@
       history.replaceState({}, '', clean || window.location.pathname);
     }
 
-    // Clear any stale share-mode session flag from old links
-    try { sessionStorage.removeItem('rhacs_share_mode'); } catch (e) {}
+    // Persist share mode to sessionStorage so it survives SPA navigation
+    try {
+      if (shareToken()) {
+        sessionStorage.setItem('rhacs_share_mode', '1');
+      }
+    } catch (e) {}
 
     Auth.init();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);

@@ -1656,8 +1656,9 @@
     },
 
     _loadHtmlToImage: function () {
-      return new Promise(function (resolve, reject) {
-        if (window.htmlToImage) return resolve(window.htmlToImage);
+      if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
+      if (this._htiLoadPromise) return this._htiLoadPromise;
+      this._htiLoadPromise = new Promise(function (resolve, reject) {
         var s = document.createElement('script');
         s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
         s.crossOrigin = 'anonymous';
@@ -1668,6 +1669,14 @@
         s.onerror = reject;
         document.head.appendChild(s);
       });
+      return this._htiLoadPromise;
+    },
+
+    _captureRoot: function () {
+      return document.querySelector('[data-reactroot]')
+        || document.getElementById('root')
+        || document.querySelector('main')
+        || document.body;
     },
 
     start: function () {
@@ -1675,6 +1684,7 @@
       if (this._attachments.length >= 4) return;
       Popup.el.style.display = 'none';
       Popup.suppressOutsideDismiss(60000);
+      self._loadHtmlToImage(); // pre-load in background while user draws selection
       self._showSelectionUI();
     },
 
@@ -1820,30 +1830,35 @@
         overlay.style.display = 'block';
 
         self._loadHtmlToImage().then(function (hti) {
-          // Capture only the visible viewport then crop — much faster than full-page render
+          // Capture visible viewport from app root (smaller DOM than body), then crop
           var vw = window.innerWidth;
           var vh = window.innerHeight;
-          var sx = nr.x;  // selection is already in viewport coordinates
-          var sy = nr.y;
-          hti.toCanvas(document.body, {
+          var captureEl = self._captureRoot();
+          var isBody = captureEl === document.body;
+          var elRect = isBody ? { left: 0, top: 0, width: vw, height: vh } : captureEl.getBoundingClientRect();
+          var capW = Math.round(isBody ? vw : elRect.width);
+          var capH = Math.round(isBody ? vh : elRect.height);
+          var sx = nr.x - elRect.left;
+          var sy = nr.y - elRect.top;
+          hti.toCanvas(captureEl, {
             useCORS: true,
             skipFonts: true,
             fontEmbedCSS: '',
             pixelRatio: 1,
-            width: vw,
-            height: vh,
-            canvasWidth: vw,
-            canvasHeight: vh,
+            width: capW,
+            height: capH,
+            canvasWidth: capW,
+            canvasHeight: capH,
             filter: function (node) {
               // Skip the comments overlay so we don't render our own UI on the screenshot
               var id = node.id || '';
               return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
             },
-            style: {
+            style: isBody ? {
               width: vw + 'px',
               height: vh + 'px',
               overflow: 'hidden',
-            },
+            } : undefined,
           }).then(function (fullCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);

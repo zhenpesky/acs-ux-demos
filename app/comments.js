@@ -1049,10 +1049,28 @@
   };
 
   // ── Data helpers ─────────────────────────────────────────────────────────────
+  // Guest follow-up replies are posted via the owner token with a trailing "— _Name (guest)_" signature.
+  // Strip the signature and restore the real guest identity so the reply shows the correct name/avatar.
+  function parseGuestReply(r) {
+    var GUEST_SIG = /\n\n\u2014 _(.+?) \(guest\)_\s*$/;
+    var m = r.body.match(GUEST_SIG);
+    if (!m) return r;
+    var guestName = m[1];
+    return Object.assign({}, r, {
+      author: { login: guestName, name: guestName, avatarUrl: Auth._makeAvatarSvg(guestName) },
+      body: r.body.replace(GUEST_SIG, '').trim(),
+      _guest: true,
+    });
+  }
+
   function parseComments(comments) {
     return comments
       .map(function (c) {
-        var pin = Object.assign({}, c, { meta: parseMeta(c.body), replies: c.replies ? c.replies.nodes : [] });
+        var rawReplies = c.replies ? c.replies.nodes : [];
+        var pin = Object.assign({}, c, {
+          meta: parseMeta(c.body),
+          replies: rawReplies.map(parseGuestReply),
+        });
         // Guest comments are posted via the owner token; restore the real guest identity from meta
         if (pin.meta && pin.meta.guestAuthor) {
           pin.author = pin.meta.guestAuthor;

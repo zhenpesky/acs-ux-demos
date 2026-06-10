@@ -935,9 +935,14 @@
             }
           }
           Auth.saveGuestPins(stored);
-          // Also update S.pins in memory so follow-up replies use the real GitHub ID
+          // Also update S.pins in memory so follow-up replies use the real GitHub ID.
+          // Keep _origGuestId so the follow-up handler can still find the pin by its old ID.
           for (var j = 0; j < S.pins.length; j++) {
-            if (S.pins[j].id === tempId) { S.pins[j].id = data.id; break; }
+            if (S.pins[j].id === tempId) {
+              S.pins[j]._origGuestId = tempId;
+              S.pins[j].id = data.id;
+              break;
+            }
           }
           if (data.discussionId) S.discussionId = data.discussionId;
         }
@@ -1916,7 +1921,8 @@
           var fullBody = replyText + authorTag;
           postBtn.disabled = true;
           postBtn.textContent = 'Posting\u2026';
-          var optimisticReply = { id: 'guest-reply-' + Date.now(), body: fullBody, createdAt: new Date().toISOString(), author: guestAuthor };
+          // Local display uses clean replyText — signature is metadata only for GitHub attribution
+          var optimisticReply = { id: 'guest-reply-' + Date.now(), body: replyText, createdAt: new Date().toISOString(), author: guestAuthor };
           if (pin.replies) pin.replies.push(optimisticReply); else pin.replies = [optimisticReply];
           var stored = Auth.loadGuestPins();
           for (var gi = 0; gi < stored.length; gi++) {
@@ -1926,8 +1932,8 @@
           replyArea.value = '';
           Popup.suppressOutsideDismiss(500);
           Popup.keepOpenAfterAction(function () { Popup.showThread(pinId); });
-          // Resolve the live pin ID — worker may have updated guest-TIMESTAMP → real GitHub ID
-          var livePin = S.pins.find(function (p) { return p.id === pinId; });
+          // Resolve the live pin ID — also match by _origGuestId in case the ID was already updated
+          var livePin = S.pins.find(function (p) { return p.id === pinId || p._origGuestId === pinId; });
           var livePinId = livePin ? livePin.id : pinId;
           if (!String(livePinId).startsWith('guest-') && S.discussionId) {
             fetch(CFG.workerUrl, {
@@ -2185,7 +2191,8 @@
       append(hdr, av, au, tm);
 
       var bd = el('div', { className: 'rhacs-reply__body' });
-      bd.appendChild(txt(reply.body));
+      var cleanBody = reply.body.replace(/\n\n\u2014 _(.+?) \(guest\)_\s*$/, '').trim();
+      bd.appendChild(txt(cleanBody));
 
       if (S.user && reply.author.login === S.user.login && !(S.guestMode && isShareMode())) {
         hdr.appendChild(Popup.makeKebab([

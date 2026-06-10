@@ -2488,126 +2488,43 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 /* ── Screenshot Capture ─────────────────────────────── */
 
-#rhacs-sc-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  overflow: hidden;
-  user-select: none;
-  cursor: crosshair;
-  background: rgba(0, 0, 0, 0.25);
-}
-
-.rhacs-sc-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.rhacs-sc-selection {
-  position: absolute;
-  border: 2px solid #06c;
-  background: rgba(0, 102, 204, 0.08);
-  cursor: move;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);
-  display: none;
-}
-
-.rhacs-sc-handle {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: #fff;
-  border: 2px solid #06c;
-  border-radius: 2px;
-}
-
-.rhacs-sc-handle--tl { top: -5px; left: -5px; cursor: nwse-resize; }
-.rhacs-sc-handle--tc { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.rhacs-sc-handle--tr { top: -5px; right: -5px; cursor: nesw-resize; }
-.rhacs-sc-handle--ml { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
-.rhacs-sc-handle--mr { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
-.rhacs-sc-handle--bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
-.rhacs-sc-handle--bc { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.rhacs-sc-handle--br { bottom: -5px; right: -5px; cursor: nwse-resize; }
-
-.rhacs-sc-btn-row {
-  position: fixed;
-  z-index: 100000;
-  transform: translateX(-50%);
-  display: flex;
+.rhacs-sc-attach-wrap {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  border-radius: 6px;
-  overflow: hidden;
+  margin-left: auto;
 }
 
-.rhacs-sc-capture-btn {
-  background: #06c;
-  color: #fff;
+.rhacs-sc-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: none;
-  padding: 8px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.rhacs-sc-capture-btn:hover {
-  background: #004e9a;
-}
-
-.rhacs-sc-cancel-btn {
-  background: rgba(255,255,255,0.95);
-  border: none;
-  border-left: 1px solid #d2d2d2;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  color: #333;
-}
-
-.rhacs-sc-cancel-btn:hover {
-  background: #f5f5f5;
-}
-
-#rhacs-sc-confirm {
-  position: fixed;
-  top: 50%;
-  right: 24px;
-  transform: translateY(-50%);
-  z-index: 100001;
-  width: 280px;
-  background: #fff;
-  border: 1px solid #d2d2d2;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.rhacs-sc-confirm__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #151515;
-}
-
-.rhacs-sc-confirm__img {
-  width: 100%;
-  max-width: 248px;
+  background: transparent;
   border-radius: 4px;
-  border: 1px solid #d2d2d2;
-  display: block;
+  cursor: pointer;
+  color: var(--pf-v6-global--Color--200, #6a6e73);
+  transition: background 0.12s, color 0.12s;
 }
 
-.rhacs-sc-confirm__btns {
-  display: flex;
-  gap: 8px;
+.rhacs-sc-attach-btn:hover {
+  background: var(--pf-v6-global--BackgroundColor--200, #f0f0f0);
+  color: var(--pf-v6-global--Color--100, #151515);
+}
+
+.rhacs-sc-attach-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.rhacs-sc-paste-hint {
+  font-size: 11px;
+  color: var(--pf-v6-global--Color--200, #6a6e73);
+  white-space: nowrap;
+  align-self: center;
 }
 
 /* ── Toast notifications ────────────────────────────────────────────────────── */
@@ -2640,31 +2557,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 @media (prefers-color-scheme: dark) {
   .rhacs-toast { background: #e6edf3; color: #1f2328; }
-}
-
-.rhacs-sc-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #6a6e73;
-  cursor: pointer;
-  margin-left: auto;
-}
-
-.rhacs-sc-btn:hover {
-  color: #151515;
-  background: #f0f0f0;
-}
-
-.rhacs-sc-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .rhacs-sc-thumbs {
@@ -2767,62 +2659,12 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: rgba(255,255,255,0.25);
 }
 
-/* Always-visible Cancel in the top-right — escape hatch before selection is drawn */
-.rhacs-sc-cancel-btn--floating {
-  position: fixed;
-  top: 16px;
-  right: 20px;
-  z-index: 100001;
-}
-
-.rhacs-sc-hint {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.58);
-  padding: 8px 18px;
-  border-radius: 20px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  white-space: nowrap;
-  letter-spacing: 0.01em;
-}
-
 @media (prefers-color-scheme: dark) {
-  #rhacs-sc-confirm {
-    background: #1b1d21;
-    border-color: #444;
-    color: #e0e0e0;
-  }
-
-  .rhacs-sc-confirm__title {
-    color: #e0e0e0;
-  }
-
-  .rhacs-sc-confirm__img {
-    border-color: #444;
-  }
-
-  .rhacs-sc-cancel-btn {
-    background: #2a2a2a;
-    color: #e0e0e0;
-    border-left-color: #444;
-  }
-
-  .rhacs-sc-cancel-btn:hover {
-    background: #333;
-  }
-
-  .rhacs-sc-btn {
+  .rhacs-sc-attach-btn {
     color: #a0a0a0;
   }
 
-  .rhacs-sc-btn:hover {
+  .rhacs-sc-attach-btn:hover {
     color: #e0e0e0;
     background: #2a2a2a;
   }

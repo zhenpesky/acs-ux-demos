@@ -1655,337 +1655,41 @@
       this._cameraBtn = null;
     },
 
-    // Native screen-capture stream — kept alive for the whole session so the
-    // browser permission dialog only appears on the very first capture.
-    _stream: null,
-
-    _getStream: function () {
+    _handleFiles: function (files) {
       var self = this;
-      if (self._stream && self._stream.active) {
-        return Promise.resolve(self._stream);
-      }
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        return Promise.reject(new Error('Screen Capture API not supported in this browser'));
-      }
-      return navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: 'browser',
-          frameRate: { ideal: 1, max: 5 },
-          width:  { ideal: window.screen.width  * window.devicePixelRatio },
-          height: { ideal: window.screen.height * window.devicePixelRatio },
-        },
-        audio: false,
-        preferCurrentTab: true,
-        selfBrowserSurface: 'include',
-      }).then(function (stream) {
-        self._stream = stream;
-        stream.getVideoTracks()[0].addEventListener('ended', function () {
-          self._stream = null;
-        });
-        return stream;
-      });
-    },
-
-    _grabRegion: function (x, y, w, h) {
-      return this._getStream().then(function (stream) {
-        var track = stream.getVideoTracks()[0];
-        var imageCapture = new ImageCapture(track);
-        return imageCapture.grabFrame().then(function (bitmap) {
-          // Stream resolution may differ from CSS pixels (HiDPI / zoom)
-          var scaleX = bitmap.width  / window.innerWidth;
-          var scaleY = bitmap.height / window.innerHeight;
-          var bx = Math.round(x * scaleX);
-          var by = Math.round(y * scaleY);
-          var bw = Math.max(1, Math.round(w * scaleX));
-          var bh = Math.max(1, Math.round(h * scaleY));
-          var canvas = document.createElement('canvas');
-          canvas.width  = bw;
-          canvas.height = bh;
-          canvas.getContext('2d').drawImage(bitmap, bx, by, bw, bh, 0, 0, bw, bh);
-          bitmap.close();
-          return canvas.toDataURL('image/png');
-        });
-      });
-    },
-
-    start: function () {
-      var self = this;
-      if (this._attachments.length >= 4) return;
-      Popup.suppressOutsideDismiss(60000);
-
-      // If stream is already live, skip the share dialog entirely
-      if (self._stream && self._stream.active) {
-        Popup.el.style.display = 'none';
-        self._showSelectionUI();
-        return;
-      }
-
-      // Show a brief "waiting for permission" hint before the browser dialog
-      Notify.toast('Select this tab in the share dialog to enable screenshots', 5000);
-
-      self._getStream().then(function () {
-        Popup.el.style.display = 'none';
-        self._showSelectionUI();
-      }).catch(function (err) {
-        // User cancelled the share dialog — just restore the popup silently
-        Popup.el.style.display = 'block';
-        if (err && err.name !== 'NotAllowedError') {
-          Notify.toast('Screen capture unavailable');
-        }
-      });
-    },
-
-    _showSelectionUI: function () {
-      var self = this;
-      var overlay = document.createElement('div');
-      overlay.id = 'rhacs-sc-overlay';
-
-      var selEl = document.createElement('div');
-      selEl.className = 'rhacs-sc-selection';
-      selEl.style.display = 'none';
-
-      var handleDirs = ['tl', 'tc', 'tr', 'ml', 'mr', 'bl', 'bc', 'br'];
-      handleDirs.forEach(function (d) {
-        var h = document.createElement('div');
-        h.className = 'rhacs-sc-handle rhacs-sc-handle--' + d;
-        h.dataset.dir = d;
-        selEl.appendChild(h);
-      });
-
-      // Cancel is always visible so users can never get stuck
-      var cancelBtn = document.createElement('button');
-      cancelBtn.className = 'rhacs-sc-cancel-btn rhacs-sc-cancel-btn--floating';
-      cancelBtn.textContent = 'Cancel';
-
-      var btnRow = document.createElement('div');
-      btnRow.className = 'rhacs-sc-btn-row';
-      btnRow.style.display = 'none';
-
-      var captureBtn = document.createElement('button');
-      captureBtn.className = 'rhacs-sc-capture-btn';
-      captureBtn.textContent = 'Capture';
-
-      var rowCancelBtn = document.createElement('button');
-      rowCancelBtn.className = 'rhacs-sc-cancel-btn';
-      rowCancelBtn.textContent = 'Cancel';
-
-      btnRow.appendChild(captureBtn);
-      btnRow.appendChild(rowCancelBtn);
-
-      var hintEl = document.createElement('div');
-      hintEl.className = 'rhacs-sc-hint';
-      hintEl.textContent = 'Drag to select an area';
-
-      overlay.appendChild(selEl);
-      overlay.appendChild(cancelBtn);  // always-visible escape hatch
-      overlay.appendChild(btnRow);
-      overlay.appendChild(hintEl);
-      document.body.appendChild(overlay);
-
-      var rect = { x: 0, y: 0, w: 0, h: 0 };
-      var dragState = null;
-      var hasDragged = false;
-
-      function updateSelEl() {
-        var x = rect.w >= 0 ? rect.x : rect.x + rect.w;
-        var y = rect.h >= 0 ? rect.y : rect.y + rect.h;
-        var w = Math.abs(rect.w);
-        var h = Math.abs(rect.h);
-        selEl.style.left = x + 'px';
-        selEl.style.top = y + 'px';
-        selEl.style.width = w + 'px';
-        selEl.style.height = h + 'px';
-        selEl.style.display = (w > 4 && h > 4) ? 'block' : 'none';
-        var btnShow = w > 20 && h > 20;
-        var btnY = y + h + 8;
-        if (btnY + 40 > window.innerHeight) btnY = y - 48;
-        btnRow.style.left = (x + w / 2) + 'px';
-        btnRow.style.top = btnY + 'px';
-        btnRow.style.display = btnShow ? 'flex' : 'none';
-        if (w > 4 && h > 4) hintEl.style.display = 'none';
-      }
-
-      function normalizedRect() {
-        return {
-          x: rect.w >= 0 ? rect.x : rect.x + rect.w,
-          y: rect.h >= 0 ? rect.y : rect.y + rect.h,
-          w: Math.abs(rect.w),
-          h: Math.abs(rect.h)
-        };
-      }
-
-      overlay.addEventListener('mousedown', function (e) {
-        if (e.target === cancelBtn || e.target === captureBtn) return;
-        if (e.target.dataset && e.target.dataset.dir) {
-          e.preventDefault();
-          var nr = normalizedRect();
-          dragState = { type: 'resize', startX: e.clientX, startY: e.clientY, dir: e.target.dataset.dir, startRect: { x: nr.x, y: nr.y, w: nr.w, h: nr.h } };
-          return;
-        }
-        if (e.target === selEl) {
-          e.preventDefault();
-          var nr = normalizedRect();
-          dragState = { type: 'move', startX: e.clientX, startY: e.clientY, startRect: { x: nr.x, y: nr.y, w: nr.w, h: nr.h } };
-          return;
-        }
-        e.preventDefault();
-        hasDragged = true;
-        rect = { x: e.clientX, y: e.clientY, w: 0, h: 0 };
-        dragState = { type: 'draw', startX: e.clientX, startY: e.clientY };
-        updateSelEl();
-      });
-
-      overlay.addEventListener('mousemove', function (e) {
-        if (!dragState) return;
-        e.preventDefault();
-        var dx = e.clientX - dragState.startX;
-        var dy = e.clientY - dragState.startY;
-        if (dragState.type === 'draw') {
-          rect.w = dx;
-          rect.h = dy;
-        } else if (dragState.type === 'move') {
-          rect.x = dragState.startRect.x + dx;
-          rect.y = dragState.startRect.y + dy;
-          rect.w = dragState.startRect.w;
-          rect.h = dragState.startRect.h;
-        } else if (dragState.type === 'resize') {
-          var sr = dragState.startRect;
-          var d = dragState.dir;
-          var nx = sr.x, ny = sr.y, nw = sr.w, nh = sr.h;
-          if (d.indexOf('l') >= 0) { nx = sr.x + dx; nw = sr.w - dx; }
-          if (d.indexOf('r') >= 0) { nw = sr.w + dx; }
-          if (d.indexOf('t') >= 0) { ny = sr.y + dy; nh = sr.h - dy; }
-          if (d.indexOf('b') >= 0) { nh = sr.h + dy; }
-          rect.x = nx; rect.y = ny; rect.w = nw; rect.h = nh;
-        }
-        updateSelEl();
-      });
-
-      overlay.addEventListener('mouseup', function () {
-        dragState = null;
-      });
-
-      function dismiss() {
-        if (overlay.parentNode) document.body.removeChild(overlay);
-        document.removeEventListener('keydown', onKey);
-        Popup.el.style.display = 'block';
-      }
-
-      function onKey(e) {
-        if (e.key === 'Escape') dismiss();
-      }
-      document.addEventListener('keydown', onKey);
-
-      cancelBtn.addEventListener('click', dismiss);
-      rowCancelBtn.addEventListener('click', dismiss);
-
-      captureBtn.addEventListener('click', function () {
-        var nr = normalizedRect();
-        var sx = Math.round(nr.x);
-        var sy = Math.round(nr.y);
-        var sw = Math.round(nr.w);
-        var sh = Math.round(nr.h);
-
-        // Hide RHACS UI so it doesn't appear in the captured frame
-        overlay.style.display = 'none';
-        var mount = rhacsMount();
-        mount.style.display = 'none';
-
-        self._grabRegion(sx, sy, sw, sh).then(function (dataUrl) {
-          mount.style.display = '';
-          document.removeEventListener('keydown', onKey);
-          if (overlay.parentNode) document.body.removeChild(overlay);
-
-          console.log('[RHACS-SC] capture OK ' + sw + 'x' + sh);
-          var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
+      files = files.filter(function (f) { return f.type.startsWith('image/'); });
+      var remaining = 4 - self._attachments.length;
+      files.slice(0, remaining).forEach(function (file) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var dataUrl = e.target.result;
+          var filename = 'attach-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
           self._attachments.push({ dataUrl: dataUrl, filename: filename });
-
           var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
           if (thumbsEl) {
             self._thumbsEl = thumbsEl;
             self.renderThumbnails(thumbsEl);
           }
           if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
-          Popup.el.style.display = 'block';
-        }).catch(function (err) {
-          mount.style.display = '';
-          document.removeEventListener('keydown', onKey);
-          if (overlay.parentNode) document.body.removeChild(overlay);
-          var msg = (err && err.message) || '';
-          if (msg.indexOf('Permission') >= 0 || msg.indexOf('cancel') >= 0 || msg.indexOf('denied') >= 0 || err.name === 'NotAllowedError') {
-            Notify.toast('Screen share cancelled — permission needed to capture');
-          } else {
-            console.log('[RHACS-SC] capture error:', msg);
-            Notify.toast('Screenshot failed — ' + (msg || 'unknown error'));
-          }
-          Popup.el.style.display = 'block';
-        });
+        };
+        reader.readAsDataURL(file);
       });
     },
 
-    _cropCanvas: function (fullCanvas, rect) {
-      var scaleX = fullCanvas.width / window.innerWidth;
-      var scaleY = fullCanvas.height / window.innerHeight;
-      var c = document.createElement('canvas');
-      c.width = Math.round(rect.w * scaleX);
-      c.height = Math.round(rect.h * scaleY);
-      var ctx = c.getContext('2d');
-      ctx.drawImage(fullCanvas,
-        Math.round(rect.x * scaleX), Math.round(rect.y * scaleY),
-        Math.round(rect.w * scaleX), Math.round(rect.h * scaleY),
-        0, 0, c.width, c.height
-      );
-      return c.toDataURL('image/png');
-    },
-
-    _showConfirmPanel: function (dataUrl) {
-      var self = this;
-      var panel = document.createElement('div');
-      panel.id = 'rhacs-sc-confirm';
-
-      var title = document.createElement('div');
-      title.className = 'rhacs-sc-confirm__title';
-      title.textContent = 'Add this screenshot?';
-
-      var img = document.createElement('img');
-      img.className = 'rhacs-sc-confirm__img';
-      img.src = dataUrl;
-
-      var btnRow = document.createElement('div');
-      btnRow.className = 'rhacs-sc-confirm__btns';
-
-      var addBtn = document.createElement('button');
-      addBtn.className = 'pf-v6-c-button pf-m-primary rhacs-sc-confirm__add';
-      addBtn.textContent = 'Add to comment';
-
-      var retakeBtn = document.createElement('button');
-      retakeBtn.className = 'pf-v6-c-button pf-m-secondary rhacs-sc-confirm__retake';
-      retakeBtn.textContent = 'Retake';
-
-      btnRow.appendChild(addBtn);
-      btnRow.appendChild(retakeBtn);
-      panel.appendChild(title);
-      panel.appendChild(img);
-      panel.appendChild(btnRow);
-      document.body.appendChild(panel);
-
-      addBtn.addEventListener('click', function () {
-        document.body.removeChild(panel);
-        var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
-        self._attachments.push({ dataUrl: dataUrl, filename: filename });
-        var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
-        if (thumbsEl) {
-          self._thumbsEl = thumbsEl;
-          self.renderThumbnails(thumbsEl);
+    _handlePaste: function (e) {
+      var items = (e.clipboardData || e.originalEvent && e.originalEvent.clipboardData || {}).items;
+      if (!items) return;
+      var files = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          var f = items[i].getAsFile();
+          if (f) files.push(f);
         }
-        if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
-        Popup.el.style.display = 'block';
-      });
-
-      retakeBtn.addEventListener('click', function () {
-        document.body.removeChild(panel);
-        self.start();
-      });
+      }
+      if (files.length) {
+        e.preventDefault();
+        this._handleFiles(files);
+      }
     },
 
     renderThumbnails: function (containerEl) {
@@ -2231,6 +1935,10 @@
       }
     },
     close: function () {
+      if (this._onPaste) {
+        this.el.removeEventListener('paste', this._onPaste);
+        this._onPaste = null;
+      }
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
@@ -2364,6 +2072,10 @@
       S.activePinId = null;
       Popup._pendingModalMeta = modalMeta || null;
       Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
+      if (Popup._onPaste) {
+        this.el.removeEventListener('paste', Popup._onPaste);
+        Popup._onPaste = null;
+      }
       ScreenshotCapture.reset();
       this.el.innerHTML = '';
 
@@ -2409,23 +2121,47 @@
 
       append(actions, postBtn, cancelBtn);
 
-      var cameraBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-sc-btn', type: 'button' });
-      cameraBtn.setAttribute('aria-label', 'Add screenshot');
-      cameraBtn.setAttribute('title', 'Add screenshot');
-      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 8a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm6.5-13H17l-1.5-2h-7L7 4H5.5A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4z"/></svg>';
-      ScreenshotCapture._cameraBtn = cameraBtn;
-      cameraBtn.addEventListener('click', function (e) {
+      var attachWrap = el('div', { className: 'rhacs-sc-attach-wrap' });
+
+      var fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.multiple = true;
+      fileInput.style.display = 'none';
+      fileInput.addEventListener('change', function () {
+        ScreenshotCapture._handleFiles(Array.from(fileInput.files));
+        fileInput.value = '';
+      });
+
+      var attachBtn = document.createElement('button');
+      attachBtn.type = 'button';
+      attachBtn.className = 'rhacs-sc-attach-btn';
+      attachBtn.title = 'Attach image';
+      attachBtn.setAttribute('aria-label', 'Attach image');
+      attachBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S6 2.79 6 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>';
+      ScreenshotCapture._cameraBtn = attachBtn;
+      attachBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (ScreenshotCapture._attachments.length >= 4) return;
-        Popup.suppressOutsideDismiss(60000);
-        ScreenshotCapture.start();
+        fileInput.click();
       });
-      actions.appendChild(cameraBtn);
+
+      var pasteHint = el('span', { className: 'rhacs-sc-paste-hint' });
+      pasteHint.appendChild(txt('or paste image'));
+
+      append(attachWrap, fileInput, attachBtn, pasteHint);
+      actions.appendChild(attachWrap);
 
       var thumbsEl = el('div', { className: 'rhacs-sc-thumbs' });
       ScreenshotCapture._thumbsEl = thumbsEl;
 
       append(this.el, header, textarea, inputError, actions, thumbsEl);
+
+      Popup._onPaste = function (e) {
+        ScreenshotCapture._handlePaste(e);
+      };
+      this.el.addEventListener('paste', Popup._onPaste);
+
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
       textarea.focus();

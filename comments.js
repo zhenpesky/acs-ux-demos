@@ -925,7 +925,7 @@
         }),
       }).then(function (r) { return r.json(); }).then(function (data) {
         if (data && data.id) {
-          // Replace the temp ID with the real GitHub comment ID
+          // Replace the temp ID with the real GitHub comment ID in localStorage
           var stored = Auth.loadGuestPins();
           for (var i = 0; i < stored.length; i++) {
             if (stored[i].id === tempId) {
@@ -935,6 +935,10 @@
             }
           }
           Auth.saveGuestPins(stored);
+          // Also update S.pins in memory so follow-up replies use the real GitHub ID
+          for (var j = 0; j < S.pins.length; j++) {
+            if (S.pins[j].id === tempId) { S.pins[j].id = data.id; break; }
+          }
           if (data.discussionId) S.discussionId = data.discussionId;
         }
       }).catch(function (e) {
@@ -1904,11 +1908,14 @@
           replyArea.value = '';
           Popup.suppressOutsideDismiss(500);
           Popup.keepOpenAfterAction(function () { Popup.showThread(pinId); });
-          if (!String(pinId).startsWith('guest-') && S.discussionId) {
+          // Resolve the live pin ID — worker may have updated guest-TIMESTAMP → real GitHub ID
+          var livePin = S.pins.find(function (p) { return p.id === pinId; });
+          var livePinId = livePin ? livePin.id : pinId;
+          if (!String(livePinId).startsWith('guest-') && S.discussionId) {
             fetch(CFG.workerUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'guest_reply', commentId: pinId, discussionId: S.discussionId, replyBody: fullBody })
+              body: JSON.stringify({ type: 'guest_reply', commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
             }).then(function (r) { return r.json(); }).then(function (data) {
               if (data && data.id) {
                 var st = Auth.loadGuestPins();

@@ -1138,6 +1138,10 @@
     // If a previously-read pin now has more replies than when it was read,
     // remove it from seenIds so the pin becomes unread again (new reply badge)
     S.pins.forEach(function (p) {
+      // Own non-guest pins are always read for the poster
+      if (S.user && !p._guest && p.author && p.author.login === S.user.login) {
+        S.seenIds.add(p.id);
+      }
       if (S.seenIds.has(p.id)) {
         var prevCount = S.seenReplyCounts[p.id];
         if (prevCount !== undefined && (p.replies || []).length > prevCount) {
@@ -1767,6 +1771,7 @@
               replies: [],
               reactionGroups: []
             };
+            S.seenIds.add(optimisticPin.id);
             S.pins = S.pins.concat([optimisticPin]);
             Popup.close();
             Overlay.renderPins();
@@ -3498,8 +3503,22 @@
               return fp.meta && new Date(fp.createdAt).getTime() > S.lastSeen && !S.seenIds.has(fp.id) &&
                 !S.pins.some(function (ep) { return ep.id === fp.id; });
             });
-            if (newOnes.length > 0 || freshPins.length !== S.pins.length) {
+            var hasNewReplies = freshPins.some(function (fp) {
+              var existing = S.pins.find(function (ep) { return ep.id === fp.id; });
+              return existing && (fp.replies || []).length > (existing.replies || []).length;
+            });
+            if (newOnes.length > 0 || freshPins.length !== S.pins.length || hasNewReplies) {
               S.pins = freshPins;
+              // Re-run seenReplyCounts check: new replies on read pins → mark unread
+              S.pins.forEach(function (p) {
+                if (S.seenIds.has(p.id)) {
+                  var prevCount = S.seenReplyCounts[p.id];
+                  if (prevCount !== undefined && (p.replies || []).length > prevCount) {
+                    S.seenIds.delete(p.id);
+                    localStorage.setItem(CFG.seenPrefix + 'ids-' + window.location.pathname, JSON.stringify(Array.from(S.seenIds)));
+                  }
+                }
+              });
               Overlay.renderPins();
               Panel.render();
               if (newOnes.length > 0) Notify.showUnread(newOnes.length);

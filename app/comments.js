@@ -1865,31 +1865,8 @@
 
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
-      if (S.guestMode && !isShareMode()) {
-        // Standard guest login — show info notice with login link to upgrade
-        var guestReplyNotice = el('div', { className: 'rhacs-inline-notice' });
-        var noticeIcon = el('span', { className: 'rhacs-inline-notice__icon' });
-        noticeIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>';
-        var noticeText = el('span');
-        noticeText.appendChild(txt('Log in with GitHub to reply. '));
-        var noticeLink = el('button', { className: 'rhacs-inline-notice__link' });
-        noticeLink.appendChild(txt('Log in'));
-        noticeLink.addEventListener('click', function () {
-          Auth.login()
-            .then(function () { return Auth.fetchUser(); })
-            .then(function () {
-              FAB.updateUser();
-              return loadAndRender().then(function () {
-                Popup.showThread(pinId);
-              });
-            })
-            .catch(function () {});
-        });
-        noticeText.appendChild(noticeLink);
-        append(guestReplyNotice, noticeIcon, noticeText);
-        replyForm.appendChild(guestReplyNotice);
-      } else if (S.guestMode && isShareMode() && pin._guest && isOwnComment) {
-        // Share-mode guest on their own comment — allow replies via worker
+      if (S.guestMode && pin._guest && isOwnComment) {
+        // Guest (internal or external) on their own comment — allow follow-up replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
         replyError.appendChild(txt('Comment can\u2019t be empty'));

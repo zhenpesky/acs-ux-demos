@@ -2128,9 +2128,20 @@
               fullCanvas, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH
             );
 
+            // Downscale to max 600px wide to keep data URL small and posting fast
+            var MAX_W = 600;
+            var outCanvas = cropCanvas;
+            if (srcW > MAX_W) {
+              var ratio = MAX_W / srcW;
+              outCanvas = document.createElement('canvas');
+              outCanvas.width  = MAX_W;
+              outCanvas.height = Math.round(srcH * ratio);
+              outCanvas.getContext('2d').drawImage(cropCanvas, 0, 0, outCanvas.width, outCanvas.height);
+            }
+
             ScreenshotCapture._attachment = {
-              dataUrl: cropCanvas.toDataURL('image/png'),
-              filename: 'screenshot.png'
+              dataUrl: outCanvas.toDataURL('image/jpeg', 0.82),
+              filename: 'screenshot.jpg'
             };
           } catch (err) {
             console.warn('snapdom capture failed', err);
@@ -2311,8 +2322,6 @@
       function applyPos(top, left) {
         if (Popup._ro) Popup._ro.disconnect();
         popupEl.style.maxHeight = '';
-        popupEl.style.overflowY = '';
-
         var naturalH = popupEl.scrollHeight;
         var maxAvail = vh - 2 * margin;
 
@@ -2325,11 +2334,8 @@
         popupEl.style.left       = left + 'px';
         popupEl.style.visibility = '';
 
-        // Scroll only if content exceeds full viewport height
-        if (naturalH > maxAvail) {
-          popupEl.style.maxHeight = maxAvail + 'px';
-          popupEl.style.overflowY = 'auto';
-        }
+        // Always cap to available height — inner scroll-body handles overflow via CSS flex
+        popupEl.style.maxHeight = Math.min(naturalH, maxAvail) + 'px';
 
         requestAnimationFrame(function () {
           if (Popup._ro) Popup._ro.observe(popupEl);

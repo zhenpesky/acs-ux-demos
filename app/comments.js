@@ -27,8 +27,7 @@
   function isShareMode() {
     // GitHub-authenticated users always get full UI — share restrictions are guest-only.
     if (S.token) return false;
-    if (shareToken() === CFG.shareKey) return true;
-    try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
+    return shareToken() === CFG.shareKey;
   }
 
   function shareToken() {
@@ -3691,12 +3690,8 @@
       history.replaceState({}, '', clean || window.location.pathname);
     }
 
-    // Persist share mode to sessionStorage so it survives SPA navigation
-    try {
-      if (shareToken() === CFG.shareKey) {
-        sessionStorage.setItem('rhacs_share_mode', '1');
-      }
-    } catch (e) {}
+    // Clear any stale share-mode session flag from old links
+    try { sessionStorage.removeItem('rhacs_share_mode'); } catch (e) {}
 
     Auth.init();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);

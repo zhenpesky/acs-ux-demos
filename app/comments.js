@@ -1528,7 +1528,7 @@
       Overlay.renderPins();
       // Reposition popup next to its pin if open — never auto-close on scroll
       // (a pin can be briefly missing during re-render or marked hidden off-screen).
-      if (S.activePinId && Popup.el && Popup.el.style.display !== 'none') {
+      if (S.activePinId && Popup.el && Popup._isPopupVisible()) {
         var pinEl = Overlay.pinLayerEl.querySelector('[data-pin-id="' + S.activePinId + '"]');
         if (pinEl && pinEl.style.visibility !== 'hidden') {
           var r = pinEl.getBoundingClientRect();
@@ -1542,7 +1542,7 @@
       if (e.target.closest && (e.target.closest('.rhacs-pin') || e.target.closest('#rhacs-popup'))) return;
 
       // If popup is open with unsaved input, shake it and block the new-pin action
-      if (Popup.el && Popup.el.style.display !== 'none' && !Popup.el.contains(e.target)) {
+      if (Popup.el && Popup._isPopupVisible() && !Popup.el.contains(e.target)) {
         var hasUnsaved = Popup._hasUnsavedInput();
         if (hasUnsaved) {
           e.stopPropagation();
@@ -2211,7 +2211,21 @@
   var Popup = {
     el: null,
     _ro: null,
+    _newFormSubmitGen: 0,
     _suppressOutsideDismissUntil: 0,
+    _showPopupEl: function () {
+      this.el.style.setProperty('display', 'flex', 'important');
+      this.el.style.visibility = '';
+    },
+    _hidePopupEl: function () {
+      this.el.style.setProperty('display', 'none', 'important');
+    },
+    _isPopupVisible: function () {
+      return this.el && this.el.style.getPropertyValue('display') !== 'none';
+    },
+    _abortNewFormSubmit: function () {
+      this._newFormSubmitGen += 1;
+    },
     suppressOutsideDismiss: function (ms) {
       Popup._suppressOutsideDismissUntil = Date.now() + (ms || 400);
     },
@@ -2226,13 +2240,13 @@
     },
     init: function () {
       this.el = el('div', { className: 'rhacs-popup', id: 'rhacs-popup' });
-      this.el.style.display = 'none';
+      this._hidePopupEl();
       rhacsMount().appendChild(this.el);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') Popup.close(); });
       // Auto-reposition whenever the popup grows or shrinks
       if (window.ResizeObserver) {
         this._ro = new ResizeObserver(function () {
-          if (Popup.el.style.display !== 'none') Popup.reposition();
+          if (Popup._isPopupVisible()) Popup.reposition();
         });
         this._ro.observe(this.el);
       }
@@ -2240,7 +2254,8 @@
     close: function () {
       // Explicit close/cancel must always work — never blocked by outside-dismiss suppress
       this._suppressOutsideDismissUntil = 0;
-      this.el.style.display = 'none';
+      this._abortNewFormSubmit();
+      this._hidePopupEl();
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
       this._newFormQuote = null;
@@ -2332,7 +2347,7 @@
       var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
       var panelW    = panelOpen ? 320 : 0;
       var vw = window.innerWidth - panelW, vh = window.innerHeight;
-      popupEl.style.display = 'block';
+      Popup._showPopupEl();
       // Let CSS enforce max-height (set via !important) — never touch it in JS
 
       function applyPos(top, left) {
@@ -2387,7 +2402,7 @@
     },
     reposition: function () {
       var popupEl = this.el;
-      if (!popupEl || popupEl.style.display === 'none' || popupEl.style.visibility === 'hidden') return;
+      if (!popupEl || !Popup._isPopupVisible() || popupEl.style.visibility === 'hidden') return;
       var margin    = 12;
       var panelOpen = rhacsMount().classList.contains('rhacs-panel-open');
       var vh = window.innerHeight;
@@ -2455,9 +2470,13 @@
       var header = el('div', { className: 'rhacs-popup__header' });
       var titleEl = el('span', { className: 'rhacs-popup__title' });
       titleEl.appendChild(txt('Add comment'));
-      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close', onclick: function () { Popup.close(); } });
+      var closeBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-popup__close' });
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.appendChild(txt('×'));
+      closeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Popup.close();
+      });
       append(header, titleEl, closeBtn);
 
       var scUI = Popup._buildScreenshotUI();
@@ -2510,13 +2529,17 @@
         }
         postBtn.disabled = true;
         postBtn.textContent = 'Posting…';
+        var submitGen = Popup._newFormSubmitGen;
         Popup.suppressOutsideDismiss(500);
-        Popup.submitNew(Popup._getNewFormSubmitText(), x, y);
+        Popup.submitNew(Popup._getNewFormSubmitText(), x, y, submitGen);
       });
 
-      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
+      var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary', type: 'button' });
       cancelBtn.appendChild(txt('Cancel'));
-      cancelBtn.addEventListener('click', function () { Popup.close(); });
+      cancelBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Popup.close();
+      });
 
       append(actions, postBtn, cancelBtn);
 
@@ -2526,13 +2549,13 @@
       append(stickyFooter, toolbar, thumbsDiv, editorContainer, inputError, actions);
       append(this.el, header, stickyFooter);
 
-      this.el.style.display = 'block';
+      this._showPopupEl();
       this.el.style.maxHeight = '';
       this.el.style.overflowY = '';
       this.positionFixed(clientX, clientY);
       Popup._focusNewFormEditor();
     },
-    submitNew: function (text, x, y) {
+    submitNew: function (text, x, y, submitGen) {
       text = text.trim();
       if (!text) return;
       var num = S.pins.length + 1;
@@ -2543,6 +2566,7 @@
       if (attachment) fullText += '\n\n![screenshot](' + attachment.dataUrl + ')';
       Auth.requireAuth()
         .then(function () {
+          if (submitGen !== Popup._newFormSubmitGen) return;
           // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
           if (S.guestMode && !S.token) {
             var newPin = Auth.addGuestPin(fullText, x, y, num, modalMeta);
@@ -2823,7 +2847,7 @@
       var stickyFooter = el('div', { className: 'rhacs-popup__sticky-footer' });
       append(stickyFooter, replyForm);
       append(this.el, header, scrollBody, stickyFooter);
-      this.el.style.display = 'block';
+      this._showPopupEl();
       // Ensure legacy reposition() never left root-level scroll on the popup
       this.el.style.maxHeight = '';
       this.el.style.overflowY = '';
@@ -4295,7 +4319,7 @@
     Popup.close();
     if (!active) {
       FAB.setMode(false);
-      if (Popup.el) Popup.el.style.display = 'none';
+      if (Popup.el) Popup._hidePopupEl();
       if (Panel.el) Panel.el.classList.remove('rhacs-panel--open');
       rhacsMount().classList.remove('rhacs-panel-open');
       Panel._pushPage(false);
@@ -4402,7 +4426,7 @@
         });
       }
       // Popup: close on outside click; shake instead if there's unsaved input
-      if (Popup.el && Popup.el.style.display !== 'none') {
+      if (Popup.el && Popup._isPopupVisible()) {
         var clickedInsidePopup = isEventInsidePopup(e);
         if (!clickedInsidePopup) {
           if (Popup._suppressOutsideDismissUntil && Date.now() < Popup._suppressOutsideDismissUntil) return;

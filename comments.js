@@ -974,14 +974,14 @@
         S.guestMode = true;
         S.user = existing;
         FAB.updateUser();
-        Notify.toast('Commenting as external reviewer.');
+        // toast removed
         return Promise.resolve();
       }
       return Auth._showNamePromptThenGuest().then(function (user) {
         S.guestMode = true;
         S.user = user;
         FAB.updateUser();
-        Notify.toast('Commenting as ' + user.login + '.');
+        // toast removed
       });
     },
     exitGuest: function () {

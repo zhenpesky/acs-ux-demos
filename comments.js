@@ -1655,43 +1655,57 @@
       this._cameraBtn = null;
     },
 
-    _loadHtmlToImage: function () {
-      if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
-      if (this._htiLoadPromise) return this._htiLoadPromise;
-      this._htiLoadPromise = new Promise(function (resolve, reject) {
-        var s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
-        s.crossOrigin = 'anonymous';
-        s.onload = function () {
-          if (window.htmlToImage) resolve(window.htmlToImage);
-          else reject(new Error('htmlToImage not defined after load'));
-        };
-        s.onerror = reject;
-        document.head.appendChild(s);
+    // Native screen-capture stream — kept alive for the whole session so the
+    // browser permission dialog only appears on the very first capture.
+    _stream: null,
+
+    _getStream: function () {
+      var self = this;
+      if (self._stream && self._stream.active) {
+        return Promise.resolve(self._stream);
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        return Promise.reject(new Error('Screen Capture API not supported in this browser'));
+      }
+      return navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: 'browser',
+          frameRate: { ideal: 1, max: 5 },
+          width:  { ideal: window.screen.width  * window.devicePixelRatio },
+          height: { ideal: window.screen.height * window.devicePixelRatio },
+        },
+        audio: false,
+        preferCurrentTab: true,
+        selfBrowserSurface: 'include',
+      }).then(function (stream) {
+        self._stream = stream;
+        stream.getVideoTracks()[0].addEventListener('ended', function () {
+          self._stream = null;
+        });
+        return stream;
       });
-      return this._htiLoadPromise;
     },
 
-    // Find the smallest DOM element whose bounding rect fully contains the
-    // selection. Capturing a small subtree is far faster than capturing body.
-    _findContainer: function (x, y, w, h) {
-      var rhacsIds = { 'rhacs-mount': 1, 'rhacs-sc-overlay': 1 };
-      // Sample the element at the centre of the selection
-      var el = document.elementFromPoint(x + w / 2, y + h / 2);
-      while (el && rhacsIds[el.id]) el = el.parentElement;
-      if (!el) return document.body;
-
-      // Walk up until we find an ancestor that fully wraps the selection
-      var curr = el;
-      while (curr && curr !== document.documentElement) {
-        var r = curr.getBoundingClientRect();
-        if (r.left <= x && r.top <= y && r.right >= x + w && r.bottom >= y + h) {
-          // Accept this ancestor (smallest possible container wins)
-          return curr;
-        }
-        curr = curr.parentElement;
-      }
-      return document.body;
+    _grabRegion: function (x, y, w, h) {
+      return this._getStream().then(function (stream) {
+        var track = stream.getVideoTracks()[0];
+        var imageCapture = new ImageCapture(track);
+        return imageCapture.grabFrame().then(function (bitmap) {
+          // Stream resolution may differ from CSS pixels (HiDPI / zoom)
+          var scaleX = bitmap.width  / window.innerWidth;
+          var scaleY = bitmap.height / window.innerHeight;
+          var bx = Math.round(x * scaleX);
+          var by = Math.round(y * scaleY);
+          var bw = Math.max(1, Math.round(w * scaleX));
+          var bh = Math.max(1, Math.round(h * scaleY));
+          var canvas = document.createElement('canvas');
+          canvas.width  = bw;
+          canvas.height = bh;
+          canvas.getContext('2d').drawImage(bitmap, bx, by, bw, bh, 0, 0, bw, bh);
+          bitmap.close();
+          return canvas.toDataURL('image/png');
+        });
+      });
     },
 
     start: function () {
@@ -1699,7 +1713,9 @@
       if (this._attachments.length >= 4) return;
       Popup.el.style.display = 'none';
       Popup.suppressOutsideDismiss(60000);
-      self._loadHtmlToImage(); // pre-load in background while user draws selection
+      // Pre-warm the screen capture stream so the permission dialog appears
+      // immediately when the user opens the selection UI, not after they draw.
+      self._getStream().catch(function () { /* user may cancel — ok */ });
       self._showSelectionUI();
     },
 
@@ -1834,95 +1850,41 @@
 
       captureBtn.addEventListener('click', function () {
         var nr = normalizedRect();
+        var sx = Math.round(nr.x);
+        var sy = Math.round(nr.y);
+        var sw = Math.round(nr.w);
+        var sh = Math.round(nr.h);
+
+        // Hide RHACS UI so it doesn't appear in the captured frame
         overlay.style.display = 'none';
         var mount = rhacsMount();
         mount.style.display = 'none';
 
-        var loadingEl = document.createElement('div');
-        loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:16px;font-weight:600;z-index:100002;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.7)';
-        loadingEl.textContent = 'Capturing…';
-        document.body.appendChild(loadingEl);
+        self._grabRegion(sx, sy, sw, sh).then(function (dataUrl) {
+          mount.style.display = '';
+          if (overlay.parentNode) document.body.removeChild(overlay);
 
-        self._loadHtmlToImage().then(function (hti) {
-          var sx = Math.round(nr.x);
-          var sy = Math.round(nr.y);
-          var cropW = Math.round(nr.w);
-          var cropH = Math.round(nr.h);
+          console.log('[RHACS-SC] capture OK ' + sw + 'x' + sh);
+          var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
+          self._attachments.push({ dataUrl: dataUrl, filename: filename });
 
-          // Smallest DOM subtree that covers the selection — much less to serialize
-          var captureEl = self._findContainer(sx, sy, cropW, cropH);
-          var elRect = captureEl.getBoundingClientRect();
-          // Offset of selection relative to the chosen container's top-left
-          var relX = sx - elRect.left;
-          var relY = sy - elRect.top;
-
-          hti.toCanvas(captureEl, {
-            useCORS: true,
-            skipFonts: true,
-            fontEmbedCSS: '',
-            pixelRatio: 1,
-            // Output canvas matches the selection exactly — no second crop step
-            width: cropW,
-            height: cropH,
-            canvasWidth: cropW,
-            canvasHeight: cropH,
-            // Shift the container so the selection lands at canvas (0,0)
-            style: {
-              transform: 'translate(' + (-relX) + 'px,' + (-relY) + 'px)',
-              width: elRect.width + 'px',
-              height: elRect.height + 'px',
-            },
-            filter: function (node) {
-              var id = (node && node.id) || '';
-              return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
-            },
-          }).then(function (cropCanvas) {
-            mount.style.display = '';
-            if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
-            if (overlay.parentNode) document.body.removeChild(overlay);
-
-            if (cropCanvas.width < 10 || cropCanvas.height < 10) {
-              console.log('[RHACS-SC] crop region too small');
-              Notify.toast('Screenshot failed — try a larger area');
-              Popup.el.style.display = 'block';
-              return;
-            }
-
-            var dataUrl;
-            try {
-              dataUrl = cropCanvas.toDataURL('image/png');
-              console.log('[RHACS-SC] capture OK ' + cropCanvas.width + 'x' + cropCanvas.height + ' len=' + dataUrl.length);
-            } catch (e) {
-              console.log('[RHACS-SC] toDataURL blocked:', e.message);
-              Notify.toast('Screenshot blocked by browser security — try a different area');
-              Popup.el.style.display = 'block';
-              return;
-            }
-
-            var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
-            self._attachments.push({ dataUrl: dataUrl, filename: filename });
-            var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
-            console.log('[RHACS-SC] thumbsEl found:', !!thumbsEl, 'total attachments:', self._attachments.length);
-            if (thumbsEl) {
-              self._thumbsEl = thumbsEl;
-              self.renderThumbnails(thumbsEl);
-            }
-            if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
-            Popup.el.style.display = 'block';
-          }).catch(function (err) {
-            mount.style.display = '';
-            if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
-            if (overlay.parentNode) document.body.removeChild(overlay);
-            console.log('[RHACS-SC] html-to-image error:', err && err.message);
-            Notify.toast('Screenshot failed — try a smaller area');
-            Popup.el.style.display = 'block';
-          });
+          var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
+          if (thumbsEl) {
+            self._thumbsEl = thumbsEl;
+            self.renderThumbnails(thumbsEl);
+          }
+          if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
+          Popup.el.style.display = 'block';
         }).catch(function (err) {
           mount.style.display = '';
-          if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
           if (overlay.parentNode) document.body.removeChild(overlay);
-          console.log('[RHACS-SC] capture library load error:', err && err.message);
-          Notify.toast('Could not load capture library');
+          var msg = (err && err.message) || '';
+          if (msg.indexOf('Permission') >= 0 || msg.indexOf('cancel') >= 0 || msg.indexOf('denied') >= 0 || err.name === 'NotAllowedError') {
+            Notify.toast('Screen share cancelled — permission needed to capture');
+          } else {
+            console.log('[RHACS-SC] capture error:', msg);
+            Notify.toast('Screenshot failed — ' + (msg || 'unknown error'));
+          }
           Popup.el.style.display = 'block';
         });
       });

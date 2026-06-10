@@ -1672,11 +1672,26 @@
       return this._htiLoadPromise;
     },
 
-    _captureRoot: function () {
-      return document.querySelector('[data-reactroot]')
-        || document.getElementById('root')
-        || document.querySelector('main')
-        || document.body;
+    // Find the smallest DOM element whose bounding rect fully contains the
+    // selection. Capturing a small subtree is far faster than capturing body.
+    _findContainer: function (x, y, w, h) {
+      var rhacsIds = { 'rhacs-mount': 1, 'rhacs-sc-overlay': 1 };
+      // Sample the element at the centre of the selection
+      var el = document.elementFromPoint(x + w / 2, y + h / 2);
+      while (el && rhacsIds[el.id]) el = el.parentElement;
+      if (!el) return document.body;
+
+      // Walk up until we find an ancestor that fully wraps the selection
+      var curr = el;
+      while (curr && curr !== document.documentElement) {
+        var r = curr.getBoundingClientRect();
+        if (r.left <= x && r.top <= y && r.right >= x + w && r.bottom >= y + h) {
+          // Accept this ancestor (smallest possible container wins)
+          return curr;
+        }
+        curr = curr.parentElement;
+      }
+      return document.body;
     },
 
     start: function () {
@@ -1829,30 +1844,34 @@
         document.body.appendChild(loadingEl);
 
         self._loadHtmlToImage().then(function (hti) {
-          // Render only the selected region by translating the body into a
-          // crop-sized canvas — much faster than rendering the full viewport.
           var sx = Math.round(nr.x);
           var sy = Math.round(nr.y);
           var cropW = Math.round(nr.w);
           var cropH = Math.round(nr.h);
 
-          hti.toCanvas(document.body, {
+          // Smallest DOM subtree that covers the selection — much less to serialize
+          var captureEl = self._findContainer(sx, sy, cropW, cropH);
+          var elRect = captureEl.getBoundingClientRect();
+          // Offset of selection relative to the chosen container's top-left
+          var relX = sx - elRect.left;
+          var relY = sy - elRect.top;
+
+          hti.toCanvas(captureEl, {
             useCORS: true,
             skipFonts: true,
             fontEmbedCSS: '',
             pixelRatio: 1,
-            // Canvas exactly the size of the selection — no post-crop needed
+            // Output canvas matches the selection exactly — no second crop step
             width: cropW,
             height: cropH,
             canvasWidth: cropW,
             canvasHeight: cropH,
-            // Shift body so the selection region lands at canvas (0,0)
+            // Shift the container so the selection lands at canvas (0,0)
             style: {
-              transform: 'translate(' + (-sx) + 'px,' + (-sy) + 'px)',
-              width: window.innerWidth + 'px',
-              height: window.innerHeight + 'px',
+              transform: 'translate(' + (-relX) + 'px,' + (-relY) + 'px)',
+              width: elRect.width + 'px',
+              height: elRect.height + 'px',
             },
-            // Only skip the RHACS overlay elements — nothing else
             filter: function (node) {
               var id = (node && node.id) || '';
               return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';

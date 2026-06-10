@@ -2657,6 +2657,28 @@
 
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
+
+      // Helper: build a screenshot toolbar + thumbs strip for a reply form
+      function buildReplyScreenshotToolbar() {
+        ScreenshotCapture.reset();
+        var rThumbsDiv = el('div', { className: 'rhacs-sc-thumbs' });
+        var rToolbar = el('div', { className: 'rhacs-reply-sc-toolbar' });
+        var rCamBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
+        rCamBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
+        rCamBtn.setAttribute('aria-label', 'Take screenshot');
+        rCamBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          Popup.suppressOutsideDismiss(60000);
+          ScreenshotCapture.start(function () {
+            Popup.suppressOutsideDismiss(500);
+            ScreenshotCapture.renderThumbnail(rThumbsDiv);
+            Popup.reposition();
+          });
+        });
+        append(rToolbar, rCamBtn);
+        return { toolbar: rToolbar, thumbsDiv: rThumbsDiv };
+      }
+
       if (S.guestMode && pin._guest && isOwnComment) {
         // Guest on their own comment — allow follow-up replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
@@ -2668,6 +2690,7 @@
             replyError.style.display = 'none';
           }
         });
+        var rsc = buildReplyScreenshotToolbar();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var postBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
         postBtn.appendChild(txt('Post'));
@@ -2680,7 +2703,9 @@
             replyArea.focus();
             return;
           }
+          var attachment = ScreenshotCapture.getAttachment();
           var replyText = replyArea.value.trim();
+          if (attachment) replyText += '\n\n![screenshot](' + attachment.dataUrl + ')';
           var guestAuthor = S.user ? { login: S.user.login, name: S.user.name || S.user.login, avatarUrl: S.user.avatarUrl } : { login: 'Guest', name: 'Guest' };
           var authorTag = guestAuthor.name ? '\n\n\u2014 _' + guestAuthor.name + ' (guest)_' : '';
           var fullBody = replyText + authorTag;
@@ -2722,7 +2747,7 @@
           }
         });
         append(replyActions, postBtn);
-        append(replyForm, replyArea, replyError, replyActions);
+        append(replyForm, replyArea, replyError, rsc.toolbar, rsc.thumbsDiv, replyActions);
       } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2733,6 +2758,7 @@
             replyError.style.display = 'none';
           }
         });
+        var rsc2 = buildReplyScreenshotToolbar();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
         replyBtn.appendChild(txt('Reply'));
@@ -2745,7 +2771,10 @@
           }
           replyBtn.disabled = true;
           replyBtn.textContent = 'Replying…';
-          Popup.submitReply(pinId, replyArea.value, replyArea)
+          var attachment = ScreenshotCapture.getAttachment();
+          var replyText = replyArea.value;
+          if (attachment) replyText += '\n\n![screenshot](' + attachment.dataUrl + ')';
+          Popup.submitReply(pinId, replyText, replyArea)
             .catch(function () {})
             .finally(function () {
               replyBtn.disabled = false;
@@ -2761,7 +2790,7 @@
           replyForm.style.display = 'none';
         });
         append(replyActions, replyBtn, replyCancelBtn);
-        append(replyForm, replyArea, replyError, replyActions);
+        append(replyForm, replyArea, replyError, rsc2.toolbar, rsc2.thumbsDiv, replyActions);
       }
 
       append(this.el, header, firstPost, repliesEl, replyForm);

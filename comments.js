@@ -2990,22 +2990,9 @@
         Promise.all(deleteCalls).then(function () { loadAndRender(); });
       });
     },
-    _pageEl: function () {
-      return document.querySelector('.pf-v6-c-page') ||
-             document.querySelector('.pf-v5-c-page') ||
-             document.querySelector('[class*="pf-"][class*="-c-page"]') ||
-             document.body;
-    },
-    _pushPage: function (open) {
-      var page = Panel._pageEl();
-      if (!page) return;
-      if (!page._rhacsTransitionSet) {
-        var cur = window.getComputedStyle(page).transition;
-        page.style.transition = (cur && cur !== 'all 0s ease 0s' ? cur + ', ' : '') +
-          'margin-right 0.26s cubic-bezier(0.16,1,0.3,1)';
-        page._rhacsTransitionSet = true;
-      }
-      page.style.marginRight = open ? '320px' : '';
+    _pushPage: function () {
+      // Panel overlays the page instead of pushing it — avoids compressing
+      // the PatternFly masthead which causes toolbar icons to wrap/overflow.
     },
     open: function () {
       // Keep toggle checkbox in sync with current state

@@ -2106,20 +2106,45 @@
       ScreenshotCapture._thumbContainer = container;
       container.innerHTML = '';
       if (!ScreenshotCapture._attachment) return;
+      var dataUrl = ScreenshotCapture._attachment.dataUrl;
+
       var wrap = document.createElement('div');
       wrap.className = 'rhacs-sc-thumb';
+
       var img = document.createElement('img');
-      img.src = ScreenshotCapture._attachment.dataUrl;
-      img.alt = 'Screenshot';
+      // Explicit inline styles so PatternFly global img rules can't override
+      img.style.cssText = 'display:block;width:80px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #ccc;cursor:zoom-in;box-sizing:border-box;';
+      img.alt = '';
+      img.title = 'Click to preview';
+      img.src = dataUrl;
+
+      // Click thumbnail → open lightbox preview
+      img.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
+        var preview = document.createElement('img');
+        preview.src = dataUrl;
+        preview.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);pointer-events:none;';
+        overlay.appendChild(preview);
+        overlay.addEventListener('click', function () { document.body.removeChild(overlay); });
+        document.addEventListener('keydown', function esc(ev) {
+          if (ev.key === 'Escape') { document.body.removeChild(overlay); document.removeEventListener('keydown', esc); }
+        });
+        document.body.appendChild(overlay);
+      });
+
       var removeBtn = document.createElement('button');
       removeBtn.className = 'rhacs-sc-thumb-remove';
       removeBtn.textContent = '\u00d7';
       removeBtn.setAttribute('aria-label', 'Remove screenshot');
       removeBtn.type = 'button';
-      removeBtn.onclick = function () {
+      removeBtn.onclick = function (e) {
+        e.stopPropagation();
         ScreenshotCapture.reset();
         container.innerHTML = '';
       };
+
       wrap.appendChild(img);
       wrap.appendChild(removeBtn);
       container.appendChild(wrap);
@@ -2362,7 +2387,8 @@
 
       append(actions, postBtn, cancelBtn);
 
-      append(this.el, header, thumbsDiv, toolbar, textarea, inputError, actions);
+      // Order: header → toolbar (Take screenshot) → thumbsDiv → textarea → error → actions
+      append(this.el, header, toolbar, thumbsDiv, textarea, inputError, actions);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);

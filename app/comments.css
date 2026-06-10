@@ -424,7 +424,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
   resize: vertical;
   min-height: 56px;
   box-sizing: border-box;
-  border-radius: 0 0 6px 6px !important;
 }
 .rhacs-popup__textarea--reply {
   min-height: 40px;
@@ -2616,37 +2615,38 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-sc-thumbs {
   display: flex;
   gap: 8px;
-  padding: 0 12px 8px;
+  padding: 0 12px;
   flex-wrap: wrap;
-  min-height: 0;
+  overflow: visible;
+}
+.rhacs-sc-thumbs:empty {
+  padding: 0;
+}
+.rhacs-sc-thumbs:not(:empty) {
+  padding: 8px 12px;
 }
 .rhacs-sc-thumb {
   position: relative;
   display: inline-block;
-}
-.rhacs-sc-thumb img {
-  width: 80px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  display: block;
+  /* Extra room so the remove button doesn't clip */
+  margin: 5px 5px 0 0;
 }
 .rhacs-sc-thumb-remove {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -6px;
+  right: -6px;
   background: #333;
   color: #fff;
   border: none;
   border-radius: 50%;
   width: 18px;
   height: 18px;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   line-height: 18px;
   text-align: center;
   padding: 0;
+  z-index: 1;
 }
 .rhacs-popup__toolbar {
   display: flex;

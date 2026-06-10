@@ -538,8 +538,10 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 /* ── Replies ─────────────────────────────────────────────────────────────── */
-.rhacs-replies {
+.rhacs-replies:not(:empty) {
   border-top: 1px solid #f0f0f0;
+}
+.rhacs-replies {
   padding: 6px 12px 0;
 }
 
@@ -552,8 +554,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-reply--first {
   padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--pf-v6-global--BorderColor--100, #e8e8e8);
-  margin-bottom: 2px;
 }
 
 .rhacs-reply__header {
@@ -637,7 +637,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-reply-form {
   padding: 8px 12px 10px;
-  border-top: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1831,8 +1830,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   .rhacs-link-btn--danger:hover { color: #ff7b72; }
 
   .rhacs-reply { border-bottom-color: #21262d; }
-  .rhacs-replies { border-top-color: #21262d; }
-  .rhacs-reply-form { border-top-color: #21262d; }
+  .rhacs-replies:not(:empty) { border-top-color: #21262d; }
 
   /* Auth dialog dark */
   .rhacs-auth-dialog {

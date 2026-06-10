@@ -2047,6 +2047,9 @@
             var prevVisibility = rhacsMount ? rhacsMount.style.visibility : null;
             if (rhacsMount) rhacsMount.style.visibility = 'hidden';
 
+            // Wait two animation frames so the browser repaints before snapdom reads the DOM
+            await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+
             // snapdom captures the element at CSS-pixel scale (1:1 with page layout).
             // Do NOT pass scale=devicePixelRatio here — the output canvas from
             // toCanvas() is always naturalWidth × naturalHeight CSS pixels regardless.
@@ -2421,7 +2424,7 @@
       // Toolbar sits above the textarea — left-aligned, toolbar background
       var toolbar = el('div', { className: 'rhacs-popup__toolbar' });
       var cameraBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
-      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
+      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
       cameraBtn.setAttribute('aria-label', 'Take screenshot');
       cameraBtn.title = 'Take screenshot';
       cameraBtn.addEventListener('click', function (e) {

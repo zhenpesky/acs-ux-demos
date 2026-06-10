@@ -2717,12 +2717,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: none;
   border: none;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 10px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
   color: #444;
   line-height: 1.4;
   white-space: nowrap;
+  gap: 6px;
 }
 .rhacs-sc-camera-btn:hover {
   background: #e1e7ed;

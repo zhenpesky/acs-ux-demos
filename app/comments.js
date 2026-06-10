@@ -1942,12 +1942,20 @@
         ScreenshotCapture._mountPrevVisibility = m.style.visibility;
         m.style.visibility = 'hidden';
       }
+      // Show "Capturing…" badge on body so user knows something is happening
+      var badge = document.createElement('div');
+      badge.id = 'rhacs-capture-status';
+      badge.innerHTML = 'Capturing<span class="rhacs-capture-dots"><span>.</span><span>.</span><span>.</span></span>';
+      badge.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.72);color:#fff;padding:12px 28px;border-radius:24px;font-size:15px;font-family:inherit;z-index:200000;pointer-events:none;display:flex;align-items:center;gap:2px;letter-spacing:0.01em;';
+      document.body.appendChild(badge);
     },
 
     _restoreMount: function () {
       var m = document.getElementById('rhacs-mount');
       if (m) m.style.visibility = ScreenshotCapture._mountPrevVisibility || '';
       ScreenshotCapture._mountPrevVisibility = null;
+      var badge = document.getElementById('rhacs-capture-status');
+      if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
     },
 
     start: function (onDone) {

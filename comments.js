@@ -2039,18 +2039,22 @@
         }
         (async function () {
           try {
-            var scale = window.devicePixelRatio || 1;
             var scrollX = window.scrollX || window.pageXOffset || 0;
             var scrollY = window.scrollY || window.pageYOffset || 0;
-            var result = await window.snapdom(document.documentElement, { scale: scale });
 
-            // snapdom result can expose toCanvas() or toDataURL() depending on version
+            // snapdom captures the element at CSS-pixel scale (1:1 with page layout).
+            // Do NOT pass scale=devicePixelRatio here — the output canvas from
+            // toCanvas() is always naturalWidth × naturalHeight CSS pixels regardless.
+            var result = await window.snapdom(document.documentElement, {});
+
+            // Resolve the full-page canvas (CSS pixels, 1:1 with page coordinates)
             var fullCanvas;
             if (typeof result.toCanvas === 'function') {
               fullCanvas = await result.toCanvas();
             } else {
-              // Fall back: get data URL and draw to canvas ourselves
-              var dataUrl = typeof result.toDataURL === 'function' ? result.toDataURL() : String(result);
+              var rawUrl = typeof result.toDataURL === 'function' ? result.toDataURL()
+                         : typeof result === 'string' ? result : null;
+              if (!rawUrl) { finish(); return; }
               fullCanvas = await new Promise(function (resolve) {
                 var img = new Image();
                 img.onload = function () {
@@ -2061,25 +2065,33 @@
                   resolve(c);
                 };
                 img.onerror = function () { resolve(null); };
-                img.src = dataUrl;
+                img.src = rawUrl;
               });
             }
 
             if (!fullCanvas) { finish(); return; }
 
-            // Crop to the selection rectangle
+            // Source coordinates are CSS page-pixels:
+            //   selX/selY are viewport (client) coords → add scroll to get page coords.
+            // No devicePixelRatio multiplication — the canvas is already in CSS pixels.
+            var srcX = Math.round(selX + scrollX);
+            var srcY = Math.round(selY + scrollY);
+            var srcW = Math.round(selW);
+            var srcH = Math.round(selH);
+
+            // Clamp to canvas bounds to avoid blank crops
+            srcX = Math.max(0, Math.min(srcX, fullCanvas.width  - 1));
+            srcY = Math.max(0, Math.min(srcY, fullCanvas.height - 1));
+            srcW = Math.min(srcW, fullCanvas.width  - srcX);
+            srcH = Math.min(srcH, fullCanvas.height - srcY);
+
             var cropCanvas = document.createElement('canvas');
-            cropCanvas.width = selW * scale;
-            cropCanvas.height = selH * scale;
+            cropCanvas.width  = srcW;
+            cropCanvas.height = srcH;
             cropCanvas.getContext('2d').drawImage(
               fullCanvas,
-              (selX + scrollX) * scale,
-              (selY + scrollY) * scale,
-              selW * scale,
-              selH * scale,
-              0, 0,
-              selW * scale,
-              selH * scale
+              srcX, srcY, srcW, srcH,
+              0, 0, srcW, srcH
             );
 
             ScreenshotCapture._attachment = {

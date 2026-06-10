@@ -434,7 +434,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   outline-color: var(--pf-t--global--border--color--status--danger--default, #c9190b) !important;
 }
 .rhacs-popup__editor {
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: calc(100% - 24px);
   margin: 0 12px 8px;
   min-height: 100px;
@@ -448,8 +449,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
   color: inherit;
   line-height: 1.5;
   overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
   cursor: text;
 }
 .rhacs-popup__editor:focus-within {
@@ -460,6 +459,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-color: #c9190b !important;
 }
 .rhacs-popup__editor-input {
+  flex: 1;
   outline: none;
   min-height: 1.5em;
   white-space: pre-wrap;

@@ -2449,6 +2449,11 @@
       });
       append(editorContainer, editorInput);
 
+      // Clicking anywhere in the container (empty space below text) focuses the input
+      editorContainer.addEventListener('click', function (e) {
+        if (e.target === editorContainer) editorInput.focus();
+      });
+
       var inputError = el('div', { className: 'rhacs-popup__input-error' });
       inputError.appendChild(txt('Comment can\u2019t be empty'));
 

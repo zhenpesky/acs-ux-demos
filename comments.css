@@ -2730,32 +2730,16 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: 6px 6px 0 0;
 }
 
-/* Screenshot toolbar inside the reply form — sits below textarea with bottom gap */
-.rhacs-reply-sc-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  margin: 6px 0 0;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
+/* Reply form toolbar spacing: toolbar sits at top, buttons have breathing room below thumbs */
+.rhacs-reply-form .rhacs-popup__toolbar {
+  margin: 0 0 0 0;
+  border-radius: 6px 6px 0 0;
 }
-.rhacs-reply-sc-toolbar + .rhacs-sc-thumbs {
-  margin-top: 4px;
+.rhacs-reply-form .rhacs-sc-thumbs:not(:empty) {
+  padding: 6px 8px;
 }
-.rhacs-reply-sc-toolbar ~ .rhacs-btn-row {
+.rhacs-reply-form .rhacs-btn-row {
   margin-top: 10px;
-}
-/* Scale down the camera button inside the reply toolbar */
-.rhacs-reply-sc-toolbar .rhacs-sc-camera-btn {
-  font-size: 13px;
-  padding: 3px 8px;
-  gap: 4px;
-}
-.rhacs-reply-sc-toolbar .rhacs-sc-camera-btn svg {
-  width: 14px;
-  height: 14px;
 }
 .rhacs-sc-camera-btn {
   display: inline-flex;

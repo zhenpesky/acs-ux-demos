@@ -2414,6 +2414,29 @@
         if (Popup._ro) Popup._ro.observe(popupEl);
       });
     },
+    // Shared: build the "Take screenshot" toolbar + thumbnail strip.
+    // Returns { toolbar, thumbsDiv } — toolbar goes above the textarea,
+    // thumbsDiv goes between toolbar and textarea (same layout everywhere).
+    _buildScreenshotUI: function () {
+      var thumbsDiv = el('div', { className: 'rhacs-sc-thumbs' });
+      var toolbar   = el('div', { className: 'rhacs-popup__toolbar' });
+      var cameraBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
+      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
+      cameraBtn.setAttribute('aria-label', 'Take screenshot');
+      cameraBtn.title = 'Take screenshot';
+      cameraBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Popup.suppressOutsideDismiss(60000);
+        ScreenshotCapture.start(function () {
+          Popup.suppressOutsideDismiss(500);
+          ScreenshotCapture.renderThumbnail(thumbsDiv);
+          Popup.reposition();
+        });
+      });
+      append(toolbar, cameraBtn);
+      return { toolbar: toolbar, thumbsDiv: thumbsDiv };
+    },
+
     showNewForm: function (x, y, clientX, clientY, modalMeta) {
       S.activePinId = null;
       Popup._pendingModalMeta = modalMeta || null;
@@ -2430,24 +2453,9 @@
       closeBtn.appendChild(txt('×'));
       append(header, titleEl, closeBtn);
 
-      var thumbsDiv = el('div', { className: 'rhacs-sc-thumbs' });
-
-      // Toolbar sits above the textarea — left-aligned, toolbar background
-      var toolbar = el('div', { className: 'rhacs-popup__toolbar' });
-      var cameraBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
-      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
-      cameraBtn.setAttribute('aria-label', 'Take screenshot');
-      cameraBtn.title = 'Take screenshot';
-      cameraBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        Popup.suppressOutsideDismiss(60000);
-        ScreenshotCapture.start(function () {
-          Popup.suppressOutsideDismiss(500);
-          ScreenshotCapture.renderThumbnail(thumbsDiv);
-          Popup.reposition();
-        });
-      });
-      append(toolbar, cameraBtn);
+      var scUI = Popup._buildScreenshotUI();
+      var toolbar   = scUI.toolbar;
+      var thumbsDiv = scUI.thumbsDiv;
 
       var editorContainer = el('div', { className: 'rhacs-popup__editor' });
       var editorInput = el('div', {
@@ -2670,27 +2678,6 @@
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
 
-      // Helper: build a screenshot toolbar + thumbs strip for a reply form
-      function buildReplyScreenshotToolbar() {
-        ScreenshotCapture.reset();
-        var rThumbsDiv = el('div', { className: 'rhacs-sc-thumbs' });
-        var rToolbar = el('div', { className: 'rhacs-reply-sc-toolbar' });
-        var rCamBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
-        rCamBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>Take screenshot';
-        rCamBtn.setAttribute('aria-label', 'Take screenshot');
-        rCamBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          Popup.suppressOutsideDismiss(60000);
-          ScreenshotCapture.start(function () {
-            Popup.suppressOutsideDismiss(500);
-            ScreenshotCapture.renderThumbnail(rThumbsDiv);
-            Popup.reposition();
-          });
-        });
-        append(rToolbar, rCamBtn);
-        return { toolbar: rToolbar, thumbsDiv: rThumbsDiv };
-      }
-
       if (S.guestMode && pin._guest && isOwnComment) {
         // Guest on their own comment — allow follow-up replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
@@ -2702,7 +2689,7 @@
             replyError.style.display = 'none';
           }
         });
-        var rsc = buildReplyScreenshotToolbar();
+        var rsc = Popup._buildScreenshotUI();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         postBtn.appendChild(txt('Post'));
@@ -2762,7 +2749,8 @@
         guestCancelBtn.appendChild(txt('Cancel'));
         guestCancelBtn.addEventListener('click', function () { Popup.close(); });
         append(replyActions, postBtn, guestCancelBtn);
-        append(replyForm, replyArea, replyError, rsc.toolbar, rsc.thumbsDiv, replyActions);
+        // Same order as new-comment form: toolbar → thumbs → textarea → error → buttons
+        append(replyForm, rsc.toolbar, rsc.thumbsDiv, replyArea, replyError, replyActions);
       } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2773,7 +2761,7 @@
             replyError.style.display = 'none';
           }
         });
-        var rsc2 = buildReplyScreenshotToolbar();
+        var rsc2 = Popup._buildScreenshotUI();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         replyBtn.appendChild(txt('Post'));
@@ -2805,7 +2793,8 @@
           replyForm.style.display = 'none';
         });
         append(replyActions, replyBtn, replyCancelBtn);
-        append(replyForm, replyArea, replyError, rsc2.toolbar, rsc2.thumbsDiv, replyActions);
+        // Same order as new-comment form: toolbar → thumbs → textarea → error → buttons
+        append(replyForm, rsc2.toolbar, rsc2.thumbsDiv, replyArea, replyError, replyActions);
       }
 
       append(this.el, header, firstPost, repliesEl, replyForm);

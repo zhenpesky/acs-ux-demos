@@ -1975,6 +1975,123 @@
     },
   };
 
+  // ── SelectionPopup ────────────────────────────────────────────────────────────
+  var SelectionPopup = {
+    _el: null,
+    _text: '',
+    _rect: null,
+
+    init: function () {
+      var self = this;
+      document.addEventListener('mouseup', function (e) {
+        setTimeout(function () { self._onMouseUp(e); }, 20);
+      });
+      document.addEventListener('mousedown', function (e) {
+        if (self._el && !self._el.contains(e.target)) self.hide();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') self.hide();
+      });
+    },
+
+    _onMouseUp: function (e) {
+      if (S.commentMode) { this.hide(); return; }
+      var sel = window.getSelection && window.getSelection();
+      var text = sel ? sel.toString().trim() : '';
+      if (!text || text.length < 2) { this.hide(); return; }
+      var range;
+      try { range = sel.getRangeAt(0); } catch (_) { this.hide(); return; }
+      var mount = rhacsMount();
+      if (mount && mount.contains(range.commonAncestorContainer)) { this.hide(); return; }
+      this._text = text;
+      this._rect = range.getBoundingClientRect();
+      this._show();
+    },
+
+    _show: function () {
+      this.hide();
+      var self = this;
+      var panel = document.createElement('div');
+      panel.id = 'rhacs-sel-popup';
+      panel.className = 'rhacs-sel-popup';
+
+      var addBtn = document.createElement('button');
+      addBtn.className = 'rhacs-sel-popup__item';
+      addBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M2 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7l-4 3V4z"/></svg>' +
+        '<span>Add comment</span>';
+      addBtn.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
+      addBtn.addEventListener('click', function (e) { e.stopPropagation(); self._addComment(); });
+
+      var copyBtn = document.createElement('button');
+      copyBtn.className = 'rhacs-sel-popup__item';
+      copyBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 2a1 1 0 0 0 0 2h1v1H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4V4h1a1 1 0 1 0 0-2H8zm3 4h2a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h2V4h4v2z"/></svg>' +
+        '<span>Copy text</span>';
+      copyBtn.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
+      copyBtn.addEventListener('click', function (e) { e.stopPropagation(); self._copy(); });
+
+      panel.appendChild(addBtn);
+      panel.appendChild(copyBtn);
+      document.body.appendChild(panel);
+      this._el = panel;
+
+      var top = Math.max(60, Math.min(window.innerHeight - 100, this._rect.top + this._rect.height / 2 - 36));
+      panel.style.top = top + 'px';
+    },
+
+    hide: function () {
+      if (this._el) {
+        this._el.parentNode && this._el.parentNode.removeChild(this._el);
+        this._el = null;
+      }
+    },
+
+    _addComment: function () {
+      var text = this._text;
+      var rect = this._rect;
+      this.hide();
+      window.getSelection && window.getSelection().removeAllRanges();
+      var ci = containerInfo();
+      var x = ((rect.left + rect.width / 2 - ci.clientLeft + ci.scrollLeft) / Math.max(ci.scrollWidth, 1)) * 100;
+      var y = ((rect.bottom - ci.clientTop + ci.scrollTop) / Math.max(ci.scrollHeight, 1)) * 100;
+      x = Math.max(1, Math.min(99, x));
+      y = Math.max(1, Math.min(99, y));
+      var clientX = rect.left + rect.width / 2;
+      var clientY = rect.bottom + 8;
+      Popup.showNewForm(x, y, clientX, clientY, null);
+      var textarea = Popup.el && Popup.el.querySelector('textarea');
+      if (textarea) {
+        var quoted = '> ' + text.replace(/\n+/g, ' ') + '\n\n';
+        textarea.value = quoted;
+        textarea.focus();
+        textarea.setSelectionRange(quoted.length, quoted.length);
+      }
+    },
+
+    _copy: function () {
+      var text = this._text;
+      this.hide();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          Notify.toast('Copied to clipboard');
+        }).catch(function () { SelectionPopup._copyFallback(text); });
+      } else {
+        this._copyFallback(text);
+      }
+    },
+
+    _copyFallback: function (text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); Notify.toast('Copied to clipboard'); } catch (_) {}
+      document.body.removeChild(ta);
+    },
+  };
+
   // ── Popup ─────────────────────────────────────────────────────────────────────
   var Popup = {
     el: null,
@@ -4092,6 +4209,7 @@
     FAB.init();
     Tooltip.init();
     Notify.init();
+    SelectionPopup.init();
 
     // Hide immediately if starting on baseline; show only on prototype pages.
     syncVisibility();

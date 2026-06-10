@@ -2288,100 +2288,69 @@ body.rhacs-comment-mode-active .rhacs-pin {
   .rhacs-user-menu__divider { background: #444; }
 }
 
+/* ── Guest logout button: collapsed icon → hover expands to show text ──────── */
+
+/* Collapsed (default): circle with person icon only */
 .rhacs-guest-logout-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
-  padding: 0 16px;
-  font-size: var(--pf-v6-global--FontSize--md, 16px);
-  font-weight: var(--pf-v6-global--FontWeight--normal, 400);
-  background: var(--pf-v6-global--BackgroundColor--100, #fff);
-  border: 1px solid var(--pf-v6-global--danger-color--100, #c9190b);
-  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
-  color: var(--pf-v6-global--danger-color--100, #c9190b);
-  cursor: pointer;
-  white-space: nowrap;
-  text-align: center;
-  transition: background 0.1s;
-}
-.rhacs-guest-logout-btn:hover {
-  background: #fff5f5;
-}
-
-/* ── Guest wrap: always collapsed to icon pill, hover to expand ───────────── */
-
-/* Collapsed (default) — perfect 40×40 circle showing only the person icon */
-.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-text {
-  max-width: 0;
-  opacity: 0;
-}
-.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__toggle,
-.rhacs-guest-wrap:not(:hover) .rhacs-guest-logout-btn {
-  display: none;
-}
-.rhacs-guest-wrap:not(:hover) .rhacs-split-btn {
   width: 40px;
   height: 40px;
-  border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
-  justify-content: center;
-  overflow: hidden;
-}
-.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label {
-  width: 100%;
-  height: 100%;
   padding: 0;
-  border-right: none;
   gap: 0;
-  justify-content: center;
-  align-items: center;
-}
-.rhacs-guest-wrap:not(:hover) .rhacs-split-btn__label-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-/* Expanded on hover — vertical by default */
-.rhacs-guest-wrap:hover .rhacs-split-btn {
-  border-color: var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  background: #f9f9f9;
-  border-radius: 6px;
-  box-shadow: none;
-}
-.rhacs-guest-wrap:hover .rhacs-split-btn__label {
-  padding: 7px 12px;
-  border-right: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
-  gap: 6px;
-}
-.rhacs-guest-wrap:hover .rhacs-split-btn__label-icon svg {
-  width: 13px;
-  height: 13px;
-}
-.rhacs-guest-wrap:hover .rhacs-split-btn__label-text {
-  max-width: 80px;
-  opacity: 1;
-}
-.rhacs-guest-wrap:hover .rhacs-split-btn__toggle {
-  display: inline-flex;
-}
-.rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
-  display: block;
+  border-radius: 50%;
+  border: 1px solid var(--pf-v6-global--BorderColor--100, #d2d2d2);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: width 0.2s ease, border-radius 0.2s ease, padding 0.15s ease,
+              gap 0.15s ease, background 0.1s, border-color 0.1s, box-shadow 0.1s;
 }
 
-/* In comment mode: expand horizontally instead of vertically */
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover {
-  flex-direction: row;
-  align-items: center;
-}
-#rhacs-mount.rhacs-comment-mode .rhacs-guest-wrap:hover .rhacs-guest-logout-btn {
+.rhacs-guest-logout-icon {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
+}
+.rhacs-guest-logout-icon svg {
+  width: 20px;
+  height: 20px;
+  transition: width 0.15s ease, height 0.15s ease;
+  color: var(--pf-v6-global--Color--100, #151515);
+}
+
+.rhacs-guest-logout-text {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--pf-v6-global--danger-color--100, #c9190b);
+  transition: max-width 0.2s ease, opacity 0.15s ease;
+}
+
+/* Expanded on hover */
+.rhacs-guest-logout-btn:hover {
   width: auto;
   height: 36px;
-  padding: 0 16px;
+  border-radius: var(--pf-v6-global--BorderRadius--sm, 3px);
+  padding: 0 14px;
+  gap: 8px;
+  background: #fff5f5;
+  border-color: var(--pf-v6-global--danger-color--100, #c9190b);
+  box-shadow: none;
+}
+.rhacs-guest-logout-btn:hover .rhacs-guest-logout-icon svg {
+  width: 14px;
+  height: 14px;
+  color: var(--pf-v6-global--danger-color--100, #c9190b);
+}
+.rhacs-guest-logout-btn:hover .rhacs-guest-logout-text {
+  max-width: 80px;
+  opacity: 1;
 }
 /* dark mode */
 @media (prefers-color-scheme: dark) {
@@ -2390,8 +2359,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   .rhacs-split-btn__toggle { color: #8b949e; }
   .rhacs-split-btn__toggle:hover { background: #30363d; color: #e6edf3; }
   .rhacs-split-btn__dropdown { background: #21262d; border-color: #30363d; }
-  .rhacs-guest-logout-btn { border-color: #30363d; color: #f85149; }
-  .rhacs-guest-logout-btn:hover { background: #3d1f1f; }
+  .rhacs-guest-logout-btn { border-color: #30363d; background: #21262d; }
+  .rhacs-guest-logout-btn:hover { background: #3d1f1f; border-color: #f85149; }
+  .rhacs-guest-logout-icon svg { color: #e6edf3; }
+  .rhacs-guest-logout-btn:hover .rhacs-guest-logout-icon svg { color: #f85149; }
+  .rhacs-guest-logout-text { color: #f85149; }
 }
 
 /* ── Guest notice banner (panel) ─────────────────────────────────────────── */

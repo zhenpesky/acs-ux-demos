@@ -668,7 +668,7 @@
     login: function () {
       return new Promise(function (resolve, reject) {
         var url = 'https://github.com/login/oauth/authorize?client_id=' + CFG.clientId +
-          '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo';
+          '&redirect_uri=' + encodeURIComponent(CFG.callbackUrl) + '&scope=public_repo%20user%3Aemail';
 
         var popup = window.open(url, 'gh-oauth', 'width=620,height=720,left=200,top=80');
         console.log('[rhacs] popup opened:', popup ? 'ok' : 'blocked');

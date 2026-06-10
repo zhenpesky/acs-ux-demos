@@ -1904,7 +1904,7 @@
   function _loadSnapdom(cb) {
     if (window.snapdom) return cb();
     var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@zumer/snapdom/dist/snapdom.umd.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/@zumer/snapdom@2.12.8/dist/snapdom.js';
     s.onload = cb;
     s.onerror = function () { console.warn('snapdom failed to load'); cb(); };
     document.head.appendChild(s);
@@ -2004,10 +2004,22 @@
     },
 
     _capture: function (selX, selY, selW, selH, onDone) {
+      // Show a loading toast so the user knows capture is in progress
+      var loadingToast = document.createElement('div');
+      loadingToast.textContent = 'Capturing…';
+      loadingToast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:100001;pointer-events:none;';
+      document.body.appendChild(loadingToast);
+
+      function finish() {
+        if (loadingToast.parentNode) loadingToast.parentNode.removeChild(loadingToast);
+        ScreenshotCapture._active = false;
+        if (onDone) onDone();
+      }
+
       _loadSnapdom(function () {
         if (!window.snapdom) {
-          ScreenshotCapture._active = false;
-          if (onDone) onDone();
+          console.warn('snapdom did not load');
+          finish();
           return;
         }
         (async function () {
@@ -2016,45 +2028,53 @@
             var scrollX = window.scrollX || window.pageXOffset || 0;
             var scrollY = window.scrollY || window.pageYOffset || 0;
             var result = await window.snapdom(document.documentElement, { scale: scale });
-            var fullDataUrl = result.toDataURL('image/png');
-            var img = new Image();
-            img.onload = function () {
-              try {
-                var canvas = document.createElement('canvas');
-                canvas.width = selW * scale;
-                canvas.height = selH * scale;
-                var ctx = canvas.getContext('2d');
-                ctx.drawImage(
-                  img,
-                  (selX + scrollX) * scale,
-                  (selY + scrollY) * scale,
-                  selW * scale,
-                  selH * scale,
-                  0,
-                  0,
-                  selW * scale,
-                  selH * scale
-                );
-                ScreenshotCapture._attachment = {
-                  dataUrl: canvas.toDataURL('image/png'),
-                  filename: 'screenshot.png'
+
+            // snapdom result can expose toCanvas() or toDataURL() depending on version
+            var fullCanvas;
+            if (typeof result.toCanvas === 'function') {
+              fullCanvas = await result.toCanvas();
+            } else {
+              // Fall back: get data URL and draw to canvas ourselves
+              var dataUrl = typeof result.toDataURL === 'function' ? result.toDataURL() : String(result);
+              fullCanvas = await new Promise(function (resolve) {
+                var img = new Image();
+                img.onload = function () {
+                  var c = document.createElement('canvas');
+                  c.width = img.naturalWidth;
+                  c.height = img.naturalHeight;
+                  c.getContext('2d').drawImage(img, 0, 0);
+                  resolve(c);
                 };
-              } catch (err) {
-                console.warn('screenshot crop failed', err);
-              }
-              ScreenshotCapture._active = false;
-              if (onDone) onDone();
+                img.onerror = function () { resolve(null); };
+                img.src = dataUrl;
+              });
+            }
+
+            if (!fullCanvas) { finish(); return; }
+
+            // Crop to the selection rectangle
+            var cropCanvas = document.createElement('canvas');
+            cropCanvas.width = selW * scale;
+            cropCanvas.height = selH * scale;
+            cropCanvas.getContext('2d').drawImage(
+              fullCanvas,
+              (selX + scrollX) * scale,
+              (selY + scrollY) * scale,
+              selW * scale,
+              selH * scale,
+              0, 0,
+              selW * scale,
+              selH * scale
+            );
+
+            ScreenshotCapture._attachment = {
+              dataUrl: cropCanvas.toDataURL('image/png'),
+              filename: 'screenshot.png'
             };
-            img.onerror = function () {
-              ScreenshotCapture._active = false;
-              if (onDone) onDone();
-            };
-            img.src = fullDataUrl;
           } catch (err) {
             console.warn('snapdom capture failed', err);
-            ScreenshotCapture._active = false;
-            if (onDone) onDone();
           }
+          finish();
         })();
       });
     },

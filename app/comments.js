@@ -547,8 +547,7 @@
         var ids = JSON.parse(localStorage.getItem(CFG.seenPrefix + 'ids-' + window.location.pathname));
         S.seenIds = new Set(Array.isArray(ids) ? ids : []);
       } catch (e) { S.seenIds = new Set(); }
-      // Guest mode is NOT auto-restored on normal pages — the user must explicitly
-      // choose "Continue as guest" each session via the auth dialog.
+      // Guest mode is only available on share links (?share=1).
       // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
       if (!S.token) restoreShareGuestSession();
@@ -785,18 +784,6 @@
         var overlay = el('div', { id: 'rhacs-guest-prompt', className: 'rhacs-auth-dialog-overlay' });
         var card    = el('div', { className: 'rhacs-auth-dialog' });
 
-        // Back arrow — only shown when this dialog was reached from the choice dialog (not share mode)
-        if (!isShareMode()) {
-          var backBtn = el('button', { className: 'rhacs-auth-dialog__back', 'aria-label': 'Back' });
-          backBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/></svg>';
-          backBtn.addEventListener('click', function () {
-            overlay.remove();
-            // Re-open the choice dialog and forward its outcome to this promise
-            Auth.showAuthDialog().then(resolve).catch(reject);
-          });
-          card.appendChild(backBtn);
-        }
-
         var iconEl = el('div', { className: 'rhacs-auth-dialog__icon' });
         iconEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>';
 
@@ -863,7 +850,7 @@
         S.guestMode = true;
         S.user = existing;
         FAB.updateUser();
-        Notify.toast('Commenting as ' + (isShareMode() ? 'external reviewer' : 'internal reviewer') + '.');
+        Notify.toast('Commenting as external reviewer.');
         return Promise.resolve();
       }
       return Auth._showNamePromptThenGuest().then(function (user) {
@@ -1018,10 +1005,7 @@
           var li = el('li'); li.appendChild(txt(f)); ghFeatures.appendChild(li);
         });
 
-        var divider = el('div', { className: 'rhacs-auth-dialog__divider' });
-        divider.appendChild(txt('or'));
-
-        // Guest option
+        // Guest option (share mode only)
         var guestBtn = el('button', { className: 'rhacs-auth-dialog__btn rhacs-auth-dialog__btn--secondary' });
         guestBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg><span>Continue as guest</span>';
         guestBtn.addEventListener('click', function () {
@@ -1048,7 +1032,7 @@
           subEl.firstChild.nodeValue = 'Leave your feedback on this prototype.';
           append(card, iconEl, titleEl, subEl, guestBtn, guestFeatures, cancelBtn);
         } else {
-          append(card, iconEl, titleEl, subEl, ghBtn, ghFeatures, divider, guestBtn, guestFeatures, cancelBtn);
+          append(card, iconEl, titleEl, subEl, ghBtn, ghFeatures, cancelBtn);
         }
         overlay.appendChild(card);
 
@@ -1905,7 +1889,7 @@
       // Reply form
       var replyForm = el('div', { className: 'rhacs-reply-form' });
       if (S.guestMode && pin._guest && isOwnComment) {
-        // Guest (internal or external) on their own comment — allow follow-up replies via worker
+        // Guest on their own comment — allow follow-up replies via worker
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
         replyError.appendChild(txt('Comment can\u2019t be empty'));
@@ -2838,18 +2822,9 @@
       // ── Guest notice banner (top) ────────────────────────────────────────────
       if (S.guestMode) {
         var guestBanner = el('div', { className: 'rhacs-panel__guest-banner' });
-        if (isShareMode()) {
-          guestBanner.innerHTML =
-            '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
-            '<span>You\u2019re commenting as an external reviewer \u2014 no login needed.</span>';
-        } else {
-          guestBanner.innerHTML =
-            '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
-            '<span>You\u2019re commenting as an internal reviewer \u2014 no login needed. <button class="rhacs-panel__guest-login-link">Log in with GitHub</button> to get notifications when someone replies.</span>';
-          guestBanner.querySelector('.rhacs-panel__guest-login-link').addEventListener('click', function () {
-            Auth.login().then(function () { try { FAB.updateUser(); } catch(e){} loadAndRender(); Panel.open(); }).catch(function () {});
-          });
-        }
+        guestBanner.innerHTML =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>' +
+          '<span>You\u2019re commenting as an external reviewer \u2014 no login needed.</span>';
         this.topEl.appendChild(guestBanner);
       }
 
@@ -3256,44 +3231,9 @@
         var labelIcon = el('span', { className: 'rhacs-split-btn__label-icon' });
         labelIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10s-3.516.68-4.168 1.332c-.678.678-.83 1.418-.832 1.664z"/></svg>';
         var labelText = el('span', { className: 'rhacs-split-btn__label-text' });
-        labelText.appendChild(txt(isShareMode() ? 'External reviewer' : 'Internal reviewer'));
+        labelText.appendChild(txt('External reviewer'));
         append(labelPart, labelIcon, labelText);
-
-        var CHEVRON_DOWN = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 320 512" fill="currentColor"><path d="M137.4 374.6c12.5 12.5 32.8 12.5 45.3 0l128-128c9.2-9.2 11.9-22.9 6.9-34.9s-16.6-19.8-29.6-19.8L32 192c-12.9 0-24.6 7.8-29.6 19.8s-2.2 25.7 6.9 34.9l128 128z"/></svg>';
-        var toggleBtn = el('button', { className: 'rhacs-split-btn__toggle', 'aria-label': 'Reviewer options', 'data-tip': 'Reviewer options' });
-        toggleBtn.innerHTML = CHEVRON_DOWN;
-
-        var splitDropdown = el('div', { className: 'rhacs-split-btn__dropdown' });
-
-        if (!isShareMode()) {
-          var loginItem = el('button', { className: 'rhacs-kebab__item' });
-          loginItem.appendChild(txt('Log in with GitHub'));
-          loginItem.addEventListener('click', function (e) {
-            e.stopPropagation();
-            splitDropdown.classList.remove('rhacs-split-btn__dropdown--open');
-            Auth.login()
-              .then(function () { return Auth.fetchUser(); })
-              .then(function () { FAB.updateUser(); return loadAndRender(); })
-              .catch(function () {});
-          });
-          splitDropdown.appendChild(loginItem);
-
-          toggleBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var isOpen = splitDropdown.classList.contains('rhacs-split-btn__dropdown--open');
-            document.querySelectorAll('.rhacs-split-btn__dropdown--open, .rhacs-kebab__dropdown--open').forEach(function (d) {
-              d.classList.remove('rhacs-split-btn__dropdown--open');
-              d.classList.remove('rhacs-kebab__dropdown--open');
-            });
-            if (!isOpen) splitDropdown.classList.add('rhacs-split-btn__dropdown--open');
-          });
-        }
-
-        if (isShareMode()) {
-          append(splitBtn, labelPart);
-        } else {
-          append(splitBtn, labelPart, toggleBtn, splitDropdown);
-        }
+        append(splitBtn, labelPart);
 
         // ── Standalone Log out button below ───────────────────────────────
         var logoutGuestBtn = el('button', { className: 'rhacs-guest-logout-btn' });

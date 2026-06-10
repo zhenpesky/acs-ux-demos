@@ -931,7 +931,7 @@
         // Name row: first + last side by side
         var nameRow   = el('div', { className: 'rhacs-guest-name-row' });
         var firstF    = makeField('First name', 'e.g. Alex', true);
-        var lastF     = makeField('Last name',  'e.g. Smith');
+        var lastF     = makeField('Last name',  'e.g. Smith', true);
         append(nameRow, firstF.wrap, lastF.wrap);
 
         var titleF   = makeField('Title or role',  'e.g. UX Designer, PM', true);
@@ -942,7 +942,7 @@
         continueBtn.innerHTML = '<span>Continue to add comments</span>';
 
         function syncBtn() {
-          continueBtn.disabled = !firstF.input.value.trim() || !titleF.input.value.trim() || !companyF.input.value.trim();
+          continueBtn.disabled = !firstF.input.value.trim() || !lastF.input.value.trim() || !titleF.input.value.trim() || !companyF.input.value.trim();
         }
 
         [firstF, lastF, titleF, companyF].forEach(function (f) {

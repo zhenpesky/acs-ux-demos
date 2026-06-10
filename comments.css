@@ -2548,18 +2548,26 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-sc-handle--bc { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
 .rhacs-sc-handle--br { bottom: -5px; right: -5px; cursor: nwse-resize; }
 
-.rhacs-sc-capture-btn {
+.rhacs-sc-btn-row {
   position: fixed;
   z-index: 100000;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rhacs-sc-capture-btn {
   background: #06c;
   color: #fff;
   border: none;
-  border-radius: 4px;
   padding: 8px 20px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
 
 .rhacs-sc-capture-btn:hover {
@@ -2567,20 +2575,18 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-sc-cancel-btn {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  z-index: 100000;
-  background: rgba(255,255,255,0.9);
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 6px 14px;
+  background: rgba(255,255,255,0.95);
+  border: none;
+  border-left: 1px solid #d2d2d2;
+  padding: 8px 16px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  color: #333;
 }
 
 .rhacs-sc-cancel-btn:hover {
-  background: #fff;
+  background: #f5f5f5;
 }
 
 #rhacs-sc-confirm {
@@ -2804,13 +2810,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   }
 
   .rhacs-sc-cancel-btn {
-    background: rgba(30,30,30,0.9);
-    border-color: #555;
+    background: #2a2a2a;
     color: #e0e0e0;
+    border-left-color: #444;
   }
 
   .rhacs-sc-cancel-btn:hover {
-    background: #2a2a2a;
+    background: #333;
   }
 
   .rhacs-sc-btn {

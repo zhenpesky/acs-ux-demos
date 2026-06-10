@@ -1695,22 +1695,27 @@
         selEl.appendChild(h);
       });
 
+      var btnRow = document.createElement('div');
+      btnRow.className = 'rhacs-sc-btn-row';
+      btnRow.style.display = 'none';
+
       var captureBtn = document.createElement('button');
       captureBtn.className = 'rhacs-sc-capture-btn';
       captureBtn.textContent = 'Capture';
-      captureBtn.style.display = 'none';
 
       var cancelBtn = document.createElement('button');
       cancelBtn.className = 'rhacs-sc-cancel-btn';
-      cancelBtn.textContent = '\u2715  Cancel';
+      cancelBtn.textContent = 'Cancel';
+
+      btnRow.appendChild(captureBtn);
+      btnRow.appendChild(cancelBtn);
 
       var hintEl = document.createElement('div');
       hintEl.className = 'rhacs-sc-hint';
       hintEl.textContent = 'Drag to select an area';
 
       overlay.appendChild(selEl);
-      overlay.appendChild(captureBtn);
-      overlay.appendChild(cancelBtn);
+      overlay.appendChild(btnRow);
       overlay.appendChild(hintEl);
       document.body.appendChild(overlay);
 
@@ -1728,11 +1733,12 @@
         selEl.style.width = w + 'px';
         selEl.style.height = h + 'px';
         selEl.style.display = (w > 4 && h > 4) ? 'block' : 'none';
+        var btnShow = w > 20 && h > 20;
         var btnY = y + h + 8;
         if (btnY + 40 > window.innerHeight) btnY = y - 48;
-        captureBtn.style.left = (x + w / 2 - 50) + 'px';
-        captureBtn.style.top = btnY + 'px';
-        captureBtn.style.display = (w > 20 && h > 20) ? 'block' : 'none';
+        btnRow.style.left = (x + w / 2) + 'px';
+        btnRow.style.top = btnY + 'px';
+        btnRow.style.display = btnShow ? 'flex' : 'none';
         if (w > 4 && h > 4) hintEl.style.display = 'none';
       }
 
@@ -1814,16 +1820,24 @@
         overlay.style.display = 'block';
 
         self._loadHtmlToImage().then(function (hti) {
-          // Capture full page as canvas, then crop to the selected region
-          var sx = nr.x + (window.scrollX || 0);
-          var sy = nr.y + (window.scrollY || 0);
+          // Capture only the visible viewport then crop — much faster than full-page render
+          var vw = window.innerWidth;
+          var vh = window.innerHeight;
+          var sx = nr.x;  // selection is already in viewport coordinates
+          var sy = nr.y;
           hti.toCanvas(document.body, {
             useCORS: true,
-            skipFonts: false,
+            skipFonts: true,
             pixelRatio: 1,
-            width: document.documentElement.scrollWidth,
-            height: document.documentElement.scrollHeight,
-            style: { transform: 'none' },
+            width: vw,
+            height: vh,
+            canvasWidth: vw,
+            canvasHeight: vh,
+            style: {
+              width: vw + 'px',
+              height: vh + 'px',
+              overflow: 'hidden',
+            },
           }).then(function (fullCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);

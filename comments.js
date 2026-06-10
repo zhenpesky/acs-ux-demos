@@ -2038,27 +2038,43 @@
           return;
         }
         (async function () {
+          var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            var scrollX = window.scrollX || window.pageXOffset || 0;
-            var scrollY = window.scrollY || window.pageYOffset || 0;
-
-            // Hide the RHACS mount (popup + panel) so they don't appear in the capture
-            var rhacsMount = document.getElementById('rhacs-mount');
+            // Hide RHACS UI so it doesn't appear in the capture
             var prevVisibility = rhacsMount ? rhacsMount.style.visibility : null;
             if (rhacsMount) rhacsMount.style.visibility = 'hidden';
 
-            // Wait two animation frames so the browser repaints before snapdom reads the DOM
+            // Two rAF waits so the browser fully repaints with the mount hidden
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
-            // snapdom captures the element at CSS-pixel scale (1:1 with page layout).
-            // Do NOT pass scale=devicePixelRatio here — the output canvas from
-            // toCanvas() is always naturalWidth × naturalHeight CSS pixels regardless.
-            var result = await window.snapdom(document.documentElement, {});
+            // Find the deepest element at the CENTER of the selection.
+            // Capture THAT element with snapdom so coordinates stay element-relative,
+            // avoiding any inner-scroll / full-page offset mismatch.
+            var cx = selX + selW / 2;
+            var cy = selY + selH / 2;
+            var targetEl = document.elementFromPoint(cx, cy) || document.body;
 
-            // Restore the mount immediately after capture
+            // Walk up to find the first non-inline ancestor that is large enough
+            // to contain the whole selection (avoids capturing a tiny leaf node)
+            var minW = selW * 0.8;
+            var minH = selH * 0.8;
+            var el = targetEl;
+            while (el && el !== document.documentElement) {
+              var r = el.getBoundingClientRect();
+              if (r.width >= minW && r.height >= minH) break;
+              el = el.parentElement;
+            }
+            if (!el || el === document.documentElement) el = document.body;
+
+            var elRect = el.getBoundingClientRect();
+
+            // Capture only that element
+            var result = await window.snapdom(el, {});
+
+            // Restore RHACS mount right after capture
             if (rhacsMount) rhacsMount.style.visibility = prevVisibility || '';
 
-            // Resolve the full-page canvas (CSS pixels, 1:1 with page coordinates)
+            // Resolve canvas
             var fullCanvas;
             if (typeof result.toCanvas === 'function') {
               fullCanvas = await result.toCanvas();
@@ -2070,8 +2086,7 @@
                 var img = new Image();
                 img.onload = function () {
                   var c = document.createElement('canvas');
-                  c.width = img.naturalWidth;
-                  c.height = img.naturalHeight;
+                  c.width = img.naturalWidth; c.height = img.naturalHeight;
                   c.getContext('2d').drawImage(img, 0, 0);
                   resolve(c);
                 };
@@ -2079,18 +2094,21 @@
                 img.src = rawUrl;
               });
             }
-
             if (!fullCanvas) { finish(); return; }
 
-            // Source coordinates are CSS page-pixels:
-            //   selX/selY are viewport (client) coords → add scroll to get page coords.
-            // No devicePixelRatio multiplication — the canvas is already in CSS pixels.
-            var srcX = Math.round(selX + scrollX);
-            var srcY = Math.round(selY + scrollY);
-            var srcW = Math.round(selW);
-            var srcH = Math.round(selH);
+            // The canvas represents `el` starting at elRect.left / elRect.top (viewport px).
+            // The selection (selX, selY) is also in viewport px.
+            // So the crop offset within the canvas is simply the selection minus the element origin.
+            // The canvas width/height should match elRect.width/height (snapdom at scale 1).
+            var canvasScaleX = fullCanvas.width  / elRect.width;
+            var canvasScaleY = fullCanvas.height / elRect.height;
 
-            // Clamp to canvas bounds to avoid blank crops
+            var srcX = Math.round((selX - elRect.left) * canvasScaleX);
+            var srcY = Math.round((selY - elRect.top)  * canvasScaleY);
+            var srcW = Math.round(selW * canvasScaleX);
+            var srcH = Math.round(selH * canvasScaleY);
+
+            // Clamp to canvas bounds
             srcX = Math.max(0, Math.min(srcX, fullCanvas.width  - 1));
             srcY = Math.max(0, Math.min(srcY, fullCanvas.height - 1));
             srcW = Math.min(srcW, fullCanvas.width  - srcX);
@@ -2100,9 +2118,7 @@
             cropCanvas.width  = srcW;
             cropCanvas.height = srcH;
             cropCanvas.getContext('2d').drawImage(
-              fullCanvas,
-              srcX, srcY, srcW, srcH,
-              0, 0, srcW, srcH
+              fullCanvas, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH
             );
 
             ScreenshotCapture._attachment = {
@@ -2111,9 +2127,7 @@
             };
           } catch (err) {
             console.warn('snapdom capture failed', err);
-            // Ensure mount is restored even on error
-            var m = document.getElementById('rhacs-mount');
-            if (m) m.style.visibility = '';
+            if (rhacsMount) rhacsMount.style.visibility = '';
           }
           finish();
         })();

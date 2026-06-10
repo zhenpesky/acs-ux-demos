@@ -2585,6 +2585,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   height: 100%;
   object-fit: cover;
   display: block;
+  cursor: zoom-in;
+  transition: opacity 0.12s;
+}
+.rhacs-sc-thumb img:hover {
+  opacity: 0.85;
 }
 
 .rhacs-sc-thumb__remove {

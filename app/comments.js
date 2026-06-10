@@ -1692,19 +1692,47 @@
       }
     },
 
+    // Open a full-size lightbox so users can review the image before posting
+    _openPreview: function (dataUrl) {
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+      var img = document.createElement('img');
+      img.src = dataUrl;
+      img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);object-fit:contain;cursor:default';
+      img.addEventListener('click', function (e) { e.stopPropagation(); });
+      var closeBtn = document.createElement('button');
+      closeBtn.textContent = '×';
+      closeBtn.style.cssText = 'position:absolute;top:16px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:28px;line-height:1;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center';
+      function dismiss() { if (overlay.parentNode) document.body.removeChild(overlay); document.removeEventListener('keydown', onKey); }
+      function onKey(e) { if (e.key === 'Escape') dismiss(); }
+      overlay.addEventListener('click', dismiss);
+      closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
+      document.addEventListener('keydown', onKey);
+      overlay.appendChild(img);
+      overlay.appendChild(closeBtn);
+      document.body.appendChild(overlay);
+    },
+
     renderThumbnails: function (containerEl) {
       var self = this;
       containerEl.innerHTML = '';
       this._attachments.forEach(function (att, idx) {
         var wrap = document.createElement('div');
         wrap.className = 'rhacs-sc-thumb';
+        wrap.title = 'Click to preview';
 
         var img = document.createElement('img');
         img.src = att.dataUrl;
+        // Click thumbnail → full-size preview
+        img.addEventListener('click', function (e) {
+          e.stopPropagation();
+          self._openPreview(att.dataUrl);
+        });
 
         var removeBtn = document.createElement('button');
         removeBtn.className = 'rhacs-sc-thumb__remove';
         removeBtn.textContent = '\xd7';
+        removeBtn.title = 'Remove';
         removeBtn.addEventListener('click', function (e) {
           e.stopPropagation();
           self._attachments.splice(idx, 1);

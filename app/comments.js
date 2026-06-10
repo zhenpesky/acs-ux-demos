@@ -1801,6 +1801,13 @@
         overlay.style.display = 'none';
         var mount = rhacsMount();
         mount.style.display = 'none';
+
+        var loadingEl = document.createElement('div');
+        loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:16px;font-weight:600;z-index:100002;pointer-events:none;text-shadow:0 2px 8px rgba(0,0,0,0.7)';
+        loadingEl.textContent = 'Capturing…';
+        document.body.appendChild(loadingEl);
+        overlay.style.display = 'block';
+
         self._loadHtml2Canvas().then(function (h2c) {
           h2c(document.body, {
             x: nr.x,
@@ -1814,14 +1821,27 @@
             scale: 1,
           }).then(function (canvas) {
             mount.style.display = '';
+            if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
             var dataUrl = canvas.toDataURL('image/png');
-            self._showConfirmPanel(dataUrl);
+            var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
+            self._attachments.push({ dataUrl: dataUrl, filename: filename });
+            if (self._thumbsEl) self.renderThumbnails(self._thumbsEl);
+            if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
+            Popup.el.style.display = 'block';
           }).catch(function () {
             mount.style.display = '';
+            if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
+            Notify.toast('Screenshot failed — try a smaller area');
             Popup.el.style.display = 'block';
           });
+        }).catch(function () {
+          mount.style.display = '';
+          if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+          if (overlay.parentNode) document.body.removeChild(overlay);
+          Notify.toast('Could not load capture library');
+          Popup.el.style.display = 'block';
         });
       });
     },

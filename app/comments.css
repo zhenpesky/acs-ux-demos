@@ -2648,18 +2648,19 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 8px;
   min-height: 0;
 }
 
 .rhacs-sc-thumb {
   position: relative;
-  width: 72px;
-  height: 54px;
+  width: 64px;
+  height: 64px;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid #d2d2d2;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .rhacs-sc-thumb img {

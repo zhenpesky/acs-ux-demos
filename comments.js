@@ -2512,9 +2512,11 @@
 
       append(actions, postBtn, cancelBtn);
 
-      var scrollBody = el('div', { className: 'rhacs-popup__scroll-body' });
-      append(scrollBody, toolbar, thumbsDiv, editorContainer, inputError, actions);
-      append(this.el, header, scrollBody);
+      // Input area is sticky at the bottom; no scroll area needed for new form
+      // (there are no comments to scroll — just the input)
+      var stickyFooter = el('div', { className: 'rhacs-popup__sticky-footer' });
+      append(stickyFooter, toolbar, thumbsDiv, editorContainer, inputError, actions);
+      append(this.el, header, stickyFooter);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
@@ -2799,9 +2801,12 @@
         append(replyForm, inputWrapper2, replyError, replyActions);
       }
 
+      // Comments scroll; reply form sticks to the bottom
       var scrollBody = el('div', { className: 'rhacs-popup__scroll-body' });
-      append(scrollBody, firstPost, repliesEl, replyForm);
-      append(this.el, header, scrollBody);
+      append(scrollBody, firstPost, repliesEl);
+      var stickyFooter = el('div', { className: 'rhacs-popup__sticky-footer' });
+      append(stickyFooter, replyForm);
+      append(this.el, header, scrollBody, stickyFooter);
       this.el.style.display = 'block';
 
       // Position near pin element (pins now live in pinLayerEl)

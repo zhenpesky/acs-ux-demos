@@ -384,11 +384,18 @@ body.rhacs-comment-mode-active .rhacs-pin {
   flex-shrink: 0;
 }
 
-/* Scrollable body area — everything below the header */
+/* Scrollable comments area */
 .rhacs-popup__scroll-body {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Sticky input area — always visible at the bottom, never scrolls */
+.rhacs-popup__sticky-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--pf-v5-global--BorderColor--100, #d2d2d2);
+  background: #fff;
 }
 
 .rhacs-popup__title {
@@ -702,10 +709,15 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-reply-form {
-  padding: 8px 0 10px;
+  padding: 8px 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* New-comment form inside sticky footer */
+.rhacs-popup__sticky-footer .rhacs-popup__toolbar {
+  margin-top: 8px;
 }
 
 .rhacs-inline-notice {

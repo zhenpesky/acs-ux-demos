@@ -1829,9 +1829,8 @@
         document.body.appendChild(loadingEl);
 
         self._loadHtmlToImage().then(function (hti) {
-          // Capture the visible viewport, then crop to the selected region
-          var vw = window.innerWidth;
-          var vh = window.innerHeight;
+          // Render only the selected region by translating the body into a
+          // crop-sized canvas — much faster than rendering the full viewport.
           var sx = Math.round(nr.x);
           var sy = Math.round(nr.y);
           var cropW = Math.round(nr.w);
@@ -1842,42 +1841,38 @@
             skipFonts: true,
             fontEmbedCSS: '',
             pixelRatio: 1,
-            width: vw,
-            height: vh,
-            canvasWidth: vw,
-            canvasHeight: vh,
+            // Canvas exactly the size of the selection — no post-crop needed
+            width: cropW,
+            height: cropH,
+            canvasWidth: cropW,
+            canvasHeight: cropH,
+            // Shift body so the selection region lands at canvas (0,0)
+            style: {
+              transform: 'translate(' + (-sx) + 'px,' + (-sy) + 'px)',
+              width: window.innerWidth + 'px',
+              height: window.innerHeight + 'px',
+            },
+            // Only skip the RHACS overlay elements — nothing else
             filter: function (node) {
               var id = (node && node.id) || '';
               return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
             },
-            style: {
-              width: vw + 'px',
-              height: vh + 'px',
-              overflow: 'hidden',
-            },
-          }).then(function (fullCanvas) {
+          }).then(function (cropCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
 
-            // Crop to the drawn selection
-            var safeCropW = Math.min(cropW, fullCanvas.width - sx);
-            var safeCropH = Math.min(cropH, fullCanvas.height - sy);
-            if (safeCropW < 10 || safeCropH < 10) {
+            if (cropCanvas.width < 10 || cropCanvas.height < 10) {
               console.log('[RHACS-SC] crop region too small');
               Notify.toast('Screenshot failed — try a larger area');
               Popup.el.style.display = 'block';
               return;
             }
-            var cropCanvas = document.createElement('canvas');
-            cropCanvas.width = safeCropW;
-            cropCanvas.height = safeCropH;
-            cropCanvas.getContext('2d').drawImage(fullCanvas, sx, sy, safeCropW, safeCropH, 0, 0, safeCropW, safeCropH);
 
             var dataUrl;
             try {
               dataUrl = cropCanvas.toDataURL('image/png');
-              console.log('[RHACS-SC] capture OK ' + safeCropW + 'x' + safeCropH + ' len=' + dataUrl.length);
+              console.log('[RHACS-SC] capture OK ' + cropCanvas.width + 'x' + cropCanvas.height + ' len=' + dataUrl.length);
             } catch (e) {
               console.log('[RHACS-SC] toDataURL blocked:', e.message);
               Notify.toast('Screenshot blocked by browser security — try a different area');

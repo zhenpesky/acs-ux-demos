@@ -5,6 +5,7 @@
  *   1. OAuth code exchange  – body: { code }
  *   2. Guest comment post   – body: { type: "guest_post", pageKey, pageUrl, commentBody, owner, repo, categoryName }
  *   3. Guest reply          – body: { type: "guest_reply", commentId, discussionId, replyBody }
+ *   4. Screenshot upload    – body: { type: "upload_screenshot", filename, base64Data, owner, repo }
  *
  * Required Cloudflare Worker secrets:
  *   GITHUB_CLIENT_SECRET  – your GitHub OAuth App client secret
@@ -141,6 +142,41 @@ async function handleGuestReply(body, env) {
   return jsonResp(200, { id: reply.id, createdAt: reply.createdAt });
 }
 
+// ── Screenshot upload ─────────────────────────────────────────────────────────
+async function handleUploadScreenshot(body, env) {
+  if (!env.GITHUB_OWNER_TOKEN) {
+    return jsonResp(503, { error: 'GITHUB_OWNER_TOKEN not configured' });
+  }
+
+  const { filename, base64Data, owner, repo } = body;
+  if (!filename || !base64Data || !owner || !repo) {
+    return jsonResp(400, { error: 'Missing required fields: filename, base64Data, owner, repo' });
+  }
+
+  const path = 'prototype-screenshots/' + filename;
+  const apiResp = await fetch(
+    'https://api.github.com/repos/' + owner + '/' + repo + '/contents/' + path,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: 'token ' + env.GITHUB_OWNER_TOKEN,
+        'Content-Type': 'application/json',
+        'User-Agent': 'rhacs-comments-worker',
+      },
+      body: JSON.stringify({
+        message: 'Add screenshot ' + filename,
+        content: base64Data,
+      }),
+    }
+  );
+  if (!apiResp.ok) {
+    const errText = await apiResp.text();
+    return jsonResp(502, { error: errText });
+  }
+  const data = await apiResp.json();
+  return jsonResp(200, { url: data.content.download_url });
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 export default {
   async fetch(request, env) {
@@ -158,6 +194,7 @@ export default {
 
     if (body.type === 'guest_post') return handleGuestPost(body, env);
     if (body.type === 'guest_reply') return handleGuestReply(body, env);
+    if (body.type === 'upload_screenshot') return handleUploadScreenshot(body, env);
     return handleOAuth(body, env);
   },
 };

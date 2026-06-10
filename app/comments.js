@@ -488,6 +488,17 @@
     return '<!-- RHACS_PIN ' + JSON.stringify(meta) + ' -->\n' + text;
   }
 
+  function extractImages(body) {
+    var text = (body || '').replace(/^<!--\s*RHACS_PIN\s+[\s\S]*?-->\n?/, '');
+    var urls = [];
+    text = text.replace(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/g, function (_, url) {
+      urls.push(url);
+      return '';
+    });
+    text = text.trim();
+    return { text: text, urls: urls };
+  }
+
   function setMeta(body, updates) {
     var json = extractMetaJson(body);
     if (!json) return body;
@@ -1633,6 +1644,337 @@
     });
   }
 
+  var ScreenshotCapture = {
+    _attachments: [],
+    _thumbsEl: null,
+    _cameraBtn: null,
+
+    reset: function () {
+      this._attachments = [];
+      this._thumbsEl = null;
+      this._cameraBtn = null;
+    },
+
+    _loadHtml2Canvas: function () {
+      return new Promise(function (resolve) {
+        if (window.html2canvas) return resolve(window.html2canvas);
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        s.onload = function () { resolve(window.html2canvas); };
+        document.head.appendChild(s);
+      });
+    },
+
+    start: function () {
+      var self = this;
+      if (this._attachments.length >= 4) return;
+
+      var mount = rhacsMount();
+      mount.style.display = 'none';
+
+      this._loadHtml2Canvas().then(function (h2c) {
+        h2c(document.documentElement, { useCORS: true, logging: false }).then(function (canvas) {
+          mount.style.display = '';
+          Popup.el.style.display = 'none';
+          self._showSelectionUI(canvas);
+        }).catch(function () {
+          mount.style.display = '';
+          Popup.el.style.display = 'block';
+        });
+      });
+    },
+
+    _showSelectionUI: function (fullCanvas) {
+      var self = this;
+      var overlay = document.createElement('div');
+      overlay.id = 'rhacs-sc-overlay';
+
+      var displayCanvas = document.createElement('canvas');
+      displayCanvas.className = 'rhacs-sc-canvas';
+      displayCanvas.width = window.innerWidth;
+      displayCanvas.height = window.innerHeight;
+      var ctx = displayCanvas.getContext('2d');
+      ctx.drawImage(fullCanvas, 0, 0, window.innerWidth, window.innerHeight);
+
+      var dimLayer = document.createElement('div');
+      dimLayer.className = 'rhacs-sc-dim';
+
+      var selEl = document.createElement('div');
+      selEl.className = 'rhacs-sc-selection';
+      selEl.style.display = 'none';
+
+      var handleDirs = ['tl', 'tc', 'tr', 'ml', 'mr', 'bl', 'bc', 'br'];
+      handleDirs.forEach(function (d) {
+        var h = document.createElement('div');
+        h.className = 'rhacs-sc-handle rhacs-sc-handle--' + d;
+        h.dataset.dir = d;
+        selEl.appendChild(h);
+      });
+
+      var captureBtn = document.createElement('button');
+      captureBtn.className = 'rhacs-sc-capture-btn';
+      captureBtn.textContent = 'Capture';
+      captureBtn.style.display = 'none';
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'rhacs-sc-cancel-btn';
+      cancelBtn.textContent = '\u2715  Cancel';
+
+      overlay.appendChild(displayCanvas);
+      overlay.appendChild(dimLayer);
+      overlay.appendChild(selEl);
+      overlay.appendChild(captureBtn);
+      overlay.appendChild(cancelBtn);
+      document.body.appendChild(overlay);
+
+      var rect = { x: 0, y: 0, w: 0, h: 0 };
+      var dragState = null;
+
+      function updateSelEl() {
+        var x = rect.w >= 0 ? rect.x : rect.x + rect.w;
+        var y = rect.h >= 0 ? rect.y : rect.y + rect.h;
+        var w = Math.abs(rect.w);
+        var h = Math.abs(rect.h);
+        selEl.style.left = x + 'px';
+        selEl.style.top = y + 'px';
+        selEl.style.width = w + 'px';
+        selEl.style.height = h + 'px';
+        selEl.style.display = (w > 4 && h > 4) ? 'block' : 'none';
+        var btnY = y + h + 8;
+        if (btnY + 40 > window.innerHeight) btnY = y - 48;
+        captureBtn.style.left = (x + w / 2 - 50) + 'px';
+        captureBtn.style.top = btnY + 'px';
+        captureBtn.style.display = (w > 20 && h > 20) ? 'block' : 'none';
+      }
+
+      function normalizedRect() {
+        return {
+          x: rect.w >= 0 ? rect.x : rect.x + rect.w,
+          y: rect.h >= 0 ? rect.y : rect.y + rect.h,
+          w: Math.abs(rect.w),
+          h: Math.abs(rect.h)
+        };
+      }
+
+      overlay.addEventListener('mousedown', function (e) {
+        if (e.target === cancelBtn || e.target === captureBtn) return;
+        if (e.target.dataset && e.target.dataset.dir) {
+          e.preventDefault();
+          var nr = normalizedRect();
+          dragState = { type: 'resize', startX: e.clientX, startY: e.clientY, dir: e.target.dataset.dir, startRect: { x: nr.x, y: nr.y, w: nr.w, h: nr.h } };
+          return;
+        }
+        if (e.target === selEl) {
+          e.preventDefault();
+          var nr = normalizedRect();
+          dragState = { type: 'move', startX: e.clientX, startY: e.clientY, startRect: { x: nr.x, y: nr.y, w: nr.w, h: nr.h } };
+          return;
+        }
+        e.preventDefault();
+        rect = { x: e.clientX, y: e.clientY, w: 0, h: 0 };
+        dragState = { type: 'draw', startX: e.clientX, startY: e.clientY };
+        updateSelEl();
+      });
+
+      overlay.addEventListener('mousemove', function (e) {
+        if (!dragState) return;
+        e.preventDefault();
+        var dx = e.clientX - dragState.startX;
+        var dy = e.clientY - dragState.startY;
+        if (dragState.type === 'draw') {
+          rect.w = dx;
+          rect.h = dy;
+        } else if (dragState.type === 'move') {
+          rect.x = dragState.startRect.x + dx;
+          rect.y = dragState.startRect.y + dy;
+          rect.w = dragState.startRect.w;
+          rect.h = dragState.startRect.h;
+        } else if (dragState.type === 'resize') {
+          var sr = dragState.startRect;
+          var d = dragState.dir;
+          var nx = sr.x, ny = sr.y, nw = sr.w, nh = sr.h;
+          if (d.indexOf('l') >= 0) { nx = sr.x + dx; nw = sr.w - dx; }
+          if (d.indexOf('r') >= 0) { nw = sr.w + dx; }
+          if (d.indexOf('t') >= 0) { ny = sr.y + dy; nh = sr.h - dy; }
+          if (d.indexOf('b') >= 0) { nh = sr.h + dy; }
+          rect.x = nx; rect.y = ny; rect.w = nw; rect.h = nh;
+        }
+        updateSelEl();
+      });
+
+      overlay.addEventListener('mouseup', function () {
+        dragState = null;
+      });
+
+      cancelBtn.addEventListener('click', function () {
+        document.body.removeChild(overlay);
+        Popup.el.style.display = 'block';
+      });
+
+      captureBtn.addEventListener('click', function () {
+        var nr = normalizedRect();
+        var cropped = self._cropCanvas(fullCanvas, nr);
+        document.body.removeChild(overlay);
+        self._showConfirmPanel(cropped);
+      });
+    },
+
+    _cropCanvas: function (fullCanvas, rect) {
+      var scaleX = fullCanvas.width / window.innerWidth;
+      var scaleY = fullCanvas.height / window.innerHeight;
+      var c = document.createElement('canvas');
+      c.width = Math.round(rect.w * scaleX);
+      c.height = Math.round(rect.h * scaleY);
+      var ctx = c.getContext('2d');
+      ctx.drawImage(fullCanvas,
+        Math.round(rect.x * scaleX), Math.round(rect.y * scaleY),
+        Math.round(rect.w * scaleX), Math.round(rect.h * scaleY),
+        0, 0, c.width, c.height
+      );
+      return c.toDataURL('image/png');
+    },
+
+    _showConfirmPanel: function (dataUrl) {
+      var self = this;
+      var panel = document.createElement('div');
+      panel.id = 'rhacs-sc-confirm';
+
+      var title = document.createElement('div');
+      title.className = 'rhacs-sc-confirm__title';
+      title.textContent = 'Add this screenshot?';
+
+      var img = document.createElement('img');
+      img.className = 'rhacs-sc-confirm__img';
+      img.src = dataUrl;
+
+      var btnRow = document.createElement('div');
+      btnRow.className = 'rhacs-sc-confirm__btns';
+
+      var addBtn = document.createElement('button');
+      addBtn.className = 'pf-v6-c-button pf-m-primary rhacs-sc-confirm__add';
+      addBtn.textContent = 'Add to comment';
+
+      var retakeBtn = document.createElement('button');
+      retakeBtn.className = 'pf-v6-c-button pf-m-secondary rhacs-sc-confirm__retake';
+      retakeBtn.textContent = 'Retake';
+
+      btnRow.appendChild(addBtn);
+      btnRow.appendChild(retakeBtn);
+      panel.appendChild(title);
+      panel.appendChild(img);
+      panel.appendChild(btnRow);
+      document.body.appendChild(panel);
+
+      addBtn.addEventListener('click', function () {
+        document.body.removeChild(panel);
+        var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
+        self._attachments.push({ dataUrl: dataUrl, filename: filename });
+        if (self._thumbsEl) self.renderThumbnails(self._thumbsEl);
+        if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
+        Popup.el.style.display = 'block';
+      });
+
+      retakeBtn.addEventListener('click', function () {
+        document.body.removeChild(panel);
+        self.start();
+      });
+    },
+
+    renderThumbnails: function (containerEl) {
+      var self = this;
+      containerEl.innerHTML = '';
+      this._attachments.forEach(function (att, idx) {
+        var wrap = document.createElement('div');
+        wrap.className = 'rhacs-sc-thumb';
+
+        var img = document.createElement('img');
+        img.src = att.dataUrl;
+
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'rhacs-sc-thumb__remove';
+        removeBtn.textContent = '\xd7';
+        removeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          self._attachments.splice(idx, 1);
+          if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
+          self.renderThumbnails(containerEl);
+        });
+
+        wrap.appendChild(img);
+        wrap.appendChild(removeBtn);
+        containerEl.appendChild(wrap);
+      });
+    },
+
+    uploadAll: function () {
+      if (this._attachments.length === 0) return Promise.resolve([]);
+      return Promise.all(this._attachments.map(function (att) {
+        var base64Data = att.dataUrl.replace(/^data:image\/png;base64,/, '');
+        return fetch(CFG.workerUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'upload_screenshot',
+            filename: att.filename,
+            base64Data: base64Data,
+            owner: CFG.owner,
+            repo: CFG.repo,
+          }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d.url) return '![Screenshot](' + d.url + ')';
+            return null;
+          })
+          .catch(function () { return null; });
+      })).then(function (results) {
+        return results.filter(Boolean);
+      });
+    },
+  };
+
+  var Lightbox = {
+    _escHandler: null,
+
+    show: function (url) {
+      var self = this;
+      var overlay = document.createElement('div');
+      overlay.id = 'rhacs-lightbox';
+
+      var img = document.createElement('img');
+      img.src = url;
+      img.className = 'rhacs-lb-img';
+
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'rhacs-lb-close';
+      closeBtn.setAttribute('aria-label', 'Close');
+      closeBtn.textContent = '\xd7';
+      closeBtn.addEventListener('click', function () { self.close(); });
+
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) self.close();
+      });
+
+      overlay.appendChild(img);
+      overlay.appendChild(closeBtn);
+      document.body.appendChild(overlay);
+
+      this._escHandler = function (e) {
+        if (e.key === 'Escape') self.close();
+      };
+      document.addEventListener('keydown', this._escHandler);
+    },
+
+    close: function () {
+      var existing = document.getElementById('rhacs-lightbox');
+      if (existing) existing.parentNode.removeChild(existing);
+      if (this._escHandler) {
+        document.removeEventListener('keydown', this._escHandler);
+        this._escHandler = null;
+      }
+    },
+  };
+
   // ── Popup ─────────────────────────────────────────────────────────────────────
   var Popup = {
     el: null,
@@ -1667,6 +2009,7 @@
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
+      ScreenshotCapture.reset();
     },
     _setModalElevated: function (elevated) {
       this.el.classList.toggle('rhacs-popup--modal', !!elevated);
@@ -1796,6 +2139,7 @@
       S.activePinId = null;
       Popup._pendingModalMeta = modalMeta || null;
       Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
+      ScreenshotCapture.reset();
       this.el.innerHTML = '';
 
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -1839,7 +2183,24 @@
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
       append(actions, postBtn, cancelBtn);
-      append(this.el, header, textarea, inputError, actions);
+
+      var cameraBtn = el('button', { className: 'pf-v6-c-button pf-m-plain rhacs-sc-btn', type: 'button' });
+      cameraBtn.setAttribute('aria-label', 'Add screenshot');
+      cameraBtn.setAttribute('title', 'Add screenshot');
+      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0 8a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm6.5-13H17l-1.5-2h-7L7 4H5.5A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-11A2.5 2.5 0 0 0 18.5 4z"/></svg>';
+      ScreenshotCapture._cameraBtn = cameraBtn;
+      cameraBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (ScreenshotCapture._attachments.length >= 4) return;
+        Popup.suppressOutsideDismiss(60000);
+        ScreenshotCapture.start();
+      });
+      actions.appendChild(cameraBtn);
+
+      var thumbsEl = el('div', { className: 'rhacs-sc-thumbs' });
+      ScreenshotCapture._thumbsEl = thumbsEl;
+
+      append(this.el, header, textarea, inputError, actions, thumbsEl);
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
       textarea.focus();
@@ -1850,48 +2211,51 @@
       var num = S.pins.length + 1;
       var modalMeta = Popup._pendingModalMeta || null;
       Popup._pendingModalMeta = null;
-      Auth.requireAuth()
-        .then(function () {
-          // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
-          if (S.guestMode && !S.token) {
-            var newPin = Auth.addGuestPin(text, x, y, num, modalMeta);
-            loadGuestPinsIntoState();
-            Overlay.renderPins();
-            if (isShareMode() && newPin && newPin.id) {
-              Popup.keepOpenAfterAction(function () { Popup.showThread(newPin.id); });
+      ScreenshotCapture.uploadAll().then(function (mdLines) {
+        var fullText = mdLines.length ? text + '\n\n' + mdLines.join('\n') : text;
+        Auth.requireAuth()
+          .then(function () {
+            // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
+            if (S.guestMode && !S.token) {
+              var newPin = Auth.addGuestPin(fullText, x, y, num, modalMeta);
+              loadGuestPinsIntoState();
+              Overlay.renderPins();
+              if (isShareMode() && newPin && newPin.id) {
+                Popup.keepOpenAfterAction(function () { Popup.showThread(newPin.id); });
+              } else {
+                Popup.close();
+              }
+              Notify.toast('Comment submitted — thank you!');
             } else {
+              // Optimistic: show pin immediately, sync in background
+              var body = buildBody(x, y, num, fullText, null, modalMeta);
+              var optimisticPin = {
+                id: 'optimistic-' + Date.now(),
+                body: body,
+                createdAt: new Date().toISOString(),
+                author: S.user,
+                meta: parseMeta(body),
+                replies: []
+              };
+              S.seenIds.add(optimisticPin.id);
+              S.pins = S.pins.concat([optimisticPin]);
               Popup.close();
+              Overlay.renderPins();
+              Panel.render();
+              FAB.updateBadge();
+              return addPinComment(fullText, x, y, num, modalMeta)
+                .then(function () { return loadAndRender(); })
+                .catch(function (e) {
+                  // Rollback optimistic pin on failure
+                  S.pins = S.pins.filter(function (p) { return p.id !== optimisticPin.id; });
+                  Overlay.renderPins();
+                  Panel.render();
+                  Notify.toast('Failed to post: ' + e.message);
+                });
             }
-            Notify.toast('Comment submitted — thank you!');
-          } else {
-            // Optimistic: show pin immediately, sync in background
-            var body = buildBody(x, y, num, text, null, modalMeta);
-            var optimisticPin = {
-              id: 'optimistic-' + Date.now(),
-              body: body,
-              createdAt: new Date().toISOString(),
-              author: S.user,
-              meta: parseMeta(body),
-              replies: []
-            };
-            S.seenIds.add(optimisticPin.id);
-            S.pins = S.pins.concat([optimisticPin]);
-            Popup.close();
-            Overlay.renderPins();
-            Panel.render();
-            FAB.updateBadge();
-            return addPinComment(text, x, y, num, modalMeta)
-              .then(function () { return loadAndRender(); })
-              .catch(function (e) {
-                // Rollback optimistic pin on failure
-                S.pins = S.pins.filter(function (p) { return p.id !== optimisticPin.id; });
-                Overlay.renderPins();
-                Panel.render();
-                Notify.toast('Failed to post: ' + e.message);
-              });
-          }
-        })
-        .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
+          })
+          .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
+      });
     },
     showThread: function (pinId) {
       S.activePinId = pinId;
@@ -1988,7 +2352,16 @@
         fpHdr.appendChild(msgKebab);
       }
       var fpBody = el('div', { className: 'rhacs-reply__body' });
-      fpBody.appendChild(txt(pinText(pin.body)));
+      var extracted = extractImages(pin.body || '');
+      if (extracted.text) fpBody.appendChild(txt(extracted.text));
+      extracted.urls.forEach(function (imgUrl) {
+        var imgEl = document.createElement('img');
+        imgEl.className = 'rhacs-sc-inline-img';
+        imgEl.src = imgUrl;
+        imgEl.alt = 'Screenshot';
+        imgEl.addEventListener('click', function () { Lightbox.show(imgUrl); });
+        fpBody.appendChild(imgEl);
+      });
       append(firstPost, fpHdr, fpBody);
 
       // Replies
@@ -2249,7 +2622,16 @@
 
       var bd = el('div', { className: 'rhacs-reply__body' });
       var cleanBody = reply.body.replace(/\n\n\u2014 _(.+?) \(guest\)_\s*$/, '').trim();
-      bd.appendChild(txt(cleanBody));
+      var extracted = extractImages(cleanBody);
+      if (extracted.text) bd.appendChild(txt(extracted.text));
+      extracted.urls.forEach(function (imgUrl) {
+        var imgEl = document.createElement('img');
+        imgEl.className = 'rhacs-sc-inline-img';
+        imgEl.src = imgUrl;
+        imgEl.alt = 'Screenshot';
+        imgEl.addEventListener('click', function () { Lightbox.show(imgUrl); });
+        bd.appendChild(imgEl);
+      });
 
       if (S.user && reply.author.login === S.user.login && !(S.guestMode && isShareMode())) {
         hdr.appendChild(Popup.makeKebab([

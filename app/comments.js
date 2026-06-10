@@ -2315,27 +2315,20 @@
       var panelW    = panelOpen ? 320 : 0;
       var vw = window.innerWidth - panelW, vh = window.innerHeight;
       popupEl.style.display = 'block';
-      // Temporarily remove max-height to measure true content height
-      var prevMaxH = popupEl.style.maxHeight;
-      popupEl.style.maxHeight = 'none';
+      // Let CSS enforce max-height (set via !important) — never touch it in JS
 
       function applyPos(top, left) {
         if (Popup._ro) Popup._ro.disconnect();
-        popupEl.style.maxHeight = '';
-        var naturalH = popupEl.scrollHeight;
         var maxAvail = vh - 2 * margin;
 
-        // Shift up if needed so bottom stays in viewport
-        if (top + naturalH > vh - margin) top = vh - margin - naturalH;
+        // Clamp top so popup fits within viewport (CSS max-height caps the height)
+        top  = Math.min(top, vh - margin - Math.min(popupEl.offsetHeight || 400, maxAvail));
         top  = Math.max(margin, top);
         left = Math.min(Math.max(margin, left), vw - (popupEl.offsetWidth || 320) - margin);
 
         popupEl.style.top        = top  + 'px';
         popupEl.style.left       = left + 'px';
         popupEl.style.visibility = '';
-
-        // Always cap to available height — inner scroll-body handles overflow via CSS flex
-        popupEl.style.maxHeight = Math.min(naturalH, maxAvail) + 'px';
 
         requestAnimationFrame(function () {
           if (Popup._ro) Popup._ro.observe(popupEl);

@@ -353,11 +353,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   z-index: 9997;
   padding: 0;
   pointer-events: all;
-  /* Constrain height so the popup never overflows the viewport */
-  max-height: calc(100vh - 40px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  /* Hard cap — JS must never override this */
+  max-height: calc(100vh - 40px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
   /* Force permanent isolated GPU layer — prevents compositing transparency flicker */
   transform: translate3d(0,0,0);
   backface-visibility: hidden;

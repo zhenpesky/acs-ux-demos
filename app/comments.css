@@ -2577,7 +2577,6 @@ body.rhacs-comment-mode-active .rhacs-pin {
 
 .rhacs-sel-popup {
   position: fixed;
-  right: 16px;
   z-index: 10500;
   background: #fff;
   border: 1px solid #d2d2d2;

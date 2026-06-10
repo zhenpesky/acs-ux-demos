@@ -1841,11 +1841,34 @@
 
       panel.appendChild(addBtn);
       panel.appendChild(copyBtn);
+
+      // Render off-screen first so we can measure actual dimensions
+      panel.style.visibility = 'hidden';
+      panel.style.top = '-9999px';
+      panel.style.left = '-9999px';
       document.body.appendChild(panel);
       this._el = panel;
 
-      var top = Math.max(60, Math.min(window.innerHeight - 100, this._rect.top + this._rect.height / 2 - 36));
+      var pw = panel.offsetWidth || 164;
+      var ph = panel.offsetHeight || 80;
+      var rect = this._rect;
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var margin = 8;
+
+      // Prefer above the selection; flip below if too close to top
+      var idealTop = rect.top - ph - margin;
+      var top = idealTop >= margin ? idealTop : rect.bottom + margin;
+      // Clamp vertically so it never goes off-screen
+      top = Math.max(margin, Math.min(vh - ph - margin, top));
+
+      // Center horizontally on the selection; clamp to viewport edges
+      var idealLeft = rect.left + rect.width / 2 - pw / 2;
+      var left = Math.max(margin, Math.min(vw - pw - margin, idealLeft));
+
       panel.style.top = top + 'px';
+      panel.style.left = left + 'px';
+      panel.style.visibility = '';
     },
 
     hide: function () {

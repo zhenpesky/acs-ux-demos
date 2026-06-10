@@ -354,7 +354,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   padding: 0;
   pointer-events: all;
   /* Hard cap — JS must never override this */
-  max-height: calc(100vh - 40px) !important;
+  max-height: 50vh !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;

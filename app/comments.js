@@ -19,7 +19,113 @@
     guestKey:    'rhacs_guest_id',
     guestPinsPrefix: 'rhacs_guest_pins_',
     seenPrefix:  'rhacs_seen_',
+    verifiedKey: 'rhacs_domain_verified',
     pollMs:      30000,
+  };
+
+  // ── Access gate — restricts prototype pages to @redhat.com GitHub accounts ──
+  var AccessGate = {
+    _el: null,
+
+    // True when the page doesn't need gating (share link or already verified)
+    isCleared: function () {
+      if (isShareMode()) return true;
+      if (!isPrototypePage()) return true;
+      try {
+        var cached = localStorage.getItem(CFG.verifiedKey);
+        // Accept 'verified' (stored when S.user wasn't loaded yet) or exact login match
+        if (cached && (cached === 'verified' || (S.user && cached === S.user.login))) return true;
+      } catch (e) {}
+      return false;
+    },
+
+    // Show a full-screen blocking overlay before the user authenticates
+    show: function () {
+      if (AccessGate._el) return;
+      var overlay = el('div', { id: 'rhacs-gate', className: 'rhacs-gate' });
+      var card = el('div', { className: 'rhacs-gate__card' });
+
+      var logo = el('div', { className: 'rhacs-gate__logo' });
+      logo.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40"><circle cx="20" cy="20" r="20" fill="#ee0000"/><text x="20" y="26" text-anchor="middle" font-size="16" font-weight="bold" fill="#fff" font-family="sans-serif">RH</text></svg>';
+
+      var title = el('h2', { className: 'rhacs-gate__title' });
+      title.appendChild(txt('Red Hat prototype access'));
+
+      var sub = el('p', { className: 'rhacs-gate__sub' });
+      sub.appendChild(txt('This prototype is restricted to Red Hat team members. Sign in with your Red Hat GitHub account to continue.'));
+
+      var btn = el('button', { className: 'rhacs-gate__btn' });
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style="flex-shrink:0"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8"/></svg><span>Sign in with GitHub</span>';
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        Auth.login()
+          .then(function () { return AccessGate.verifyAndClear(); })
+          .catch(function () {
+            btn.disabled = false;
+            btn.style.opacity = '';
+          });
+      });
+
+      AccessGate._statusEl = el('p', { className: 'rhacs-gate__status' });
+
+      append(card, logo, title, sub, btn, AccessGate._statusEl);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+      AccessGate._el = overlay;
+      AccessGate._btn = btn;
+    },
+
+    _showDenied: function () {
+      if (AccessGate._statusEl) {
+        AccessGate._statusEl.textContent = 'Access denied — no verified @redhat.com email found on this GitHub account. Contact the prototype owner for access.';
+        AccessGate._statusEl.className = 'rhacs-gate__status rhacs-gate__status--denied';
+      }
+      if (AccessGate._btn) {
+        AccessGate._btn.disabled = false;
+        AccessGate._btn.style.opacity = '';
+      }
+    },
+
+    remove: function () {
+      if (AccessGate._el) { AccessGate._el.remove(); AccessGate._el = null; }
+    },
+
+    // Called after OAuth completes — checks email domain, caches result
+    verifyAndClear: function () {
+      return fetch('https://api.github.com/user/emails', {
+        headers: { Authorization: 'bearer ' + S.token, 'User-Agent': 'rhacs-comments/1.0' }
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (emails) {
+          var ok = Array.isArray(emails) && emails.some(function (e) {
+            return e.verified && e.email && e.email.toLowerCase().endsWith('@redhat.com');
+          });
+          if (ok) {
+            try { localStorage.setItem(CFG.verifiedKey, S.user ? S.user.login : 'verified'); } catch (ex) {}
+            AccessGate.remove();
+          } else {
+            AccessGate.show(); // ensure overlay is visible
+            AccessGate._showDenied();
+          }
+        })
+        .catch(function () {
+          // Network error — don't block, allow access (fail open for reliability)
+          AccessGate.remove();
+        });
+    },
+
+    // Run at startup — decides whether to gate, skip, or verify
+    check: function () {
+      if (isShareMode() || !isPrototypePage()) return;
+      if (AccessGate.isCleared()) return;
+      if (S.token) {
+        // Token exists but domain not yet verified — verify silently
+        AccessGate.verifyAndClear();
+      } else {
+        AccessGate.show();
+      }
+    },
   };
 
   // ── Share mode: ?share=1 hides GitHub login and isolates the view ──────────
@@ -551,6 +657,8 @@
       // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
       if (!S.token) restoreShareGuestSession();
+      // Domain gate — runs after token/user are restored
+      AccessGate.check();
     },
     isLoggedIn:        function () { return !!S.token; },
     isAuthed:          function () { return !!S.token || S.guestMode; },
@@ -599,10 +707,15 @@
             resolve();
             // Fetch profile in background; a failure just means no avatar
             Auth.fetchUser()
-              .then(function () { try { FAB.updateUser(); } catch (e) {} })
+              .then(function () {
+                try { FAB.updateUser(); } catch (e) {}
+                // After profile loads, verify domain (S.user.login is now available)
+                if (isPrototypePage() && !isShareMode()) AccessGate.verifyAndClear();
+              })
               .catch(function (e) {
                 console.warn('[rhacs] fetchUser after login:', e && e.message);
                 try { FAB.updateUser(); } catch (ex) {}
+                if (isPrototypePage() && !isShareMode()) AccessGate.verifyAndClear();
               });
           } else {
             reject(new Error('GitHub login failed'));
@@ -708,6 +821,7 @@
       localStorage.removeItem(CFG.tokenKey);
       localStorage.removeItem(CFG.userKey);
       localStorage.removeItem(CFG.guestKey);
+      localStorage.removeItem(CFG.verifiedKey);
       if (S.commentMode) FAB.setMode(false);
       // Close open UI and wipe all visible comment state
       Popup.close();
@@ -3628,6 +3742,7 @@
     } catch (e) {}
 
     Auth.init();
+    AccessGate.check();
     S.lastSeen = parseInt(localStorage.getItem(CFG.seenPrefix + window.location.pathname) || '0', 10);
 
     Overlay.init();

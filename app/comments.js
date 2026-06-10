@@ -659,13 +659,21 @@
     return parent;
   }
 
+  function fetchWithTimeout(url, options, timeoutMs) {
+    timeoutMs = timeoutMs || 30000;
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, timeoutMs);
+    var opts = Object.assign({}, options || {}, { signal: ctrl.signal });
+    return fetch(url, opts).finally(function () { clearTimeout(timer); });
+  }
+
   // ── GitHub GraphQL ────────────────────────────────────────────────────────────
   function ghReq(query, vars, requireAuth) {
     var headers = { 'Content-Type': 'application/json' };
     if (S.token) headers['Authorization'] = 'bearer ' + S.token;
     else if (requireAuth) return Promise.reject(new Error('Not logged in'));
 
-    return fetch(GH_GQL, {
+    return fetchWithTimeout(GH_GQL, {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ query: query, variables: vars || {} }),
@@ -1140,7 +1148,7 @@
       Auth.saveGuestPins(pins);
 
       // Fire-and-forget: POST to worker → GitHub Discussions so the prototype owner can see it
-      fetch(CFG.workerUrl, {
+      fetchWithTimeout(CFG.workerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2230,11 +2238,21 @@
       }
     },
     close: function () {
+      // Explicit close/cancel must always work — never blocked by outside-dismiss suppress
+      this._suppressOutsideDismissUntil = 0;
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
       this._newFormQuote = null;
       ScreenshotCapture.reset();
+    },
+    _resetReplyPostBtn: function () {
+      if (!this.el) return;
+      var btn = this.el.querySelector('.rhacs-reply-form .pf-m-primary');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Post';
+      }
     },
     _newFormQuote: null,
     _getNewFormEditor: function () {
@@ -2720,26 +2738,35 @@
           // Resolve the live pin ID — also match by _origGuestId in case the ID was already updated
           var livePin = S.pins.find(function (p) { return p.id === pinId || p._origGuestId === pinId; });
           var livePinId = livePin ? livePin.id : pinId;
-          if (!String(livePinId).startsWith('guest-') && S.discussionId) {
-            fetch(CFG.workerUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ type: 'guest_reply', commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
-            }).then(function (r) { return r.json(); }).then(function (data) {
-              if (data && data.id) {
-                var st = Auth.loadGuestPins();
-                for (var si = 0; si < st.length; si++) {
-                  if (st[si].id === pinId && st[si].replies) {
-                    for (var ri = 0; ri < st[si].replies.length; ri++) {
-                      if (st[si].replies[ri].id === optimisticReply.id) { st[si].replies[ri].id = data.id; break; }
+          var uploadGuestReply = function () {
+            if (!String(livePinId).startsWith('guest-') && S.discussionId) {
+              fetchWithTimeout(CFG.workerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'guest_reply', commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
+              }).then(function (r) { return r.json(); }).then(function (data) {
+                if (data && data.id) {
+                  var st = Auth.loadGuestPins();
+                  for (var si = 0; si < st.length; si++) {
+                    if (st[si].id === pinId && st[si].replies) {
+                      for (var ri = 0; ri < st[si].replies.length; ri++) {
+                        if (st[si].replies[ri].id === optimisticReply.id) { st[si].replies[ri].id = data.id; break; }
+                      }
+                      break;
                     }
-                    break;
                   }
+                  Auth.saveGuestPins(st);
                 }
-                Auth.saveGuestPins(st);
-              }
-            }).catch(function (e) { console.warn('[rhacs] Guest reply upload failed:', e && e.message); });
-          }
+              }).catch(function (e) {
+                console.warn('[rhacs] Guest reply upload failed:', e && e.message);
+                if (e && e.name === 'AbortError') Notify.toast('Reply timed out — please try again');
+              }).finally(function () { Popup._resetReplyPostBtn(); });
+            } else {
+              Popup._resetReplyPostBtn();
+            }
+          };
+          // Defer upload so keepOpenAfterAction can re-render the thread before large payload work
+          setTimeout(uploadGuestReply, 0);
         });
         var guestCancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
         guestCancelBtn.appendChild(txt('Cancel'));
@@ -2776,10 +2803,7 @@
           if (attachment) replyText += '\n\n![screenshot](' + attachment.dataUrl + ')';
           Popup.submitReply(pinId, replyText, replyArea)
             .catch(function () {})
-            .finally(function () {
-              replyBtn.disabled = false;
-              replyBtn.textContent = 'Post';
-            });
+            .finally(function () { Popup._resetReplyPostBtn(); });
         });
         var replyCancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
         replyCancelBtn.appendChild(txt('Cancel'));
@@ -3077,7 +3101,8 @@
               // Rollback optimistic reply on failure
               if (pin) pin.replies = pin.replies.filter(function (r) { return r.id !== optimisticReply.id; });
               Popup.showThread(pinId);
-              Notify.toast('Failed to reply: ' + e.message);
+              if (e && e.name === 'AbortError') Notify.toast('Reply timed out — please try again');
+              else Notify.toast('Failed to reply: ' + e.message);
             });
         })
         .catch(function (e) { Notify.toast(e.message); });
@@ -4378,9 +4403,9 @@
       }
       // Popup: close on outside click; shake instead if there's unsaved input
       if (Popup.el && Popup.el.style.display !== 'none') {
-        if (Popup._suppressOutsideDismissUntil && Date.now() < Popup._suppressOutsideDismissUntil) return;
         var clickedInsidePopup = isEventInsidePopup(e);
         if (!clickedInsidePopup) {
+          if (Popup._suppressOutsideDismissUntil && Date.now() < Popup._suppressOutsideDismissUntil) return;
           var hasUnsavedInput = Popup._hasUnsavedInput();
           if (hasUnsavedInput) {
             // Shake to signal "you have unsaved text"

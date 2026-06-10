@@ -2690,6 +2690,8 @@
           }
         });
         var rsc = Popup._buildScreenshotUI();
+        var inputWrapper = el('div', { className: 'rhacs-reply-input-wrapper' });
+        append(inputWrapper, rsc.toolbar, rsc.thumbsDiv, replyArea);
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         postBtn.appendChild(txt('Post'));
@@ -2749,8 +2751,7 @@
         guestCancelBtn.appendChild(txt('Cancel'));
         guestCancelBtn.addEventListener('click', function () { Popup.close(); });
         append(replyActions, postBtn, guestCancelBtn);
-        // Same order as new-comment form: toolbar → thumbs → textarea → error → buttons
-        append(replyForm, rsc.toolbar, rsc.thumbsDiv, replyArea, replyError, replyActions);
+        append(replyForm, inputWrapper, replyError, replyActions);
       } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
@@ -2762,6 +2763,8 @@
           }
         });
         var rsc2 = Popup._buildScreenshotUI();
+        var inputWrapper2 = el('div', { className: 'rhacs-reply-input-wrapper' });
+        append(inputWrapper2, rsc2.toolbar, rsc2.thumbsDiv, replyArea);
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         replyBtn.appendChild(txt('Post'));
@@ -2793,8 +2796,7 @@
           replyForm.style.display = 'none';
         });
         append(replyActions, replyBtn, replyCancelBtn);
-        // Same order as new-comment form: toolbar → thumbs → textarea → error → buttons
-        append(replyForm, rsc2.toolbar, rsc2.thumbsDiv, replyArea, replyError, replyActions);
+        append(replyForm, inputWrapper2, replyError, replyActions);
       }
 
       append(this.el, header, firstPost, repliesEl, replyForm);

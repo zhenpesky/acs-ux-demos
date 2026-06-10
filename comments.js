@@ -2658,6 +2658,8 @@
     },
     // Build a kebab ⋮ button with a dropdown. items: [{ label, action, danger? }]
     makeKebab: function (items) {
+      // No items → return an invisible placeholder so callers don't need to guard
+      if (!items || !items.length) return el('span');
       var wrap     = el('div', { className: 'rhacs-kebab' });
       var btn      = el('button', { className: 'rhacs-kebab__btn', 'aria-label': 'Actions' });
       btn.appendChild(txt('⋮'));

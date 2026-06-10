@@ -1535,9 +1535,7 @@
 
       // If popup is open with unsaved input, shake it and block the new-pin action
       if (Popup.el && Popup.el.style.display !== 'none' && !Popup.el.contains(e.target)) {
-        var hasUnsaved = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
-          return ta.value.trim().length > 0;
-        });
+        var hasUnsaved = Popup._hasUnsavedInput();
         if (hasUnsaved) {
           e.stopPropagation();
           Popup.el.classList.remove('rhacs-popup--shake');
@@ -1891,13 +1889,7 @@
       var clientX = rect.left + rect.width / 2;
       var clientY = rect.bottom + 8;
       Popup.showNewForm(x, y, clientX, clientY, null);
-      var textarea = Popup.el && Popup.el.querySelector('textarea');
-      if (textarea) {
-        var quoted = '> ' + text.replace(/\n+/g, ' ') + '\n\n';
-        textarea.value = quoted;
-        textarea.focus();
-        textarea.setSelectionRange(quoted.length, quoted.length);
-      }
+      Popup.setQuote(text);
     },
 
     _copy: function () {
@@ -2193,7 +2185,73 @@
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
+      this._newFormQuote = null;
       ScreenshotCapture.reset();
+    },
+    _newFormQuote: null,
+    _getNewFormEditor: function () {
+      return this.el && this.el.querySelector('.rhacs-popup__editor-input');
+    },
+    _getNewFormEditorContainer: function () {
+      return this.el && this.el.querySelector('.rhacs-popup__editor');
+    },
+    _getNewFormReplyText: function () {
+      var editor = this._getNewFormEditor();
+      if (!editor) return '';
+      return (editor.innerText || editor.textContent || '').trim();
+    },
+    _getNewFormSubmitText: function () {
+      var reply = this._getNewFormReplyText();
+      if (this._newFormQuote) {
+        var quoteLine = '> ' + this._newFormQuote;
+        return reply ? quoteLine + '\n\n' + reply : quoteLine;
+      }
+      return reply;
+    },
+    _focusNewFormEditor: function () {
+      var editor = this._getNewFormEditor();
+      if (!editor) return;
+      editor.focus();
+      if (window.getSelection && document.createRange) {
+        var range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    },
+    setQuote: function (text) {
+      if (!text || !String(text).trim()) return;
+      this._newFormQuote = String(text).replace(/\n+/g, ' ').trim();
+      var container = this._getNewFormEditorContainer();
+      if (!container) return;
+      var existing = container.querySelector('.rhacs-popup__quote-block');
+      if (existing) existing.remove();
+      var quoteBlock = el('div', { className: 'rhacs-popup__quote-block', contenteditable: 'false' });
+      quoteBlock.appendChild(txt(this._newFormQuote));
+      var editor = this._getNewFormEditor();
+      if (editor) {
+        container.insertBefore(quoteBlock, editor);
+      } else {
+        container.appendChild(quoteBlock);
+      }
+      this._focusNewFormEditor();
+    },
+    _hasUnsavedNewFormInput: function () {
+      if (this._getNewFormReplyText()) return true;
+      if (this._newFormQuote) return true;
+      if (ScreenshotCapture.getAttachment()) return true;
+      return false;
+    },
+    _hasUnsavedInput: function () {
+      if (!this.el) return false;
+      if (this.el.querySelector('.rhacs-popup__editor-input')) {
+        return this._hasUnsavedNewFormInput();
+      }
+      return Array.from(this.el.querySelectorAll('textarea')).some(function (ta) {
+        return ta.value.trim().length > 0;
+      });
     },
     _setModalElevated: function (elevated) {
       this.el.classList.toggle('rhacs-popup--modal', !!elevated);
@@ -2324,6 +2382,7 @@
       Popup._pendingModalMeta = modalMeta || null;
       Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
       this.el.innerHTML = '';
+      this._newFormQuote = null;
       ScreenshotCapture.reset();
 
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -2353,14 +2412,31 @@
       });
       append(toolbar, cameraBtn);
 
-      var textarea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea', placeholder: 'Leave a comment…', rows: '3' });
+      var editorContainer = el('div', { className: 'rhacs-popup__editor' });
+      var editorInput = el('div', {
+        className: 'rhacs-popup__editor-input',
+        contenteditable: 'true',
+        'data-placeholder': 'Leave a comment\u2026',
+        role: 'textbox',
+        'aria-multiline': 'true'
+      });
+      append(editorContainer, editorInput);
+
       var inputError = el('div', { className: 'rhacs-popup__input-error' });
       inputError.appendChild(txt('Comment can\u2019t be empty'));
 
-      textarea.addEventListener('input', function () {
-        if (textarea.value.trim()) {
-          textarea.classList.remove('rhacs-popup__textarea--error');
+      editorInput.addEventListener('input', function () {
+        if (Popup._getNewFormReplyText()) {
+          editorContainer.classList.remove('rhacs-popup__editor--error');
           inputError.style.display = 'none';
+        }
+      });
+      editorInput.addEventListener('paste', function (e) {
+        e.preventDefault();
+        var clip = e.clipboardData || window.clipboardData;
+        var plain = clip && clip.getData('text/plain');
+        if (plain != null && document.execCommand) {
+          document.execCommand('insertText', false, plain);
         }
       });
 
@@ -2369,16 +2445,16 @@
       postBtn.appendChild(txt('Post'));
       postBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (!textarea.value.trim()) {
-          textarea.classList.add('rhacs-popup__textarea--error');
+        if (!Popup._getNewFormReplyText()) {
+          editorContainer.classList.add('rhacs-popup__editor--error');
           inputError.style.display = 'block';
-          textarea.focus();
+          Popup._focusNewFormEditor();
           return;
         }
         postBtn.disabled = true;
         postBtn.textContent = 'Posting…';
         Popup.suppressOutsideDismiss(500);
-        Popup.submitNew(textarea.value, x, y);
+        Popup.submitNew(Popup._getNewFormSubmitText(), x, y);
       });
 
       var cancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
@@ -2387,12 +2463,12 @@
 
       append(actions, postBtn, cancelBtn);
 
-      // Order: header → toolbar (Take screenshot) → thumbsDiv → textarea → error → actions
-      append(this.el, header, toolbar, thumbsDiv, textarea, inputError, actions);
+      // Order: header → toolbar (Take screenshot) → thumbsDiv → editor → error → actions
+      append(this.el, header, toolbar, thumbsDiv, editorContainer, inputError, actions);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
-      textarea.focus();
+      Popup._focusNewFormEditor();
     },
     submitNew: function (text, x, y) {
       text = text.trim();
@@ -4236,9 +4312,7 @@
         if (Popup._suppressOutsideDismissUntil && Date.now() < Popup._suppressOutsideDismissUntil) return;
         var clickedInsidePopup = isEventInsidePopup(e);
         if (!clickedInsidePopup) {
-          var hasUnsavedInput = Array.from(Popup.el.querySelectorAll('textarea')).some(function (ta) {
-            return ta.value.trim().length > 0;
-          });
+          var hasUnsavedInput = Popup._hasUnsavedInput();
           if (hasUnsavedInput) {
             // Shake to signal "you have unsaved text"
             Popup.el.classList.remove('rhacs-popup--shake');

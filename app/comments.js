@@ -1828,11 +1828,17 @@
           hti.toCanvas(document.body, {
             useCORS: true,
             skipFonts: true,
+            fontEmbedCSS: '',
             pixelRatio: 1,
             width: vw,
             height: vh,
             canvasWidth: vw,
             canvasHeight: vh,
+            filter: function (node) {
+              // Skip the comments overlay so we don't render our own UI on the screenshot
+              var id = node.id || '';
+              return id !== 'rhacs-mount' && id !== 'rhacs-sc-overlay';
+            },
             style: {
               width: vw + 'px',
               height: vh + 'px',

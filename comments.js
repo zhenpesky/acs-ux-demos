@@ -42,6 +42,9 @@
     // Show a full-screen blocking overlay before the user authenticates
     show: function () {
       if (AccessGate._el) return;
+      // Remove the lightweight pregate div injected by the <head> inline script
+      var pregate = document.getElementById('rhacs-pregate');
+      if (pregate) pregate.remove();
       var overlay = el('div', { id: 'rhacs-gate', className: 'rhacs-gate' });
       var card = el('div', { className: 'rhacs-gate__card' });
 
@@ -88,6 +91,8 @@
     },
 
     remove: function () {
+      var pregate = document.getElementById('rhacs-pregate');
+      if (pregate) pregate.remove();
       if (AccessGate._el) { AccessGate._el.remove(); AccessGate._el = null; }
     },
 

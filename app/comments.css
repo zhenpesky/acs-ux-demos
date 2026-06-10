@@ -689,11 +689,10 @@ body.rhacs-comment-mode-active .rhacs-pin {
 }
 
 .rhacs-reply-form {
-  padding: 8px 12px 10px;
+  padding: 8px 0 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: flex-start;
 }
 
 .rhacs-inline-notice {
@@ -2731,12 +2730,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: 6px 6px 0 0;
 }
 
-/* Wrapper owns the border — toolbar and textarea sit inside with no individual borders */
+/* Wrapper owns the border — same margin as the new-comment toolbar+editor */
 .rhacs-reply-input-wrapper {
+  width: calc(100% - 24px);
+  margin: 0 12px;
+  box-sizing: border-box;
   border: 1px solid var(--pf-t--global--border--color--default, #d2d2d2);
   border-radius: 6px;
   overflow: hidden;
-  margin-bottom: 4px;
 }
 .rhacs-reply-input-wrapper .rhacs-popup__toolbar {
   margin: 0;
@@ -2749,18 +2750,26 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-bottom: 1px solid var(--pf-t--global--border--color--default, #d2d2d2);
 }
 .rhacs-reply-input-wrapper .rhacs-popup__textarea--reply {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  box-sizing: border-box;
   border: none !important;
   border-radius: 0 !important;
   margin: 0 !important;
+  padding: 6px 8px;
   font-size: 16px !important;
+  font-family: inherit;
+  line-height: 1.5;
   resize: none;
+  outline: none;
 }
 .rhacs-reply-input-wrapper:focus-within {
   border-color: var(--pf-t--global--border--color--status--info--default, #2b9af3);
   box-shadow: 0 0 0 1px #2b9af3;
 }
 .rhacs-reply-form .rhacs-btn-row {
-  margin-top: 10px;
+  margin: 4px 12px 0;
 }
 .rhacs-sc-camera-btn {
   display: inline-flex;

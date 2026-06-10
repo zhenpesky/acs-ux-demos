@@ -2680,7 +2680,7 @@
 
       if (S.guestMode && pin._guest && isOwnComment) {
         // Guest on their own comment — allow follow-up replies via worker
-        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026', rows: '2' });
+        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Add a follow-up\u2026' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
         replyError.appendChild(txt('Comment can\u2019t be empty'));
         replyArea.addEventListener('input', function () {
@@ -2753,7 +2753,7 @@
         append(replyActions, postBtn, guestCancelBtn);
         append(replyForm, inputWrapper, replyError, replyActions);
       } else if (!S.guestMode) {
-        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
+        var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply\u2026' });
         var replyError = el('div', { className: 'rhacs-popup__input-error' });
         replyError.appendChild(txt('Reply can\u2019t be empty'));
         replyArea.addEventListener('input', function () {

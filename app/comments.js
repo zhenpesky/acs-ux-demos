@@ -2056,39 +2056,18 @@
         (async function () {
           var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            // Mount is already hidden (was hidden in start()); just wait one frame
-            // to ensure any overlay removal has repainted before snapdom reads the DOM
+            // Mount is already hidden; wait two frames so browser repaints fully
+            // before snapdom serialises the DOM.
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
-            // Find the deepest element at the CENTER of the selection.
-            // Capture THAT element with snapdom so coordinates stay element-relative,
-            // avoiding any inner-scroll / full-page offset mismatch.
-            var cx = selX + selW / 2;
-            var cy = selY + selH / 2;
-            var targetEl = document.elementFromPoint(cx, cy) || document.body;
+            // Capture the full visible document at CSS-pixel scale.
+            var result = await window.snapdom(document.documentElement, {});
 
-            // Walk up to find the first non-inline ancestor that is large enough
-            // to contain the whole selection (avoids capturing a tiny leaf node)
-            var minW = selW * 0.8;
-            var minH = selH * 0.8;
-            var el = targetEl;
-            while (el && el !== document.documentElement) {
-              var r = el.getBoundingClientRect();
-              if (r.width >= minW && r.height >= minH) break;
-              el = el.parentElement;
-            }
-            if (!el || el === document.documentElement) el = document.body;
-
-            var elRect = el.getBoundingClientRect();
-
-            // Capture only that element
-            var result = await window.snapdom(el, {});
-
-            // Restore the comment window right after capture so UI reappears
+            // Restore the comment window right after capture
             ScreenshotCapture._restoreMount();
             await new Promise(function (r) { requestAnimationFrame(r); });
 
-            // Resolve canvas
+            // Resolve to a canvas
             var fullCanvas;
             if (typeof result.toCanvas === 'function') {
               fullCanvas = await result.toCanvas();
@@ -2110,19 +2089,23 @@
             }
             if (!fullCanvas) { finish(); return; }
 
-            // The canvas represents `el` starting at elRect.left / elRect.top (viewport px).
-            // The selection (selX, selY) is also in viewport px.
-            // So the crop offset within the canvas is simply the selection minus the element origin.
-            // The canvas width/height should match elRect.width/height (snapdom at scale 1).
-            var canvasScaleX = fullCanvas.width  / elRect.width;
-            var canvasScaleY = fullCanvas.height / elRect.height;
+            // The canvas is CSS-pixel scale (1 : 1 with the viewport).
+            // selection coords (selX/selY) are viewport-relative client coords.
+            // For PatternFly the document doesn't scroll (inner containers scroll),
+            // so window.scrollX/Y are both 0 and we can crop directly at selX/selY.
+            var dpr = window.devicePixelRatio || 1;
+            // snapdom may output at device pixel scale when dpr > 1.
+            // Detect by comparing canvas width to viewport width.
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+            var scale = fullCanvas.width / vw;  // 1 for CSS-px, dpr for physical-px
 
-            var srcX = Math.round((selX - elRect.left) * canvasScaleX);
-            var srcY = Math.round((selY - elRect.top)  * canvasScaleY);
-            var srcW = Math.round(selW * canvasScaleX);
-            var srcH = Math.round(selH * canvasScaleY);
+            var srcX = Math.round(selX * scale);
+            var srcY = Math.round(selY * scale);
+            var srcW = Math.round(selW * scale);
+            var srcH = Math.round(selH * scale);
 
-            // Clamp to canvas bounds
+            // Clamp
             srcX = Math.max(0, Math.min(srcX, fullCanvas.width  - 1));
             srcY = Math.max(0, Math.min(srcY, fullCanvas.height - 1));
             srcW = Math.min(srcW, fullCanvas.width  - srcX);

@@ -733,7 +733,12 @@
     _makeAvatarSvg: function (seed) {
       var pair     = Auth._pickRandom(Auth._avatarColors, seed || 'Guest');
       var bg       = pair[0], fg = pair[1];
-      var initials = (seed || 'G').replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase() || 'G';
+      // Derive initials using same logic as pinInitials: split on ·, take first word(s)
+      var namePart = (seed || 'G').split('\u00b7')[0].trim();
+      var words    = namePart.split(/\s+/).filter(Boolean);
+      var initials = words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase()
+                   : words.length === 1 ? words[0].slice(0, 2).toUpperCase()
+                   : 'G';
       return 'data:image/svg+xml,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
         '<circle cx="16" cy="16" r="16" fill="' + bg + '"/>' +
@@ -764,9 +769,8 @@
     },
     _createGuestIdentity: function (firstName, lastName, title, company) {
       var login    = Auth._buildGuestLogin(firstName, lastName, title, company);
-      // Avatar seed: first name, then first of any other field
-      var seed     = (firstName || lastName || title || company || 'Guest').trim();
-      var user     = { login: login, name: login, firstName: firstName || '', lastName: lastName || '', title: title || '', company: company || '', avatarUrl: Auth._makeAvatarSvg(seed) };
+      // Always use the full login as seed so stored avatar matches the re-derived one in parseGuestReply
+      var user     = { login: login, name: login, firstName: firstName || '', lastName: lastName || '', title: title || '', company: company || '', avatarUrl: Auth._makeAvatarSvg(login) };
       localStorage.setItem(CFG.guestKey, JSON.stringify(user));
       return user;
     },

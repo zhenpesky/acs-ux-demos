@@ -592,7 +592,7 @@
 
   function loadComments(discId) {
     return ghReq(
-      'query($id:ID!){ node(id:$id){ ... on Discussion{ comments(first:100){ nodes{ id body createdAt author{ login avatarUrl } reactionGroups{ content users{ totalCount } viewerHasReacted } replies(first:20){ nodes{ id body createdAt author{ login avatarUrl } } } } } } } }',
+      'query($id:ID!){ node(id:$id){ ... on Discussion{ comments(first:100){ nodes{ id body createdAt author{ login avatarUrl } replies(first:20){ nodes{ id body createdAt author{ login avatarUrl } } } } } } } }',
       { id: discId }
     ).then(function (d) {
       if (!d || !d.node) return [];
@@ -642,12 +642,6 @@
     );
   }
 
-  function toggleReaction(subjectId, content, hasReacted) {
-    var mutation = hasReacted
-      ? 'mutation($s:ID!,$c:ReactionContent!){ removeReaction(input:{subjectId:$s,content:$c}){ reaction{ content } } }'
-      : 'mutation($s:ID!,$c:ReactionContent!){ addReaction(input:{subjectId:$s,content:$c}){ reaction{ content } } }';
-    return ghReq(mutation, { s: subjectId, c: content }, true);
-  }
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
   var Auth = {
@@ -1878,8 +1872,7 @@
               createdAt: new Date().toISOString(),
               author: S.user,
               meta: parseMeta(body),
-              replies: [],
-              reactionGroups: []
+              replies: []
             };
             S.seenIds.add(optimisticPin.id);
             S.pins = S.pins.concat([optimisticPin]);
@@ -1998,9 +1991,6 @@
       fpBody.appendChild(txt(pinText(pin.body)));
       append(firstPost, fpHdr, fpBody);
 
-      // Reactions
-      var reactionsEl = Popup.buildReactions(pin);
-
       // Replies
       var repliesEl = el('div', { className: 'rhacs-replies' });
       (pin.replies || []).forEach(function (r) { repliesEl.appendChild(Popup.renderReply(r, pinId)); });
@@ -2114,7 +2104,7 @@
         append(replyForm, replyArea, replyError, replyActions);
       }
 
-      append(this.el, header, firstPost, reactionsEl, repliesEl, replyForm);
+      append(this.el, header, firstPost, repliesEl, replyForm);
       this.el.style.display = 'block';
 
       // Position near pin element (pins now live in pinLayerEl)
@@ -2127,54 +2117,6 @@
         this.el.style.top  = '80px';
         this.el.style.transform = 'translateX(-50%)';
       }
-    },
-    buildReactions: function (pin) {
-      var wrap = el('div', { className: 'rhacs-reactions' });
-      if (isShareMode()) return wrap;
-      var EMOJI = { THUMBS_UP:'👍', THUMBS_DOWN:'👎', LAUGH:'😄', HOORAY:'🎉', CONFUSED:'😕', HEART:'❤️', ROCKET:'🚀', EYES:'👀' };
-      (pin.reactionGroups || []).forEach(function (g) {
-        if (g.users.totalCount === 0 && !g.viewerHasReacted) return;
-        var btn = el('button', { className: 'rhacs-reaction-btn' + (g.viewerHasReacted ? ' active' : '') });
-        btn.appendChild(txt((EMOJI[g.content] || '') + ' ' + g.users.totalCount));
-        btn.addEventListener('click', function () { Popup.handleReaction(pin.id, g.content, g.viewerHasReacted); });
-        wrap.appendChild(btn);
-      });
-      var addBtn = el('button', { className: 'rhacs-reaction-btn rhacs-reaction-add' });
-      addBtn.appendChild(txt('+ 😀'));
-      addBtn.addEventListener('click', function (e) { e.stopPropagation(); Popup.showPicker(pin.id, wrap); });
-      wrap.appendChild(addBtn);
-      return wrap;
-    },
-    showPicker: function (pinId, container) {
-      var existing = container.querySelector('.rhacs-reaction-picker');
-      if (existing) { existing.remove(); return; }
-      var CHOICES = [
-        { c:'THUMBS_UP',   e:'👍' }, { c:'THUMBS_DOWN', e:'👎' },
-        { c:'LAUGH',       e:'😄' }, { c:'HOORAY',      e:'🎉' },
-        { c:'CONFUSED',    e:'😕' }, { c:'HEART',       e:'❤️' },
-        { c:'ROCKET',      e:'🚀' }, { c:'EYES',        e:'👀' },
-      ];
-      var picker = el('div', { className: 'rhacs-reaction-picker' });
-      CHOICES.forEach(function (item) {
-        var btn = el('button', { className: 'rhacs-reaction-picker__btn' });
-        btn.appendChild(txt(item.e));
-        btn.addEventListener('click', function (e) { e.stopPropagation(); Popup.handleReaction(pinId, item.c, false); });
-        picker.appendChild(btn);
-      });
-      container.appendChild(picker);
-      setTimeout(function () {
-        document.addEventListener('click', function dismiss() {
-          picker.remove();
-          document.removeEventListener('click', dismiss);
-        });
-      }, 0);
-    },
-    handleReaction: function (pinId, content, hasReacted) {
-      Auth.requireAuth()
-        .then(function () { return toggleReaction(pinId, content, hasReacted); })
-        .then(function () { return loadAndRender(); })
-        .then(function () { if (S.activePinId === pinId) Popup.showThread(pinId); })
-        .catch(function (e) { Notify.toast(e.message); });
     },
     toggleResolve: function (pin) {
       if (String(pin.id).startsWith('guest-')) {

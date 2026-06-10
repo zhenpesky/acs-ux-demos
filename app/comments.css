@@ -443,7 +443,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: 4px;
   padding: 6px 8px;
   outline: none;
-  font-size: inherit;
+  font-size: 16px;
   font-family: inherit;
   color: inherit;
   line-height: 1.5;

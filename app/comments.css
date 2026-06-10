@@ -2652,11 +2652,13 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: none;
   border: 1px solid #ccc;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+  line-height: 0;
   color: #666;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .rhacs-sc-camera-btn:hover {
   background: #f0f0f0;

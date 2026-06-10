@@ -2301,7 +2301,7 @@
       cancelBtn.addEventListener('click', function () { Popup.close(); });
 
       var cameraBtn = el('button', { className: 'rhacs-sc-camera-btn', type: 'button' });
-      cameraBtn.appendChild(txt('\uD83D\uDCF7'));
+      cameraBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><circle cx="12" cy="14" r="3"/></svg>';
       cameraBtn.setAttribute('aria-label', 'Attach screenshot');
       cameraBtn.title = 'Attach screenshot';
       cameraBtn.addEventListener('click', function (e) {

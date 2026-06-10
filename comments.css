@@ -2747,6 +2747,16 @@ body.rhacs-comment-mode-active .rhacs-pin {
 .rhacs-reply-sc-toolbar ~ .rhacs-btn-row {
   margin-top: 10px;
 }
+/* Scale down the camera button inside the reply toolbar */
+.rhacs-reply-sc-toolbar .rhacs-sc-camera-btn {
+  font-size: 13px;
+  padding: 3px 8px;
+  gap: 4px;
+}
+.rhacs-reply-sc-toolbar .rhacs-sc-camera-btn svg {
+  width: 14px;
+  height: 14px;
+}
 .rhacs-sc-camera-btn {
   display: inline-flex;
   align-items: center;

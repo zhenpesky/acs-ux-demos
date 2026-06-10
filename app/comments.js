@@ -2700,7 +2700,7 @@
         });
         var rsc = buildReplyScreenshotToolbar();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
-        var postBtn = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
+        var postBtn = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         postBtn.appendChild(txt('Post'));
         postBtn.addEventListener('click', function (e) {
           e.stopPropagation();
@@ -2754,7 +2754,10 @@
             }).catch(function (e) { console.warn('[rhacs] Guest reply upload failed:', e && e.message); });
           }
         });
-        append(replyActions, postBtn);
+        var guestCancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
+        guestCancelBtn.appendChild(txt('Cancel'));
+        guestCancelBtn.addEventListener('click', function () { Popup.close(); });
+        append(replyActions, postBtn, guestCancelBtn);
         append(replyForm, replyArea, replyError, rsc.toolbar, rsc.thumbsDiv, replyActions);
       } else if (!S.guestMode) {
         var replyArea = el('textarea', { className: 'pf-v6-c-form-control rhacs-popup__textarea rhacs-popup__textarea--reply', placeholder: 'Reply…', rows: '2' });
@@ -2768,8 +2771,8 @@
         });
         var rsc2 = buildReplyScreenshotToolbar();
         var replyActions = el('div', { className: 'rhacs-btn-row' });
-        var replyBtn  = el('button', { className: 'rhacs-btn rhacs-btn--primary rhacs-btn--sm' });
-        replyBtn.appendChild(txt('Reply'));
+        var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
+        replyBtn.appendChild(txt('Post'));
         replyBtn.addEventListener('click', function () {
           if (!replyArea.value.trim()) {
             replyArea.classList.add('rhacs-popup__textarea--error');
@@ -2778,7 +2781,7 @@
             return;
           }
           replyBtn.disabled = true;
-          replyBtn.textContent = 'Replying…';
+          replyBtn.textContent = 'Posting…';
           var attachment = ScreenshotCapture.getAttachment();
           var replyText = replyArea.value;
           if (attachment) replyText += '\n\n![screenshot](' + attachment.dataUrl + ')';
@@ -2786,10 +2789,10 @@
             .catch(function () {})
             .finally(function () {
               replyBtn.disabled = false;
-              replyBtn.textContent = 'Reply';
+              replyBtn.textContent = 'Post';
             });
         });
-        var replyCancelBtn = el('button', { className: 'rhacs-btn rhacs-btn--secondary rhacs-btn--sm' });
+        var replyCancelBtn = el('button', { className: 'pf-v6-c-button pf-m-secondary' });
         replyCancelBtn.appendChild(txt('Cancel'));
         replyCancelBtn.addEventListener('click', function () {
           replyArea.value = '';

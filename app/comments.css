@@ -2730,13 +2730,27 @@ body.rhacs-comment-mode-active .rhacs-pin {
   border-radius: 6px 6px 0 0;
 }
 
-/* Reply form toolbar spacing: toolbar sits at top, buttons have breathing room below thumbs */
+/* Reply form: toolbar connects flush to textarea — no gap, shared border */
 .rhacs-reply-form .rhacs-popup__toolbar {
-  margin: 0 0 0 0;
+  margin: 0;
   border-radius: 6px 6px 0 0;
+  border-bottom: none;
+}
+.rhacs-reply-form .rhacs-popup__toolbar + .rhacs-sc-thumbs + .rhacs-popup__textarea--reply,
+.rhacs-reply-form .rhacs-popup__toolbar + .rhacs-popup__textarea--reply {
+  border-top: none !important;
+  border-radius: 0 0 4px 4px !important;
+  margin-top: 0 !important;
 }
 .rhacs-reply-form .rhacs-sc-thumbs:not(:empty) {
   padding: 6px 8px;
+  border-left: 1px solid #d0d7de;
+  border-right: 1px solid #d0d7de;
+}
+.rhacs-reply-form .rhacs-sc-thumbs:not(:empty) + .rhacs-popup__textarea--reply {
+  border-top: none !important;
+  border-radius: 0 0 4px 4px !important;
+  margin-top: 0 !important;
 }
 .rhacs-reply-form .rhacs-btn-row {
   margin-top: 10px;

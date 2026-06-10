@@ -2681,6 +2681,8 @@ body.rhacs-comment-mode-active .rhacs-pin {
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
+  margin-bottom: 4px;
+  padding: 4px 0;
   min-height: 0;
 }
 

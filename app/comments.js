@@ -1711,12 +1711,28 @@
     start: function () {
       var self = this;
       if (this._attachments.length >= 4) return;
-      Popup.el.style.display = 'none';
       Popup.suppressOutsideDismiss(60000);
-      // Pre-warm the screen capture stream so the permission dialog appears
-      // immediately when the user opens the selection UI, not after they draw.
-      self._getStream().catch(function () { /* user may cancel — ok */ });
-      self._showSelectionUI();
+
+      // If stream is already live, skip the share dialog entirely
+      if (self._stream && self._stream.active) {
+        Popup.el.style.display = 'none';
+        self._showSelectionUI();
+        return;
+      }
+
+      // Show a brief "waiting for permission" hint before the browser dialog
+      Notify.toast('Select this tab in the share dialog to enable screenshots', 5000);
+
+      self._getStream().then(function () {
+        Popup.el.style.display = 'none';
+        self._showSelectionUI();
+      }).catch(function (err) {
+        // User cancelled the share dialog — just restore the popup silently
+        Popup.el.style.display = 'block';
+        if (err && err.name !== 'NotAllowedError') {
+          Notify.toast('Screen capture unavailable');
+        }
+      });
     },
 
     _showSelectionUI: function () {
@@ -1736,6 +1752,11 @@
         selEl.appendChild(h);
       });
 
+      // Cancel is always visible so users can never get stuck
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'rhacs-sc-cancel-btn rhacs-sc-cancel-btn--floating';
+      cancelBtn.textContent = 'Cancel';
+
       var btnRow = document.createElement('div');
       btnRow.className = 'rhacs-sc-btn-row';
       btnRow.style.display = 'none';
@@ -1744,18 +1765,19 @@
       captureBtn.className = 'rhacs-sc-capture-btn';
       captureBtn.textContent = 'Capture';
 
-      var cancelBtn = document.createElement('button');
-      cancelBtn.className = 'rhacs-sc-cancel-btn';
-      cancelBtn.textContent = 'Cancel';
+      var rowCancelBtn = document.createElement('button');
+      rowCancelBtn.className = 'rhacs-sc-cancel-btn';
+      rowCancelBtn.textContent = 'Cancel';
 
       btnRow.appendChild(captureBtn);
-      btnRow.appendChild(cancelBtn);
+      btnRow.appendChild(rowCancelBtn);
 
       var hintEl = document.createElement('div');
       hintEl.className = 'rhacs-sc-hint';
       hintEl.textContent = 'Drag to select an area';
 
       overlay.appendChild(selEl);
+      overlay.appendChild(cancelBtn);  // always-visible escape hatch
       overlay.appendChild(btnRow);
       overlay.appendChild(hintEl);
       document.body.appendChild(overlay);
@@ -1843,10 +1865,19 @@
         dragState = null;
       });
 
-      cancelBtn.addEventListener('click', function () {
-        document.body.removeChild(overlay);
+      function dismiss() {
+        if (overlay.parentNode) document.body.removeChild(overlay);
+        document.removeEventListener('keydown', onKey);
         Popup.el.style.display = 'block';
-      });
+      }
+
+      function onKey(e) {
+        if (e.key === 'Escape') dismiss();
+      }
+      document.addEventListener('keydown', onKey);
+
+      cancelBtn.addEventListener('click', dismiss);
+      rowCancelBtn.addEventListener('click', dismiss);
 
       captureBtn.addEventListener('click', function () {
         var nr = normalizedRect();
@@ -1862,6 +1893,7 @@
 
         self._grabRegion(sx, sy, sw, sh).then(function (dataUrl) {
           mount.style.display = '';
+          document.removeEventListener('keydown', onKey);
           if (overlay.parentNode) document.body.removeChild(overlay);
 
           console.log('[RHACS-SC] capture OK ' + sw + 'x' + sh);
@@ -1877,6 +1909,7 @@
           Popup.el.style.display = 'block';
         }).catch(function (err) {
           mount.style.display = '';
+          document.removeEventListener('keydown', onKey);
           if (overlay.parentNode) document.body.removeChild(overlay);
           var msg = (err && err.message) || '';
           if (msg.indexOf('Permission') >= 0 || msg.indexOf('cancel') >= 0 || msg.indexOf('denied') >= 0 || err.name === 'NotAllowedError') {

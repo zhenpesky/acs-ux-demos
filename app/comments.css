@@ -2767,6 +2767,14 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: rgba(255,255,255,0.25);
 }
 
+/* Always-visible Cancel in the top-right — escape hatch before selection is drawn */
+.rhacs-sc-cancel-btn--floating {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 100001;
+}
+
 .rhacs-sc-hint {
   position: fixed;
   top: 50%;

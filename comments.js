@@ -169,6 +169,28 @@
     });
   }
 
+  // Match live pin after guest→GitHub ID sync (_origGuestId) or stale thread pinId.
+  function findPinById(pinId) {
+    var pin = S.pins.find(function (p) { return p.id === pinId || p._origGuestId === pinId; });
+    if (!pin && S.guestMode) {
+      var stored = Auth.loadGuestPins().find(function (p) { return p.id === pinId || p._origGuestId === pinId; });
+      if (stored) {
+        if (!stored.meta) stored.meta = parseMeta(stored.body);
+        stored._guest = true;
+        S.pins.push(stored);
+        pin = stored;
+      }
+    }
+    return pin || null;
+  }
+
+  function findStoredGuestPin(stored, pinId) {
+    for (var i = 0; i < stored.length; i++) {
+      if (stored[i].id === pinId || stored[i]._origGuestId === pinId) return stored[i];
+    }
+    return null;
+  }
+
   function isEventInsidePopup(e) {
     if (!Popup.el) return false;
     if (typeof e.composedPath === 'function') {
@@ -2632,18 +2654,10 @@
         .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
     },
     showThread: function (pinId) {
-      S.activePinId = pinId;
-      var pin = S.pins.find(function (p) { return p.id === pinId; });
-      if (!pin && S.guestMode) {
-        var guestPin = Auth.loadGuestPins().find(function (p) { return p.id === pinId; });
-        if (guestPin) {
-          if (!guestPin.meta) guestPin.meta = parseMeta(guestPin.body);
-          guestPin._guest = true;
-          S.pins.push(guestPin);
-          pin = guestPin;
-        }
-      }
+      var pin = findPinById(pinId);
       if (!pin) return;
+      pinId = pin.id;
+      S.activePinId = pinId;
 
       Popup._setModalElevated(!!(pin.meta && pin.meta.modalTitle));
 
@@ -2772,19 +2786,18 @@
           postBtn.disabled = true;
           postBtn.textContent = 'Posting\u2026';
           // Local display uses clean replyText — signature is metadata only for GitHub attribution
+          var livePin = findPinById(pinId) || pin;
+          var livePinId = livePin.id;
           var optimisticReply = { id: 'guest-reply-' + Date.now(), body: replyText, createdAt: new Date().toISOString(), author: guestAuthor };
-          if (pin.replies) pin.replies.push(optimisticReply); else pin.replies = [optimisticReply];
+          if (livePin.replies) livePin.replies.push(optimisticReply); else livePin.replies = [optimisticReply];
           var stored = Auth.loadGuestPins();
-          for (var gi = 0; gi < stored.length; gi++) {
-            if (stored[gi].id === pinId) { stored[gi].replies = pin.replies; break; }
-          }
+          var storedPin = findStoredGuestPin(stored, pinId);
+          if (storedPin) storedPin.replies = livePin.replies;
           Auth.saveGuestPins(stored);
           replyArea.value = '';
           Popup.suppressOutsideDismiss(500);
-          Popup.keepOpenAfterAction(function () { Popup.showThread(pinId); });
-          // Resolve the live pin ID — also match by _origGuestId in case the ID was already updated
-          var livePin = S.pins.find(function (p) { return p.id === pinId || p._origGuestId === pinId; });
-          var livePinId = livePin ? livePin.id : pinId;
+          Popup.showThread(livePinId);
+          Popup.keepOpenAfterAction(function () { Popup.showThread(livePinId); });
           var uploadGuestReply = function () {
             if (!String(livePinId).startsWith('guest-') && S.discussionId) {
               fetchWithTimeout(CFG.workerUrl, {
@@ -2794,12 +2807,10 @@
               }).then(function (r) { return r.json(); }).then(function (data) {
                 if (data && data.id) {
                   var st = Auth.loadGuestPins();
-                  for (var si = 0; si < st.length; si++) {
-                    if (st[si].id === pinId && st[si].replies) {
-                      for (var ri = 0; ri < st[si].replies.length; ri++) {
-                        if (st[si].replies[ri].id === optimisticReply.id) { st[si].replies[ri].id = data.id; break; }
-                      }
-                      break;
+                  var stPin = findStoredGuestPin(st, livePinId);
+                  if (stPin && stPin.replies) {
+                    for (var ri = 0; ri < stPin.replies.length; ri++) {
+                      if (stPin.replies[ri].id === optimisticReply.id) { stPin.replies[ri].id = data.id; break; }
                     }
                   }
                   Auth.saveGuestPins(st);
@@ -2836,7 +2847,9 @@
         var replyActions = el('div', { className: 'rhacs-btn-row' });
         var replyBtn  = el('button', { className: 'pf-v6-c-button pf-m-primary' });
         replyBtn.appendChild(txt('Post'));
-        replyBtn.addEventListener('click', function () {
+        replyBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          e.preventDefault();
           if (!replyArea.value.trim()) {
             replyArea.classList.add('rhacs-popup__textarea--error');
             replyError.style.display = 'block';
@@ -3126,6 +3139,9 @@
       return Auth.requireAuth()
         .then(function () {
           if (S.guestMode) return; // handled by inline notice in the reply form
+          var pin = findPinById(pinId);
+          if (!pin) return Promise.reject(new Error('Comment not found'));
+          pinId = pin.id;
           // Optimistic: add reply immediately before API call
           var optimisticReply = {
             id: 'optimistic-reply-' + Date.now(),
@@ -3133,20 +3149,26 @@
             createdAt: new Date().toISOString(),
             author: S.user
           };
-          var pin = S.pins.find(function (p) { return p.id === pinId; });
-          if (pin) {
-            pin.replies = (pin.replies || []).concat([optimisticReply]);
-            if (textarea) textarea.value = '';
-            Popup.showThread(pinId);
-            Overlay.renderPins();
-            Panel.render();
-          }
+          pin.replies = (pin.replies || []).concat([optimisticReply]);
+          if (textarea) textarea.value = '';
+          Popup.showThread(pinId);
+          Overlay.renderPins();
+          Panel.render();
           return addReply(pinId, text)
-            .then(function () { return loadAndRender(); })
-            .then(function () { Popup.showThread(pinId); })
+            .then(function (data) {
+              var newId = data && data.addDiscussionComment && data.addDiscussionComment.comment && data.addDiscussionComment.comment.id;
+              if (newId) {
+                pin.replies = (pin.replies || []).map(function (r) {
+                  return r.id === optimisticReply.id ? Object.assign({}, r, { id: newId }) : r;
+                });
+              }
+              Popup.showThread(pinId);
+              Overlay.renderPins();
+              Panel.render();
+            })
             .catch(function (e) {
               // Rollback optimistic reply on failure
-              if (pin) pin.replies = pin.replies.filter(function (r) { return r.id !== optimisticReply.id; });
+              pin.replies = (pin.replies || []).filter(function (r) { return r.id !== optimisticReply.id; });
               Popup.showThread(pinId);
               if (e && e.name === 'AbortError') Notify.toast('Reply timed out — please try again');
               else Notify.toast('Failed to reply: ' + e.message);

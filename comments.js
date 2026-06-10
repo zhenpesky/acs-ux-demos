@@ -1942,7 +1942,10 @@
         ScreenshotCapture._mountPrevVisibility = m.style.visibility;
         m.style.visibility = 'hidden';
       }
-      // Show "Capturing…" badge on body so user knows something is happening
+    },
+
+    _showCapturingBadge: function () {
+      if (document.getElementById('rhacs-capture-status')) return;
       var badge = document.createElement('div');
       badge.id = 'rhacs-capture-status';
       badge.innerHTML = 'Capturing<span class="rhacs-capture-dots"><span>.</span><span>.</span><span>.</span></span>';
@@ -2028,6 +2031,7 @@
         var selH = Math.abs(e.clientY - startY);
         if (selW > 10 && selH > 10) {
           ScreenshotCapture._cancel(false); // remove overlay, keep mount hidden
+          ScreenshotCapture._showCapturingBadge(); // show badge NOW between selection done and window returning
           ScreenshotCapture._capture(selX, selY, selW, selH, onDone);
         } else {
           ScreenshotCapture._cancel(true); // remove overlay AND restore mount

@@ -1655,12 +1655,17 @@
       this._cameraBtn = null;
     },
 
-    _loadHtml2Canvas: function () {
-      return new Promise(function (resolve) {
-        if (window.html2canvas) return resolve(window.html2canvas);
+    _loadHtmlToImage: function () {
+      return new Promise(function (resolve, reject) {
+        if (window.htmlToImage) return resolve(window.htmlToImage);
         var s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-        s.onload = function () { resolve(window.html2canvas); };
+        s.src = 'https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js';
+        s.crossOrigin = 'anonymous';
+        s.onload = function () {
+          if (window.htmlToImage) resolve(window.htmlToImage);
+          else reject(new Error('htmlToImage not defined after load'));
+        };
+        s.onerror = reject;
         document.head.appendChild(s);
       });
     },
@@ -1808,39 +1813,44 @@
         document.body.appendChild(loadingEl);
         overlay.style.display = 'block';
 
-        self._loadHtml2Canvas().then(function (h2c) {
-          h2c(document.body, {
-            x: nr.x + (window.scrollX || 0),
-            y: nr.y + (window.scrollY || 0),
-            width: nr.w,
-            height: nr.h,
+        self._loadHtmlToImage().then(function (hti) {
+          // Capture full page as canvas, then crop to the selected region
+          var sx = nr.x + (window.scrollX || 0);
+          var sy = nr.y + (window.scrollY || 0);
+          hti.toCanvas(document.body, {
             useCORS: true,
-            allowTaint: false,
-            logging: false,
-            scale: 1,
-            imageTimeout: 8000,
-          }).then(function (canvas) {
+            skipFonts: false,
+            pixelRatio: 1,
+            width: document.documentElement.scrollWidth,
+            height: document.documentElement.scrollHeight,
+            style: { transform: 'none' },
+          }).then(function (fullCanvas) {
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
 
-            // Validate canvas rendered properly (default blank canvas is 300×150)
-            if (canvas.width < 10 || canvas.height < 10 ||
-                (canvas.width === 300 && canvas.height === 150)) {
-              console.log('[RHACS-SC] html2canvas returned blank/default canvas (' + canvas.width + 'x' + canvas.height + ')');
-              Notify.toast('Screenshot failed — try a smaller area');
+            // Crop to the selection rectangle
+            var cropW = Math.min(nr.w, fullCanvas.width - sx);
+            var cropH = Math.min(nr.h, fullCanvas.height - sy);
+            if (cropW < 10 || cropH < 10) {
+              console.log('[RHACS-SC] crop region too small');
+              Notify.toast('Screenshot failed — try a larger area');
               Popup.el.style.display = 'block';
               return;
             }
+            var cropCanvas = document.createElement('canvas');
+            cropCanvas.width = cropW;
+            cropCanvas.height = cropH;
+            var ctx = cropCanvas.getContext('2d');
+            ctx.drawImage(fullCanvas, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
 
             var dataUrl;
             try {
-              dataUrl = canvas.toDataURL('image/png');
-              console.log('[RHACS-SC] capture OK ' + canvas.width + 'x' + canvas.height + ', len=' + dataUrl.length);
+              dataUrl = cropCanvas.toDataURL('image/png');
+              console.log('[RHACS-SC] capture OK ' + cropW + 'x' + cropH + ' len=' + dataUrl.length);
             } catch (e) {
-              // SecurityError: canvas tainted by cross-origin content
-              console.log('[RHACS-SC] toDataURL blocked (cross-origin content):', e.message);
-              Notify.toast('Screenshot blocked — browser security prevents capturing cross-origin content');
+              console.log('[RHACS-SC] toDataURL blocked:', e.message);
+              Notify.toast('Screenshot blocked by browser security — try a different area');
               Popup.el.style.display = 'block';
               return;
             }
@@ -1848,7 +1858,7 @@
             var filename = 'sc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
             self._attachments.push({ dataUrl: dataUrl, filename: filename });
             var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
-            console.log('[RHACS-SC] thumbsEl:', !!thumbsEl, 'attachments:', self._attachments.length);
+            console.log('[RHACS-SC] thumbsEl found:', !!thumbsEl, 'total attachments:', self._attachments.length);
             if (thumbsEl) {
               self._thumbsEl = thumbsEl;
               self.renderThumbnails(thumbsEl);
@@ -1859,7 +1869,7 @@
             mount.style.display = '';
             if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
             if (overlay.parentNode) document.body.removeChild(overlay);
-            console.log('[RHACS-SC] html2canvas error:', err && err.message);
+            console.log('[RHACS-SC] html-to-image error:', err && err.message);
             Notify.toast('Screenshot failed — try a smaller area');
             Popup.el.style.display = 'block';
           });
@@ -1867,7 +1877,7 @@
           mount.style.display = '';
           if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
           if (overlay.parentNode) document.body.removeChild(overlay);
-          console.log('[RHACS-SC] html2canvas load error:', err && err.message);
+          console.log('[RHACS-SC] capture library load error:', err && err.message);
           Notify.toast('Could not load capture library');
           Popup.el.style.display = 'block';
         });

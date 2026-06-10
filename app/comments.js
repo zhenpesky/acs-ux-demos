@@ -19,6 +19,7 @@
     guestKey:    'rhacs_guest_id',
     guestPinsPrefix: 'rhacs_guest_pins_',
     seenPrefix:  'rhacs_seen_',
+    shareKey:    'rh-ux-2026',
     pollMs:      30000,
   };
 
@@ -26,7 +27,7 @@
   function isShareMode() {
     // GitHub-authenticated users always get full UI — share restrictions are guest-only.
     if (S.token) return false;
-    if (shareToken()) return true;
+    if (shareToken() === CFG.shareKey) return true;
     try { return sessionStorage.getItem('rhacs_share_mode') === '1'; } catch (e) { return false; }
   }
 
@@ -933,6 +934,10 @@
           categoryName: CFG.categoryName,
         }),
       }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data && data.error === 'Invalid share token') {
+          Notify.toast('This share link is no longer valid. Please request an updated link.');
+          return;
+        }
         if (data && data.id) {
           // Replace the temp ID with the real GitHub comment ID in localStorage
           var stored = Auth.loadGuestPins();
@@ -1955,6 +1960,10 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ type: 'guest_reply', shareToken: shareToken(), commentId: livePinId, discussionId: S.discussionId, replyBody: fullBody })
             }).then(function (r) { return r.json(); }).then(function (data) {
+              if (data && data.error === 'Invalid share token') {
+                Notify.toast('This share link is no longer valid. Please request an updated link.');
+                return;
+              }
               if (data && data.id) {
                 var st = Auth.loadGuestPins();
                 for (var si = 0; si < st.length; si++) {
@@ -3684,7 +3693,7 @@
 
     // Persist share mode to sessionStorage so it survives SPA navigation
     try {
-      if (shareToken()) {
+      if (shareToken() === CFG.shareKey) {
         sessionStorage.setItem('rhacs_share_mode', '1');
       }
     } catch (e) {}

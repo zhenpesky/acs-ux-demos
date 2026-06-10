@@ -1644,135 +1644,6 @@
     });
   }
 
-  var ScreenshotCapture = {
-    _attachments: [],
-    _thumbsEl: null,
-    _cameraBtn: null,
-
-    reset: function () {
-      this._attachments = [];
-      this._thumbsEl = null;
-      this._cameraBtn = null;
-    },
-
-    _handleFiles: function (files) {
-      var self = this;
-      files = files.filter(function (f) { return f.type.startsWith('image/'); });
-      var remaining = 4 - self._attachments.length;
-      files.slice(0, remaining).forEach(function (file) {
-        var reader = new FileReader();
-        reader.onload = function (e) {
-          var dataUrl = e.target.result;
-          var filename = 'attach-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.png';
-          self._attachments.push({ dataUrl: dataUrl, filename: filename });
-          var thumbsEl = Popup.el ? Popup.el.querySelector('.rhacs-sc-thumbs') : null;
-          if (thumbsEl) {
-            self._thumbsEl = thumbsEl;
-            self.renderThumbnails(thumbsEl);
-          }
-          if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
-        };
-        reader.readAsDataURL(file);
-      });
-    },
-
-    _handlePaste: function (e) {
-      var items = (e.clipboardData || e.originalEvent && e.originalEvent.clipboardData || {}).items;
-      if (!items) return;
-      var files = [];
-      for (var i = 0; i < items.length; i++) {
-        if (items[i].type.startsWith('image/')) {
-          var f = items[i].getAsFile();
-          if (f) files.push(f);
-        }
-      }
-      if (files.length) {
-        e.preventDefault();
-        this._handleFiles(files);
-      }
-    },
-
-    // Open a full-size lightbox so users can review the image before posting
-    _openPreview: function (dataUrl) {
-      var overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:200000;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-      var img = document.createElement('img');
-      img.src = dataUrl;
-      img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);object-fit:contain;cursor:default';
-      img.addEventListener('click', function (e) { e.stopPropagation(); });
-      var closeBtn = document.createElement('button');
-      closeBtn.textContent = '×';
-      closeBtn.style.cssText = 'position:absolute;top:16px;right:20px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:28px;line-height:1;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center';
-      function dismiss() { if (overlay.parentNode) document.body.removeChild(overlay); document.removeEventListener('keydown', onKey); }
-      function onKey(e) { if (e.key === 'Escape') dismiss(); }
-      overlay.addEventListener('click', dismiss);
-      closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
-      document.addEventListener('keydown', onKey);
-      overlay.appendChild(img);
-      overlay.appendChild(closeBtn);
-      document.body.appendChild(overlay);
-    },
-
-    renderThumbnails: function (containerEl) {
-      var self = this;
-      containerEl.innerHTML = '';
-      this._attachments.forEach(function (att, idx) {
-        var wrap = document.createElement('div');
-        wrap.className = 'rhacs-sc-thumb';
-        wrap.title = 'Click to preview';
-
-        var img = document.createElement('img');
-        img.src = att.dataUrl;
-        // Click thumbnail → full-size preview
-        img.addEventListener('click', function (e) {
-          e.stopPropagation();
-          self._openPreview(att.dataUrl);
-        });
-
-        var removeBtn = document.createElement('button');
-        removeBtn.className = 'rhacs-sc-thumb__remove';
-        removeBtn.textContent = '\xd7';
-        removeBtn.title = 'Remove';
-        removeBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          self._attachments.splice(idx, 1);
-          if (self._cameraBtn) self._cameraBtn.disabled = (self._attachments.length >= 4);
-          self.renderThumbnails(containerEl);
-        });
-
-        wrap.appendChild(img);
-        wrap.appendChild(removeBtn);
-        containerEl.appendChild(wrap);
-      });
-    },
-
-    uploadAll: function () {
-      if (this._attachments.length === 0) return Promise.resolve([]);
-      return Promise.all(this._attachments.map(function (att) {
-        var base64Data = att.dataUrl.replace(/^data:image\/png;base64,/, '');
-        return fetch(CFG.workerUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'upload_screenshot',
-            filename: att.filename,
-            base64Data: base64Data,
-            owner: CFG.owner,
-            repo: CFG.repo,
-          }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (d) {
-            if (d.url) return '![Screenshot](' + d.url + ')';
-            return null;
-          })
-          .catch(function () { return null; });
-      })).then(function (results) {
-        return results.filter(Boolean);
-      });
-    },
-  };
-
   var Lightbox = {
     _escHandler: null,
 
@@ -1963,14 +1834,9 @@
       }
     },
     close: function () {
-      if (this._onPaste) {
-        this.el.removeEventListener('paste', this._onPaste);
-        this._onPaste = null;
-      }
       this.el.style.display = 'none';
       this.el.classList.remove('rhacs-popup--modal');
       S.activePinId = null;
-      ScreenshotCapture.reset();
     },
     _setModalElevated: function (elevated) {
       this.el.classList.toggle('rhacs-popup--modal', !!elevated);
@@ -2100,11 +1966,6 @@
       S.activePinId = null;
       Popup._pendingModalMeta = modalMeta || null;
       Popup._setModalElevated(!!(modalMeta && modalMeta.modalTitle));
-      if (Popup._onPaste) {
-        this.el.removeEventListener('paste', Popup._onPaste);
-        Popup._onPaste = null;
-      }
-      ScreenshotCapture.reset();
       this.el.innerHTML = '';
 
       var header = el('div', { className: 'rhacs-popup__header' });
@@ -2149,46 +2010,7 @@
 
       append(actions, postBtn, cancelBtn);
 
-      var attachWrap = el('div', { className: 'rhacs-sc-attach-wrap' });
-
-      var fileInput = document.createElement('input');
-      fileInput.type = 'file';
-      fileInput.accept = 'image/*';
-      fileInput.multiple = true;
-      fileInput.style.display = 'none';
-      fileInput.addEventListener('change', function () {
-        ScreenshotCapture._handleFiles(Array.from(fileInput.files));
-        fileInput.value = '';
-      });
-
-      var attachBtn = document.createElement('button');
-      attachBtn.type = 'button';
-      attachBtn.className = 'rhacs-sc-attach-btn';
-      attachBtn.title = 'Attach image';
-      attachBtn.setAttribute('aria-label', 'Attach image');
-      attachBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 0 1 5 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a2.5 2.5 0 0 0 5 0V5c0-2.21-1.79-4-4-4S6 2.79 6 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>';
-      ScreenshotCapture._cameraBtn = attachBtn;
-      attachBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        if (ScreenshotCapture._attachments.length >= 4) return;
-        fileInput.click();
-      });
-
-      var pasteHint = el('span', { className: 'rhacs-sc-paste-hint' });
-      pasteHint.appendChild(txt('or paste image'));
-
-      append(attachWrap, fileInput, attachBtn, pasteHint);
-      actions.appendChild(attachWrap);
-
-      var thumbsEl = el('div', { className: 'rhacs-sc-thumbs' });
-      ScreenshotCapture._thumbsEl = thumbsEl;
-
-      append(this.el, header, textarea, inputError, actions, thumbsEl);
-
-      Popup._onPaste = function (e) {
-        ScreenshotCapture._handlePaste(e);
-      };
-      this.el.addEventListener('paste', Popup._onPaste);
+      append(this.el, header, textarea, inputError, actions);
 
       this.el.style.display = 'block';
       this.positionFixed(clientX, clientY);
@@ -2200,51 +2022,49 @@
       var num = S.pins.length + 1;
       var modalMeta = Popup._pendingModalMeta || null;
       Popup._pendingModalMeta = null;
-      ScreenshotCapture.uploadAll().then(function (mdLines) {
-        var fullText = mdLines.length ? text + '\n\n' + mdLines.join('\n') : text;
-        Auth.requireAuth()
-          .then(function () {
-            // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
-            if (S.guestMode && !S.token) {
-              var newPin = Auth.addGuestPin(fullText, x, y, num, modalMeta);
-              loadGuestPinsIntoState();
-              Overlay.renderPins();
-              if (isShareMode() && newPin && newPin.id) {
-                Popup.keepOpenAfterAction(function () { Popup.showThread(newPin.id); });
-              } else {
-                Popup.close();
-              }
-              Notify.toast('Comment submitted — thank you!');
+      var fullText = text;
+      Auth.requireAuth()
+        .then(function () {
+          // Guest path: no GitHub token — POST via worker, show own pin from localStorage only.
+          if (S.guestMode && !S.token) {
+            var newPin = Auth.addGuestPin(fullText, x, y, num, modalMeta);
+            loadGuestPinsIntoState();
+            Overlay.renderPins();
+            if (isShareMode() && newPin && newPin.id) {
+              Popup.keepOpenAfterAction(function () { Popup.showThread(newPin.id); });
             } else {
-              // Optimistic: show pin immediately, sync in background
-              var body = buildBody(x, y, num, fullText, null, modalMeta);
-              var optimisticPin = {
-                id: 'optimistic-' + Date.now(),
-                body: body,
-                createdAt: new Date().toISOString(),
-                author: S.user,
-                meta: parseMeta(body),
-                replies: []
-              };
-              S.seenIds.add(optimisticPin.id);
-              S.pins = S.pins.concat([optimisticPin]);
               Popup.close();
-              Overlay.renderPins();
-              Panel.render();
-              FAB.updateBadge();
-              return addPinComment(fullText, x, y, num, modalMeta)
-                .then(function () { return loadAndRender(); })
-                .catch(function (e) {
-                  // Rollback optimistic pin on failure
-                  S.pins = S.pins.filter(function (p) { return p.id !== optimisticPin.id; });
-                  Overlay.renderPins();
-                  Panel.render();
-                  Notify.toast('Failed to post: ' + e.message);
-                });
             }
-          })
-          .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
-      });
+            Notify.toast('Comment submitted — thank you!');
+          } else {
+            // Optimistic: show pin immediately, sync in background
+            var body = buildBody(x, y, num, fullText, null, modalMeta);
+            var optimisticPin = {
+              id: 'optimistic-' + Date.now(),
+              body: body,
+              createdAt: new Date().toISOString(),
+              author: S.user,
+              meta: parseMeta(body),
+              replies: []
+            };
+            S.seenIds.add(optimisticPin.id);
+            S.pins = S.pins.concat([optimisticPin]);
+            Popup.close();
+            Overlay.renderPins();
+            Panel.render();
+            FAB.updateBadge();
+            return addPinComment(fullText, x, y, num, modalMeta)
+              .then(function () { return loadAndRender(); })
+              .catch(function (e) {
+                // Rollback optimistic pin on failure
+                S.pins = S.pins.filter(function (p) { return p.id !== optimisticPin.id; });
+                Overlay.renderPins();
+                Panel.render();
+                Notify.toast('Failed to post: ' + e.message);
+              });
+          }
+        })
+        .catch(function (e) { if (e.message !== 'cancelled') Notify.toast('Failed: ' + e.message); });
     },
     showThread: function (pinId) {
       S.activePinId = pinId;

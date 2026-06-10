@@ -766,7 +766,7 @@
       var login    = Auth._buildGuestLogin(firstName, lastName, title, company);
       // Avatar seed: first name, then first of any other field
       var seed     = (firstName || lastName || title || company || 'Guest').trim();
-      var user     = { login: login, firstName: firstName || '', lastName: lastName || '', title: title || '', company: company || '', avatarUrl: Auth._makeAvatarSvg(seed) };
+      var user     = { login: login, name: login, firstName: firstName || '', lastName: lastName || '', title: title || '', company: company || '', avatarUrl: Auth._makeAvatarSvg(seed) };
       localStorage.setItem(CFG.guestKey, JSON.stringify(user));
       return user;
     },
@@ -1911,7 +1911,7 @@
             return;
           }
           var replyText = replyArea.value.trim();
-          var guestAuthor = S.user ? { login: S.user.login, name: S.user.name, avatarUrl: S.user.avatarUrl } : { login: 'Guest', name: 'Guest' };
+          var guestAuthor = S.user ? { login: S.user.login, name: S.user.name || S.user.login, avatarUrl: S.user.avatarUrl } : { login: 'Guest', name: 'Guest' };
           var authorTag = guestAuthor.name ? '\n\n\u2014 _' + guestAuthor.name + ' (guest)_' : '';
           var fullBody = replyText + authorTag;
           postBtn.disabled = true;

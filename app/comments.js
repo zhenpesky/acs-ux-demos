@@ -1934,9 +1934,28 @@
     _active: false,
     _escHandler: null,
 
+    _mountPrevVisibility: null,
+
+    _hideMountNow: function () {
+      var m = document.getElementById('rhacs-mount');
+      if (m) {
+        ScreenshotCapture._mountPrevVisibility = m.style.visibility;
+        m.style.visibility = 'hidden';
+      }
+    },
+
+    _restoreMount: function () {
+      var m = document.getElementById('rhacs-mount');
+      if (m) m.style.visibility = ScreenshotCapture._mountPrevVisibility || '';
+      ScreenshotCapture._mountPrevVisibility = null;
+    },
+
     start: function (onDone) {
       if (ScreenshotCapture._active) return;
       ScreenshotCapture._active = true;
+
+      // Hide the comment window immediately so it doesn't appear while the user is selecting
+      ScreenshotCapture._hideMountNow();
 
       var overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;cursor:crosshair;background:rgba(0,0,0,0.3);';
@@ -1956,7 +1975,7 @@
       var escHandler = function (e) {
         if (e.key === 'Escape') {
           e.stopImmediatePropagation();
-          ScreenshotCapture._cancel();
+          ScreenshotCapture._cancel(true);
         }
       };
       document.addEventListener('keydown', escHandler, true);
@@ -1999,16 +2018,16 @@
         var selY = Math.min(startY, e.clientY);
         var selW = Math.abs(e.clientX - startX);
         var selH = Math.abs(e.clientY - startY);
-        ScreenshotCapture._cancel();
         if (selW > 10 && selH > 10) {
+          ScreenshotCapture._cancel(false); // remove overlay, keep mount hidden
           ScreenshotCapture._capture(selX, selY, selW, selH, onDone);
         } else {
-          ScreenshotCapture._active = false;
+          ScreenshotCapture._cancel(true); // remove overlay AND restore mount
         }
       });
     },
 
-    _cancel: function () {
+    _cancel: function (restoreMount) {
       if (ScreenshotCapture._overlay && ScreenshotCapture._overlay.parentNode) {
         ScreenshotCapture._overlay.parentNode.removeChild(ScreenshotCapture._overlay);
       }
@@ -2018,6 +2037,8 @@
         document.removeEventListener('keydown', ScreenshotCapture._escHandler, true);
         ScreenshotCapture._escHandler = null;
       }
+      // Restore the comment window if cancelled (Escape or tiny selection)
+      if (restoreMount) ScreenshotCapture._restoreMount();
     },
 
     _capture: function (selX, selY, selW, selH, onDone) {
@@ -2035,13 +2056,8 @@
         (async function () {
           var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            // Hide entire RHACS UI (popup, panel, FAB) before capture
-            var prevVisibility = rhacsMount ? rhacsMount.style.visibility : null;
-            if (rhacsMount) rhacsMount.style.visibility = 'hidden';
-
-            // Also hide any other fixed UI (loading toasts etc.) outside the mount
-            // Wait 80ms + two rAFs so the browser fully repaints with everything hidden
-            await new Promise(function (r) { setTimeout(r, 80); });
+            // Mount is already hidden (was hidden in start()); just wait one frame
+            // to ensure any overlay removal has repainted before snapdom reads the DOM
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
             // Find the deepest element at the CENTER of the selection.
@@ -2068,8 +2084,8 @@
             // Capture only that element
             var result = await window.snapdom(el, {});
 
-            // Restore RHACS mount right after capture so UI reappears
-            if (rhacsMount) rhacsMount.style.visibility = prevVisibility || '';
+            // Restore the comment window right after capture so UI reappears
+            ScreenshotCapture._restoreMount();
             await new Promise(function (r) { requestAnimationFrame(r); });
 
             // Resolve canvas
@@ -2125,7 +2141,7 @@
             };
           } catch (err) {
             console.warn('snapdom capture failed', err);
-            if (rhacsMount) rhacsMount.style.visibility = '';
+            ScreenshotCapture._restoreMount();
           }
           finish();
         })();

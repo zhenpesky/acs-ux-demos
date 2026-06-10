@@ -1750,14 +1750,16 @@
       var img = document.createElement('img');
       img.src = url;
       img.className = 'rhacs-lb-img';
+      img.style.cssText = 'display:block;max-width:90vw;max-height:90vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);pointer-events:none;box-sizing:border-box;';
 
       var closeBtn = document.createElement('button');
       closeBtn.className = 'rhacs-lb-close';
       closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.textContent = '\xd7';
-      closeBtn.addEventListener('click', function () { self.close(); });
+      closeBtn.addEventListener('click', function (e) { e.stopPropagation(); self.close(); });
 
       overlay.addEventListener('click', function (e) {
+        e.stopPropagation();
         if (e.target === overlay) self.close();
       });
 
@@ -2019,14 +2021,7 @@
     },
 
     _capture: function (selX, selY, selW, selH, onDone) {
-      // Show a loading toast so the user knows capture is in progress
-      var loadingToast = document.createElement('div');
-      loadingToast.textContent = 'Capturing…';
-      loadingToast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:100001;pointer-events:none;';
-      document.body.appendChild(loadingToast);
-
       function finish() {
-        if (loadingToast.parentNode) loadingToast.parentNode.removeChild(loadingToast);
         ScreenshotCapture._active = false;
         if (onDone) onDone();
       }
@@ -2040,11 +2035,13 @@
         (async function () {
           var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            // Hide RHACS UI so it doesn't appear in the capture
+            // Hide entire RHACS UI (popup, panel, FAB) before capture
             var prevVisibility = rhacsMount ? rhacsMount.style.visibility : null;
             if (rhacsMount) rhacsMount.style.visibility = 'hidden';
 
-            // Two rAF waits so the browser fully repaints with the mount hidden
+            // Also hide any other fixed UI (loading toasts etc.) outside the mount
+            // Wait 80ms + two rAFs so the browser fully repaints with everything hidden
+            await new Promise(function (r) { setTimeout(r, 80); });
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
             // Find the deepest element at the CENTER of the selection.
@@ -2071,8 +2068,9 @@
             // Capture only that element
             var result = await window.snapdom(el, {});
 
-            // Restore RHACS mount right after capture
+            // Restore RHACS mount right after capture so UI reappears
             if (rhacsMount) rhacsMount.style.visibility = prevVisibility || '';
+            await new Promise(function (r) { requestAnimationFrame(r); });
 
             // Resolve canvas
             var fullCanvas;
@@ -2153,17 +2151,7 @@
       // Click thumbnail → open lightbox preview
       img.addEventListener('click', function (e) {
         e.stopPropagation();
-        var overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
-        var preview = document.createElement('img');
-        preview.src = dataUrl;
-        preview.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.6);pointer-events:none;';
-        overlay.appendChild(preview);
-        overlay.addEventListener('click', function () { document.body.removeChild(overlay); });
-        document.addEventListener('keydown', function esc(ev) {
-          if (ev.key === 'Escape') { document.body.removeChild(overlay); document.removeEventListener('keydown', esc); }
-        });
-        document.body.appendChild(overlay);
+        Lightbox.show(dataUrl);
       });
 
       var removeBtn = document.createElement('button');

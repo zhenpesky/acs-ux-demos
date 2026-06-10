@@ -424,6 +424,7 @@ body.rhacs-comment-mode-active .rhacs-pin {
   resize: vertical;
   min-height: 56px;
   box-sizing: border-box;
+  border-radius: 0 0 6px 6px !important;
 }
 .rhacs-popup__textarea--reply {
   min-height: 40px;
@@ -2648,20 +2649,33 @@ body.rhacs-comment-mode-active .rhacs-pin {
   text-align: center;
   padding: 0;
 }
+.rhacs-popup__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin: 0 12px;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+}
 .rhacs-sc-camera-btn {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 5px 8px;
-  cursor: pointer;
-  line-height: 0;
-  color: #666;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #444;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 .rhacs-sc-camera-btn:hover {
-  background: #f0f0f0;
+  background: #e1e7ed;
+  color: #111;
 }
 .rhacs-sc-inline-img {
   display: block;

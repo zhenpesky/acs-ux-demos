@@ -2576,6 +2576,11 @@ body.rhacs-comment-mode-active .rhacs-pin {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: default;
+}
+
+#rhacs-lightbox * {
+  cursor: default;
 }
 
 .rhacs-lb-img {

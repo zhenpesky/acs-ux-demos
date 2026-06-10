@@ -2119,11 +2119,18 @@
         (async function () {
           var rhacsMount = document.getElementById('rhacs-mount');
           try {
-            // Wait two frames so the overlay removal repaints before snapdom reads the DOM
+            // Hide the "Capturing…" badge so it doesn't appear in the screenshot
+            var captureBadge = document.getElementById('rhacs-capture-status');
+            if (captureBadge) captureBadge.style.visibility = 'hidden';
+
+            // Wait two frames so the overlay removal + badge hide repaints before snapdom reads the DOM
             await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
 
             // Capture the full visible document at CSS-pixel scale.
             var result = await window.snapdom(document.documentElement, {});
+
+            // Restore badge visibility (will be removed by _restoreMount shortly)
+            if (captureBadge) captureBadge.style.visibility = '';
 
             // Restore the comment window immediately — don't wait for canvas decode
             ScreenshotCapture._restoreMount();
@@ -2179,8 +2186,9 @@
               fullCanvas, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH
             );
 
-            // Downscale to max 600px wide to keep data URL small and posting fast
-            var MAX_W = 600;
+            // Downscale to max 800px wide — keeps size reasonable while keeping text readable.
+            // Use PNG so text stays crisp (JPEG compression blurs fine text).
+            var MAX_W = 800;
             var outCanvas = cropCanvas;
             if (srcW > MAX_W) {
               var ratio = MAX_W / srcW;
@@ -2191,8 +2199,8 @@
             }
 
             ScreenshotCapture._attachment = {
-              dataUrl: outCanvas.toDataURL('image/jpeg', 0.82),
-              filename: 'screenshot.jpg'
+              dataUrl: outCanvas.toDataURL('image/png'),
+              filename: 'screenshot.png'
             };
           } catch (err) {
             console.warn('snapdom capture failed', err);

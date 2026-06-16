@@ -148,6 +148,7 @@
   function prioritizeGitHubAuth() {
     if (!S.token) return false;
     S.guestMode = false;
+    syncGhUser();
     return true;
   }
 
@@ -158,6 +159,7 @@
     if (guest) {
       S.guestMode = true;
       S.user = guest;
+      syncGhUser();
     }
   }
 
@@ -225,6 +227,7 @@
   var S = {
     token:        null,
     user:         null,
+    ghUser:       null,    // GitHub-authenticated user only (null for guests)
     guestMode:    false,   // true when using guest (localStorage-only) commenting
     commentMode:  false,
     repoId:       null,
@@ -240,7 +243,12 @@
     showResolved:    false,
     seenReplyCounts: {},   // { [pinId]: replyCount at time of reading } — detects new replies
     pendingPanelPinOpen: null, // set before cross-page panel nav; fulfilled after pins load
+    _pinsPageKey:    null,   // getPageKey() when S.pins was last loaded — skip redundant fetches
   };
+
+  function syncGhUser() {
+    S.ghUser = (S.token && !S.guestMode && S.user) ? S.user : null;
+  }
 
   // ── Per-user seen / unread tracking ───────────────────────────────────────────
   function seenUserKey() {
@@ -528,6 +536,9 @@
       if (el.closest('#rhacs-comment-root') || el.closest('#rhacs-popup') || el.closest('#rhacs-panel')) return false;
       var t = (el.getAttribute('type') || '').toLowerCase();
       if (t === 'hidden' || t === 'search' || t === 'checkbox' || t === 'radio') return false;
+      // Exclude read-only display fields (e.g. System Config V2 view uses disabled TextInputs).
+      if (el.disabled || el.readOnly || el.getAttribute('aria-disabled') === 'true') return false;
+      if (el.hasAttribute('readonly')) return false;
       return true;
     });
 
@@ -542,6 +553,36 @@
     return 'view';
   }
 
+  function isEditLabel(text, aria) {
+    text = (text || '').trim().toLowerCase();
+    aria = (aria || '').trim().toLowerCase();
+    return text === 'edit' || text.startsWith('edit ') ||
+      aria === 'edit' || aria.startsWith('edit ');
+  }
+
+  // Enabled header Edit button (SystemConfigPage.tsx primary "Edit" control).
+  function findPageEditButton() {
+    var candidates = Array.prototype.slice.call(
+      document.querySelectorAll('button, a[role="button"]')
+    ).filter(function (b) {
+      if (b.closest('#rhacs-mount') || b.closest('#rhacs-comment-root') ||
+          b.closest('#rhacs-popup') || b.closest('#rhacs-panel')) return false;
+      if (b.disabled || b.getAttribute('aria-disabled') === 'true') return false;
+      return isEditLabel(b.textContent, b.getAttribute('aria-label'));
+    });
+    var headerEdit = candidates.filter(function (b) {
+      return b.closest('.pf-v6-c-page__main-section, .pf-c-page__main-section');
+    });
+    return headerEdit[0] || candidates[0] || null;
+  }
+
+  // Guard against false "edit" from read-only inputs still counted by detectViewState().
+  function effectiveViewState() {
+    var state = detectViewState();
+    if (state === 'edit' && findPageEditButton()) return 'view';
+    return state;
+  }
+
   // ── Utility helpers ───────────────────────────────────────────────────────────
   function timeAgo(iso) {
     var s = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -549,6 +590,13 @@
     if (s < 3600)  return Math.floor(s / 60) + 'm ago';
     if (s < 86400) return Math.floor(s / 3600) + 'h ago';
     return Math.floor(s / 86400) + 'd ago';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
 
   // Extract RHACS_PIN JSON even when modal titles contain "}" or other special chars.
@@ -686,7 +734,20 @@
     var ctrl = new AbortController();
     var timer = setTimeout(function () { ctrl.abort(); }, timeoutMs);
     var opts = Object.assign({}, options || {}, { signal: ctrl.signal });
-    return fetch(url, opts).finally(function () { clearTimeout(timer); });
+    return fetch(url, opts)
+      .finally(function () { clearTimeout(timer); })
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') {
+          throw new Error('Request timed out — please try again');
+        }
+        throw err;
+      });
+  }
+
+  // Only clear the session on a confirmed invalid-token 401 — never on timeouts,
+  // network errors, rate limits, or other HTTP statuses.
+  function invalidateSessionIfUnauthorized(status) {
+    if (status === 401 && S.token) Auth.logout();
   }
 
   // ── GitHub GraphQL ────────────────────────────────────────────────────────────
@@ -699,9 +760,13 @@
       method: 'POST',
       headers: headers,
       body: JSON.stringify({ query: query, variables: vars || {} }),
-    }).then(function (r) {
-      if (r.status === 401) { Auth.logout(); throw new Error('Session expired — please log in again'); }
+    }, 60000).then(function (r) {
+      if (r.status === 401) {
+        invalidateSessionIfUnauthorized(r.status);
+        throw new Error('Session expired — please log in again');
+      }
       if (r.status === 429) throw new Error('GitHub rate limit reached — please wait a minute');
+      if (!r.ok) throw new Error('GitHub API error: ' + r.status);
       return r.json();
     }).then(function (d) {
       if (d.errors && d.errors.length) throw new Error(d.errors[0].message);
@@ -808,6 +873,7 @@
       // Share links (?share=1) auto-restore guest identity so local pins survive refresh.
       S.guestMode = false;
       if (!S.token) restoreShareGuestSession();
+      syncGhUser();
       // Domain gate — runs after token/user are restored
       AccessGate.check();
     },
@@ -851,6 +917,7 @@
             S.token = token;
             S.guestMode = false;
             S.user = null;
+            syncGhUser();
             localStorage.setItem(CFG.tokenKey, S.token);
             localStorage.removeItem(CFG.userKey);
             localStorage.removeItem(CFG.guestKey);
@@ -949,13 +1016,12 @@
     },
     fetchUser: function () {
       if (!S.token) return Promise.resolve();
-      return fetch('https://api.github.com/user', { headers: { Authorization: 'token ' + S.token } })
-        .then(function (r) {
+      return fetchWithTimeout('https://api.github.com/user', {
+        headers: { Authorization: 'token ' + S.token },
+      }, 60000).then(function (r) {
           if (r.status === 401) {
-            // Token is invalid — clear it so we don't loop
-            console.warn('[rhacs] GitHub token rejected (401), clearing.');
-            S.token = null;
-            localStorage.removeItem(CFG.tokenKey);
+            console.warn('[rhacs] GitHub token rejected (401), logging out.');
+            invalidateSessionIfUnauthorized(r.status);
             return Promise.reject(new Error('GitHub token invalid or expired. Please log in again.'));
           }
           if (!r.ok) return Promise.reject(new Error('GitHub API error: ' + r.status));
@@ -965,10 +1031,12 @@
           if (!u) return;
           S.user = { login: u.login, avatarUrl: u.avatar_url, name: u.name };
           localStorage.setItem(CFG.userKey, JSON.stringify(S.user));
+          syncGhUser();
         });
     },
     logout: function () {
       S.token = null; S.user = null; S.guestMode = false;
+      syncGhUser();
       localStorage.removeItem(CFG.tokenKey);
       localStorage.removeItem(CFG.userKey);
       localStorage.removeItem(CFG.guestKey);
@@ -979,6 +1047,7 @@
       if (typeof Panel !== 'undefined' && Panel.close) Panel.close();
       S.pins = [];
       S.discussionId = null;
+      S._pinsPageKey = null;
       if (Overlay.renderPins) Overlay.renderPins();
       FAB.updateUser();
       FAB.updateBadge();
@@ -1114,6 +1183,7 @@
       if (existing) {
         S.guestMode = true;
         S.user = existing;
+        syncGhUser();
         FAB.updateUser();
         // toast removed
         return Promise.resolve();
@@ -1121,6 +1191,7 @@
       return Auth._showNamePromptThenGuest().then(function (user) {
         S.guestMode = true;
         S.user = user;
+        syncGhUser();
         FAB.updateUser();
         // toast removed
       });
@@ -1128,6 +1199,7 @@
     exitGuest: function () {
       S.guestMode = false;
       S.user = null;
+      syncGhUser();
       localStorage.removeItem(CFG.guestKey);
       if (S.commentMode) FAB.setMode(false);
       FAB.updateUser();
@@ -1391,6 +1463,7 @@
 
   function applyLoadedPins(comments) {
     S.pins = parseComments(comments);
+    S._pinsPageKey = getPageKey();
     reconcileSeenStateAfterPinLoad();
     scheduleRenderPinsAfterLayout();
     FAB.updateBadge();
@@ -1454,16 +1527,26 @@
 
   function loadFromGitHub() {
     return getRepoMeta()
-      .then(findDiscussion)
+      .then(function () {
+        if (!S.categoryId) throw new Error('Repo metadata unavailable');
+        return findDiscussion();
+      })
       .then(function (id) {
-        if (!id) { S.discussionId = null; S.pins = []; S.pendingPanelPinOpen = null; scheduleRenderPinsAfterLayout(); return; }
+        if (!id) {
+          S.discussionId = null;
+          S.pins = [];
+          S._pinsPageKey = getPageKey();
+          S.pendingPanelPinOpen = null;
+          scheduleRenderPinsAfterLayout();
+          return;
+        }
         S.discussionId = id;
         return loadComments(id).then(applyLoadedPins);
       }).catch(function (e) {
         console.warn('[RHACS Comments] load failed:', e.message);
-        S.pins = [];
+        // Transient failures (timeout, network, metadata race) must not wipe loaded pins.
+        if (S.pins.length === 0) scheduleRenderPinsAfterLayout();
         S.pendingPanelPinOpen = null;
-        scheduleRenderPinsAfterLayout();
       });
   }
 
@@ -1475,8 +1558,10 @@
     restoreShareGuestSession();
     if (S.guestMode || (isShareMode() && Auth.loadGuestPins().length > 0)) {
       loadGuestPinsIntoState();
+      S._pinsPageKey = getPageKey();
     } else {
       S.pins = [];
+      S._pinsPageKey = null;
     }
     if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
     if (FAB.badge) FAB.updateBadge();
@@ -2691,7 +2776,7 @@
       var author = el('span', { className: 'rhacs-popup__author' });
       author.appendChild(txt(pin.author.login));
       var time = el('span', { className: 'rhacs-popup__time' });
-      time.appendChild(txt(timeAgo(pin.createdAt)));
+      time.appendChild(txt(fmtDate(pin.createdAt)));
       append(headerLeft, avatar, author, time);
 
       // Conversation kebab: Delete (owner or own comment), Resolve/Unresolve (owner only), Mark as read/unread (all GitHub users)
@@ -2731,8 +2816,11 @@
       var fpAu  = el('span', { className: 'rhacs-popup__author' });
       fpAu.appendChild(txt(pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login));
       var fpTm  = el('span', { className: 'rhacs-popup__time' });
-      fpTm.appendChild(txt(timeAgo(pin.createdAt)));
+      fpTm.appendChild(txt(fmtDate(pin.createdAt)));
       append(fpHdr, fpAv, fpAu, fpTm);
+      if (S.ghUser) {
+        fpHdr.appendChild(Popup.makeCopyBtn(pinText(pin.body || '')));
+      }
       if (isProtoOwner && !(S.guestMode && _share)) {
         var msgKebab = Popup.makeKebab([
           { label: 'Edit', action: function () { Popup.showEdit(pin, fpBody); } }
@@ -3035,7 +3123,7 @@
       var au   = el('span', { className: 'rhacs-popup__author' });
       au.appendChild(txt(reply.author.name && reply.author.name.trim() ? reply.author.name : reply.author.login));
       var tm   = el('span', { className: 'rhacs-popup__time' });
-      tm.appendChild(txt(timeAgo(reply.createdAt)));
+      tm.appendChild(txt(fmtDate(reply.createdAt)));
       append(hdr, av, au, tm);
 
       var bd = el('div', { className: 'rhacs-reply__body' });
@@ -3051,6 +3139,10 @@
         bd.appendChild(imgEl);
       });
 
+      var copyText = extracted.text || cleanBody;
+      if (S.ghUser) {
+        hdr.appendChild(Popup.makeCopyBtn(copyText));
+      }
       if (S.user && reply.author.login === S.user.login && !(S.guestMode && isShareMode())) {
         hdr.appendChild(Popup.makeKebab([
           { label: 'Edit',   action: function () { Popup.showReplyEdit(reply, pinId, bd); } },
@@ -3084,6 +3176,30 @@
 
       append(wrap, hdr, bd);
       return wrap;
+    },
+    makeCopyBtn: function (text) {
+      var COPY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>';
+      var CHECK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6.25 9.73l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>';
+      var btn = el('button', {
+        className: 'rhacs-copy-btn',
+        type: 'button',
+        'aria-label': 'Copy comment',
+      });
+      btn.innerHTML = COPY_SVG;
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text || '').then(function () {
+          btn.classList.add('copied');
+          btn.innerHTML = CHECK_SVG;
+          setTimeout(function () {
+            btn.classList.remove('copied');
+            btn.innerHTML = COPY_SVG;
+          }, 1500);
+        }).catch(function () {
+          Notify.toast('Failed to copy');
+        });
+      });
+      return btn;
     },
     // Build a kebab ⋮ button with a dropdown. items: [{ label, action, danger? }]
     makeKebab: function (items) {
@@ -3284,7 +3400,18 @@
         if (!isOpen) self.sortDropdown.classList.add('rhacs-panel__sort-dropdown--open');
       });
       append(this.sortWrap, this.sortBtn, this.sortDropdown);
-      append(this.filterRow, this.filterChips, this.sortWrap);
+      this.exportBtn = el('button', {
+        className: 'rhacs-export-btn pf-v6-c-button pf-m-secondary pf-m-small',
+        type: 'button',
+        style: 'display:none',
+        'aria-label': 'Export selected comments',
+      });
+      this.exportBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5Z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3Z"/></svg><span>Export</span>';
+      this.exportBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        Panel._exportSelected();
+      });
+      append(this.filterRow, this.filterChips, this.sortWrap, this.exportBtn);
 
       // "Show resolved" toggle — page-scoped, controls pin visibility on the page
       this.resolvedToggleRow = el('div', { className: 'rhacs-panel__resolved-toggle-row' });
@@ -3361,6 +3488,11 @@
       this.sortDropdown.querySelectorAll('.rhacs-panel__sort-item').forEach(function (item) {
         item.classList.toggle('rhacs-panel__sort-item--active', item.getAttribute('data-sort') === Panel.sortOrder);
       });
+
+      if (this.exportBtn) {
+        var showExport = S.ghUser && Panel.selected.size > 0;
+        this.exportBtn.style.display = showExport ? 'inline-flex' : 'none';
+      }
     },
     _updateSearchClear: function () {
       var hasQuery = !!(this.searchQuery && this.searchQuery.trim());
@@ -3427,6 +3559,44 @@
     },
     _updateSelectionUI: function () {
       this.el.classList.toggle('rhacs-panel--selection-mode', Panel.selected.size > 0);
+    },
+    _pinToMarkdown: function (pin) {
+      var stateLabels = { view: 'Viewing', edit: 'Editing', create: 'Creating', delete: 'Deleting' };
+      var author = pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login;
+      var viewState = pin.meta && pin.meta.viewState
+        ? (stateLabels[pin.meta.viewState] || pin.meta.viewState)
+        : 'Viewing';
+      var body = pinText(pin.body);
+      var md = '## Comment #' + pin.meta.pinNumber + ' \u2014 ' + author + ' (' + fmtDate(pin.createdAt) + ') [' + viewState + ']\n\n';
+      md += body + '\n';
+      if (pin.replies && pin.replies.length) {
+        md += '\n### Replies\n';
+        pin.replies.forEach(function (r) {
+          var rAuthor = r.author.name && r.author.name.trim() ? r.author.name : r.author.login;
+          var rBody = r.body.replace(/\n\n\u2014 _(.+?) \(guest\)_\s*$/, '').trim();
+          md += '- **' + rAuthor + '** (' + fmtDate(r.createdAt) + '): ' + rBody + '\n';
+        });
+      }
+      return md;
+    },
+    _exportSelected: function () {
+      if (!S.ghUser || Panel.selected.size === 0) return;
+      var pins = Array.from(Panel.selected).map(function (id) {
+        return S.pins.find(function (p) { return p.id === id; });
+      }).filter(Boolean);
+      pins.sort(function (a, b) {
+        return (a.meta.pinNumber || 0) - (b.meta.pinNumber || 0);
+      });
+      var markdownStr = pins.map(function (pin) { return Panel._pinToMarkdown(pin); }).join('\n\n');
+      var blob = new Blob([markdownStr], { type: 'text/markdown' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'comments-' + new Date().toISOString().slice(0, 10) + '.md';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     },
     _buildListHeader: function (visible) {
       var self = this;
@@ -3614,6 +3784,7 @@
     },
     open: function () {
       if (this.resolvedToggleInput) this.resolvedToggleInput.checked = S.showResolved;
+      // Re-render from in-memory pins only — never re-fetch on panel open/toggle.
       this.render();
       this.el.classList.add('rhacs-panel--open');
       rhacsMount().classList.add('rhacs-panel-open');
@@ -3769,7 +3940,7 @@
         var av  = makeAvatar(pin.author, 'rhacs-avatar--sm');
         var num = el('span', { className: 'pf-v5-c-badge pf-m-unread rhacs-panel__item-num' }); num.appendChild(txt(String(pin.meta.pinNumber)));
         var au  = el('span', { className: 'rhacs-panel__item-author' }); au.appendChild(txt(pin.author.name && pin.author.name.trim() ? pin.author.name : pin.author.login));
-        var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(timeAgo(pin.createdAt)));
+        var tm  = el('span', { className: 'rhacs-panel__item-time' }); tm.appendChild(txt(fmtDate(pin.createdAt)));
         append(itemHdr, av, num, au, tm);
         if (pin.meta.viewState) {
           var stateLabels = { view: 'Viewing', edit: 'Editing', create: 'Creating', delete: 'Deleting' };
@@ -3902,16 +4073,15 @@
           }
 
           // Step 2: same URL but wrong view state — trigger DOM mode switch
-          if (targetState && targetState !== detectViewState()) {
+          if (targetState && targetState !== effectiveViewState()) {
             if (targetState === 'edit' || targetState === 'create') {
-              var editBtns = Array.prototype.slice.call(
-                document.querySelectorAll('button, a[role="button"]')
-              ).filter(function (b) {
-                if (b.closest('#rhacs-mount')) return false;
-                var t = (b.textContent || b.getAttribute('aria-label') || '').trim().toLowerCase();
-                return t === 'edit' || t === 'edit configuration' || t === 'edit settings';
-              });
-              if (editBtns.length) editBtns[0].click();
+              var editBtn = findPageEditButton();
+              if (editBtn) {
+                editBtn.click();
+                setTimeout(activateAndShow, 50);
+              } else {
+                activateAndShow();
+              }
             } else if (targetState === 'view') {
               var cancelBtns = Array.prototype.slice.call(
                 document.querySelectorAll('button')
@@ -3919,9 +4089,15 @@
                 if (b.closest('#rhacs-mount')) return false;
                 return (b.textContent || '').trim().toLowerCase() === 'cancel';
               });
-              if (cancelBtns.length) cancelBtns[0].click();
+              if (cancelBtns.length) {
+                cancelBtns[0].click();
+                setTimeout(activateAndShow, 50);
+              } else {
+                activateAndShow();
+              }
+            } else {
+              activateAndShow();
             }
-            activateAndShow();
             return;
           }
 
@@ -4351,6 +4527,19 @@
     return !!(v && v !== 'baseline' && /^v\d+$/i.test(v.trim()));
   }
 
+  // Tracks prototype page context so benign history.replaceState calls (same route)
+  // do not wipe in-memory comment state when the side panel is toggled.
+  var _lastSyncKey = null;
+  var _initialLoadDone = false;
+
+  function getSyncKey() {
+    return (isPrototypePage() ? 'on:' : 'off:') + getPageKey();
+  }
+
+  function pinsLoadedForCurrentPage() {
+    return S._pinsPageKey === getPageKey() && S.pins.length > 0;
+  }
+
   // Toggle the single mount wrapper — hides everything at once.
   // Also resets per-page state so navigating to a new page never shows stale pins.
   function syncVisibility() {
@@ -4358,18 +4547,29 @@
     var mount = rhacsMount();
     mount.style.display = active ? '' : 'none';
 
-    // Always clear per-page state on every navigation so stale pins from the
-    // previous page are never rendered on the new page.
-    S.showResolved = false;
-    S.discussionId = null;
-    S.pins = [];
-    loadSeenState();
-    if (Overlay.pinLayerEl) Overlay.renderPins();
-    if (FAB.badge) FAB.updateBadge();
+    var syncKey = getSyncKey();
+    if (_initialLoadDone && syncKey === _lastSyncKey) return;
+    var contextChanged = syncKey !== _lastSyncKey;
+    _lastSyncKey = syncKey;
+    _initialLoadDone = true;
 
-    // Dismiss panel/popup UI on navigation without marking comments as read
-    Panel.dismiss();
-    Popup.close();
+    if (contextChanged) {
+      // Keep pins when prototype visibility flips (off→on) but init already fetched
+      // this page — clearing here was wiping other reviewers' GitHub comments.
+      if (!pinsLoadedForCurrentPage()) {
+        S.showResolved = false;
+        S.discussionId = null;
+        S.pins = [];
+        S._pinsPageKey = null;
+        loadSeenState();
+        if (Overlay.pinLayerEl) Overlay.renderPins();
+        if (FAB.badge) FAB.updateBadge();
+      }
+
+      // Dismiss panel/popup UI on navigation without marking comments as read
+      Panel.dismiss();
+      Popup.close();
+    }
     if (!active) {
       FAB.setMode(false);
       if (Popup.el) Popup._hidePopupEl();
@@ -4388,9 +4588,14 @@
       // Hide pin layer (clear its children; the container can stay)
       var pinLayer = document.getElementById('rhacs-pin-layer');
       if (pinLayer) pinLayer.innerHTML = '';
-    } else {
-      // Load the correct comments for the newly active prototype page
-      loadAndRender();
+    } else if (contextChanged) {
+      if (pinsLoadedForCurrentPage()) {
+        if (Overlay.pinLayerEl) scheduleRenderPinsAfterLayout();
+        if (FAB.badge) FAB.updateBadge();
+      } else {
+        // Load the correct comments for the newly active prototype page
+        loadAndRender();
+      }
     }
   }
 

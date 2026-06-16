@@ -725,6 +725,12 @@ body.rhacs-comment-mode-active .rhacs-pin {
   background: #fff5f5;
 }
 
+.rhacs-copy-btn { background:none; border:none; cursor:pointer; padding:2px 4px; opacity:0.5; color:inherit; line-height:1; }
+.rhacs-copy-btn:hover { opacity:1; }
+.rhacs-copy-btn.copied { color:#3e8635; opacity:1; }
+.rhacs-reply__header > .rhacs-copy-btn:last-child { margin-left: auto; }
+.rhacs-export-btn { display:inline-flex; align-items:center; gap:4px; }
+
 .rhacs-reply__body {
   padding-left: 26px;
   white-space: pre-wrap;

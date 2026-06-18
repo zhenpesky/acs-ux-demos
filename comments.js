@@ -1032,6 +1032,7 @@
           S.user = { login: u.login, avatarUrl: u.avatar_url, name: u.name };
           localStorage.setItem(CFG.userKey, JSON.stringify(S.user));
           syncGhUser();
+          window.dispatchEvent(new CustomEvent('rhacs-auth-change', { detail: { loggedIn: true } }));
         });
     },
     logout: function () {
@@ -1041,6 +1042,7 @@
       localStorage.removeItem(CFG.userKey);
       localStorage.removeItem(CFG.guestKey);
       localStorage.removeItem(CFG.verifiedKey);
+      window.dispatchEvent(new CustomEvent('rhacs-auth-change', { detail: { loggedIn: false } }));
       if (S.commentMode) FAB.setMode(false);
       // Close open UI and wipe all visible comment state
       Popup.close();

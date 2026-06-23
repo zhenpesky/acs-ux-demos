@@ -1,0 +1,1 @@
+import{w as n,cx as x,fH as e,av as a}from"./index-D2I63wLg.js";function r({isDisabled:o,isTextOnly:s}){const t=o?n.jsx(e,{}):n.jsx(a,{}),c=o?"Disabled":"Enabled";return n.jsx(x,{icon:t,text:c,isTextOnly:s})}export{r as P};

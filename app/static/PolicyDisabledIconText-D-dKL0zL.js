@@ -1,0 +1,1 @@
+import{w as n,cv as e,fG as x,av as a}from"./index-DJNcskwg.js";function r({isDisabled:o,isTextOnly:s}){const t=o?n.jsx(x,{}):n.jsx(a,{}),c=o?"Disabled":"Enabled";return n.jsx(e,{icon:t,text:c,isTextOnly:s})}export{r as P};

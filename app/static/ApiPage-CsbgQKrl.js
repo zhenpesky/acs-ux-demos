@@ -1,1 +1,0 @@
-import{w as r}from"./index-CpFSYzI6.js";import{S as o}from"./SwaggerBrowser-Dx-_wJ0r.js";import"./react-pF2EnNv3.js";import"./apollo-BxVF6eGb.js";import"./lodash-JMWJiBov.js";function e(){return r.jsx(o,{uri:"/api/docs/swagger"})}export{e as default};

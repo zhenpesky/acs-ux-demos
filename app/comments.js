@@ -4499,6 +4499,8 @@
     '/main/exception-configuration',
     '/main/violations',
     '/main/vulnerabilities/',
+    '/main/clusters',
+    '/main/system-health',
   ];
 
   function isPrototypePage() {

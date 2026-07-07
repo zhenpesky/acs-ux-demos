@@ -1,0 +1,1 @@
+import{fm as _}from"./index-3JtIlwIW.js";const S={[_.PCI_DSS_3_2]:"PCI DSS 3.2.1",[_.NIST_800_190]:"NIST SP 800-190",[_.NIST_SP_800_53_Rev_4]:"NIST SP 800-53",[_.HIPAA_164]:"HIPAA 164",[_.CIS_Kubernetes_v1_5]:"CIS Kubernetes v1.5"};({...S});export{S as s};

@@ -1,1 +1,0 @@
-import{w as n,cw as e,fL as x,aw as a}from"./index-CHUn_nq_.js";function r({isDisabled:o,isTextOnly:s}){const t=o?n.jsx(x,{}):n.jsx(a,{}),c=o?"Disabled":"Enabled";return n.jsx(e,{icon:t,text:c,isTextOnly:s})}export{r as P};

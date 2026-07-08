@@ -1,1 +1,0 @@
-import{ec as c,ck as i,aa as u}from"./index-DgObIFWy.js";const l="/v2/compliance";function y({page:a,perPage:r,sortOption:e,searchFilter:t={}}){const s=c(t),o=i({page:a,perPage:r,sortOption:e}),n={query:{query:s,pagination:o}};return u.stringify(n,{arrayFormat:"repeat",allowDots:!0})}export{y as b,l as c};

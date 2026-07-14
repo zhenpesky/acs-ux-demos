@@ -4528,7 +4528,7 @@
       if (stored && stored !== 'baseline') v = stored;
     }
 
-    return !!(v && v !== 'baseline' && /^v\d+$/i.test(v.trim()));
+    return !!(v && v !== 'baseline' && /^(v\d+|[a-zA-Z]+:v\d+)$/i.test(v.trim()));
   }
 
   // Tracks prototype page context so benign history.replaceState calls (same route)

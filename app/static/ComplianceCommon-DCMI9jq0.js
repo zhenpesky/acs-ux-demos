@@ -1,1 +1,0 @@
-import{eb as c,cm as i,ac as u}from"./index-B_p3YMcX.js";const l="/v2/compliance";function y({page:a,perPage:r,sortOption:e,searchFilter:t={}}){const s=c(t),o=i({page:a,perPage:r,sortOption:e}),n={query:{query:s,pagination:o}};return u.stringify(n,{arrayFormat:"repeat",allowDots:!0})}export{y as b,l as c};

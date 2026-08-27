@@ -1,1 +1,0 @@
-import{q as i}from"./policy-filters-step-B4IHG4xr.js";import{bF as c,aB as m}from"./index-CTlcD22L.js";const p="/v2/compliance";function y({page:r,perPage:a,sortOption:t,searchFilter:e={}}){const o=c(e),s=m({page:r,perPage:a,sortOption:t}),n={query:{query:o,pagination:s}};return i.stringify(n,{arrayFormat:"repeat",allowDots:!0})}export{y as b,p as c};

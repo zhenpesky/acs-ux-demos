@@ -1,0 +1,1 @@
+import{j as o}from"./react-Dz5erZcn.js";import{az as r}from"./index-znRmOrCl.js";import{dP as e,Z as x}from"./policy-filters-step-DeDyJcdf.js";function j({isDisabled:t,isTextOnly:n}){const s=t?o.jsx(e,{}):o.jsx(x,{}),c=t?"Disabled":"Enabled";return o.jsx(r,{icon:s,text:c,isTextOnly:n})}export{j as P};

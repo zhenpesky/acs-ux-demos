@@ -1,1 +1,0 @@
-import{j as s}from"./react-Dz5erZcn.js";import{eO as a,aJ as e,fs as n}from"./policy-filters-step-DeDyJcdf.js";function b({traits:o}){const r=a(o),i=n[r];return s.jsx(e,{color:i,children:r})}export{b as T};
